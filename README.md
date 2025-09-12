@@ -1,6 +1,1 @@
-# oz_assignment
-# PYTHON-OZ
-# BE12-OZ
-# Main_Project
-# Main_Project
-# OZ_Django# BE
+# AI 비서 특화 프로젝트
