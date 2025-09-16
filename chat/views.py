@@ -1,8 +1,9 @@
+from django.utils import timezone
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied
-from .models import ChatSession, ChatLog, VoiceLog, Sender
-from .serializers import ChatSessionSerializer, ChatLogSerializer, VoiceLogSerializer
-from django.utils import timezone
+
+from .models import ChatLog, ChatSession, Sender, VoiceLog
+from .serializers import ChatLogSerializer, ChatSessionSerializer, VoiceLogSerializer
 
 
 class ChatSessionListCreateView(generics.ListCreateAPIView):
@@ -10,7 +11,9 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return ChatSession.objects.filter(user=self.request.user).order_by('-created_at')
+        return ChatSession.objects.filter(user=self.request.user).order_by(
+            "-created_at"
+        )
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -21,7 +24,7 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        session_id = self.request.query_params.get('session_id')
+        session_id = self.request.query_params.get("session_id")
         if not session_id:
             return ChatLog.objects.none()  # session_id가 없으면 빈 쿼리셋 반환
 
@@ -32,15 +35,15 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
 
         # 요청한 사용자가 세션의 소유주인지 확인
         if session.user != self.request.user:
-            raise PermissionDenied("You do not have permission to view this chat session.")
+            raise PermissionDenied(
+                "You do not have permission to view this chat session."
+            )
 
-        return ChatLog.objects.filter(session_id=session_id).order_by('timestamp')
+        return ChatLog.objects.filter(session_id=session_id).order_by("timestamp")
 
     def perform_create(self, serializer):
         serializer.save(
-            user=self.request.user,
-            sender=Sender.USER,
-            timestamp=timezone.now()
+            user=self.request.user, sender=Sender.USER, timestamp=timezone.now()
         )
 
 
@@ -49,7 +52,7 @@ class VoiceLogListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        session_id = self.request.query_params.get('session_id')
+        session_id = self.request.query_params.get("session_id")
         if not session_id:
             return VoiceLog.objects.none()
 
@@ -59,14 +62,12 @@ class VoiceLogListCreateView(generics.ListCreateAPIView):
             return VoiceLog.objects.none()
 
         if session.user != self.request.user:
-            raise PermissionDenied("You do not have permission to view this chat session.")
+            raise PermissionDenied(
+                "You do not have permission to view this chat session."
+            )
 
-        return VoiceLog.objects.filter(session_id=session_id).order_by('timestamp')
+        return VoiceLog.objects.filter(session_id=session_id).order_by("timestamp")
 
     def perform_create(self, serializer):
         # output_audio_url, transcribed_text 등은 AI 처리 후 별도로 업데이트
-        serializer.save(
-            user=self.request.user,
-            timestamp=timezone.now()
-        )
-
+        serializer.save(user=self.request.user, timestamp=timezone.now())
