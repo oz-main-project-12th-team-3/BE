@@ -1,0 +1,40 @@
+# PR 자동 라벨링
+'🎯 backend':
+  - paths:
+    - 'ai/**/*'
+    - 'chat/**/*'
+    - 'users/**/*'
+    - 'config/**/*'
+    - '**/*.py'
+    - '**/models/**/*'
+    - '**/views/**/*'
+    - '**/serializers/**/*'
+
+'📝 documentation':
+  - paths:
+    - '**/*.md'
+    - 'docs/**/*'
+    - 'README*'
+
+'🔧 configuration':
+  - paths:
+    - '.github/**/*'
+    - '**/*.json'
+    - '**/*.yml'
+    - '**/*.yaml'
+    - 'Dockerfile'
+    - 'docker-compose.*'
+    - 'pyproject.toml'
+    - 'pytest.ini'
+    - 'requirements.txt'
+
+'🧪 tests':
+  - paths:
+    - '**/*.test.*'
+    - '**/tests/**/*'
+
+'🚀 deployment':
+  - paths:
+    - 'k8s/**/*'
+    - 'deployment/**/*'
+    - '.github/workflows/deploy*'
