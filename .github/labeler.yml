@@ -1,0 +1,35 @@
+# PR 자동 라벨링
+'🎯 backend': # Renamed from 'backend' to be more specific
+  - 'ai/**/*'
+  - 'chat/**/*'
+  - 'users/**/*'
+  - 'config/**/*'
+  - '**/*.py' # Catch all Python files
+  - '**/models/**/*' # Explicitly include models
+  - '**/views/**/*' # Explicitly include views
+  - '**/serializers/**/*' # Explicitly include serializers
+
+'📝 documentation':
+  - '**/*.md'
+  - 'docs/**/*' # If you have a docs folder
+  - 'README*'
+
+'🔧 configuration':
+  - '.github/**/*'
+  - '**/*.json'
+  - '**/*.yml'
+  - '**/*.yaml'
+  - 'Dockerfile'
+  - 'docker-compose.*'
+  - 'pyproject.toml'
+  - 'pytest.ini'
+  - 'requirements.txt'
+
+'🧪 tests':
+  - '**/*.test.*'
+  - '**/tests/**/*' # Include test files within app directories
+
+'🚀 deployment':
+  - 'k8s/**/*' # If you use Kubernetes
+  - 'deployment/**/*' # If you have a deployment folder
+  - '.github/workflows/deploy*'
