@@ -1,0 +1,65 @@
+name: 📊 Team Metrics Dashboard
+
+on:
+  schedule:
+    - cron: '0 9 * * MON'  # 매주 월요일 9시
+  workflow_dispatch:
+
+jobs:
+  generate-metrics:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📁 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 📊 Generate team metrics
+      run: |
+        echo "# 📊 Weekly Team Metrics Report" > team-metrics.md
+        echo "Generated on: $(date)" >> team-metrics.md
+        echo "" >> team-metrics.md
+        
+        # PR 통계
+        echo "## 🔄 Pull Request Statistics" >> team-metrics.md
+        # gh CLI requires authentication, ensure GITHUB_TOKEN is available
+        gh pr list --state all --limit 100 --json author,createdAt,mergedAt,state | \
+          jq -r '.[] | "\(.author.login),\(.state),\(.createdAt),\(.mergedAt)"' > pr-stats.csv
+        
+        # 이슈 통계  
+        echo "## 📋 Issue Statistics" >> team-metrics.md
+        gh issue list --state all --limit 100 --json author,createdAt,closedAt,state | \
+          jq -r '.[] | "\(.author.login),\(.state),\(.createdAt),\(.closedAt)"' > issue-stats.csv
+        
+        # 코드 리뷰 통계
+        echo "## 👥 Code Review Statistics" >> team-metrics.md
+        
+        # 커밋 통계
+        echo "## 📈 Commit Statistics" >> team-metrics.md
+        git log --since="1 week ago" --pretty=format:"%an,%ad" | \
+          sort | uniq -c | sort -nr >> team-metrics.md
+        
+        echo "" >> team-metrics.md
+        echo "---" >> team-metrics.md
+        echo "*Report generated automatically by GitHub Actions*" >> team-metrics.md
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: 📧 Send metrics to Slack
+      uses: 8398a7/action-slack@v3 # Check for latest version
+      with:
+        status: custom
+        custom_payload: |
+          {
+            "text": "📊 Weekly Team Metrics Report Available",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "📊 *Weekly Team Metrics Report*\n\nThe latest team performance metrics are now available. Check the Actions tab for detailed statistics."
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
