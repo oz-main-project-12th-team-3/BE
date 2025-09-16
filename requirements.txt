@@ -9,3 +9,4 @@ ruff
 pytest
 pytest-cov
 pip-audit
+setuptools>=78.1.1
