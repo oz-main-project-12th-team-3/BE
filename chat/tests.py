@@ -23,7 +23,7 @@ def authenticated_user(api_client):
 
 
 @pytest.mark.django_db
-class TestChatAPI: # Changed inheritance to TestCase
+class TestChatAPI:  # Changed inheritance to TestCase
     def test_unauthenticated_access(self, api_client):
         """인증되지 않은 사용자는 API에 접근할 수 없다."""
         # Use api_client for unauthenticated requests
