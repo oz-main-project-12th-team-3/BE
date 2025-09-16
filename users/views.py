@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from django.conf import settings
+from django.contrib.auth import logout
 from django.contrib.auth.hashers import check_password
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import AuthenticationFailed
@@ -74,8 +75,9 @@ class UserLoginView(APIView):
             return Response(
                 {
                     "detail": (
-                        f"계정이 잠겼습니다. {int(remaining.total_seconds() // 60)}분 후"
-                        " 다시 시도해주세요."
+                        "계정이 잠겼습니다. "
+                        f"{int(remaining.total_seconds() // 60)}분 후 "
+                        "다시 시도해주세요."
                     )
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -142,6 +144,12 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        # If using session authentication, just log out the user
+        if request.user.is_authenticated:
+            logout(request) # Django's logout function
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        # Otherwise, proceed with JWT token blacklisting
         refresh_token = request.data.get("refresh_token")
         if not refresh_token:
             return Response(

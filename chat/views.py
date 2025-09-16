@@ -8,22 +8,25 @@ from .serializers import ChatLogSerializer, ChatSessionSerializer, VoiceLogSeria
 
 class ChatSessionListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatSessionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated] # Re-enabled
 
     def get_queryset(self):
+        # Removed explicit authentication check, let permission_classes handle it
         return ChatSession.objects.filter(user=self.request.user).order_by(
             "-created_at"
         )
 
     def perform_create(self, serializer):
+        # Removed explicit authentication check, let permission_classes handle it
         serializer.save(user=self.request.user)
 
 
 class ChatMessageListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated] # Re-enabled
 
     def get_queryset(self):
+        # Removed explicit authentication check, let permission_classes handle it
         session_id = self.request.query_params.get("session_id")
         if not session_id:
             return ChatLog.objects.none()  # session_id가 없으면 빈 쿼리셋 반환
@@ -42,6 +45,7 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
         return ChatLog.objects.filter(session_id=session_id).order_by("timestamp")
 
     def perform_create(self, serializer):
+        # Removed explicit authentication check, let permission_classes handle it
         serializer.save(
             user=self.request.user, sender=Sender.USER, timestamp=timezone.now()
         )
