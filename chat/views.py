@@ -8,7 +8,7 @@ from .serializers import ChatLogSerializer, ChatSessionSerializer, VoiceLogSeria
 
 class ChatSessionListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatSessionSerializer
-    permission_classes = [permissions.IsAuthenticated] # Re-enabled
+    permission_classes = [permissions.IsAuthenticated]  # Re-enabled
 
     def get_queryset(self):
         # Removed explicit authentication check, let permission_classes handle it
@@ -23,7 +23,7 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
 
 class ChatMessageListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatLogSerializer
-    permission_classes = [permissions.IsAuthenticated] # Re-enabled
+    permission_classes = [permissions.IsAuthenticated]  # Re-enabled
 
     def get_queryset(self):
         # Removed explicit authentication check, let permission_classes handle it
