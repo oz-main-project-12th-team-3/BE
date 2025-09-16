@@ -29,13 +29,13 @@ jobs:
         numOfAssignee: 1
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: 📊 Move to project board
-      if: github.event.action == 'opened'
-      uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
-      with:
-        project: Team Project Board # Replace with your actual project board name
-        column: 📋 Backlog # Replace with your actual column name
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    # - name: 📊 Move to project board
+    #   if: github.event.action == 'opened'
+    #   uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
+    #   with:
+    #     project: Team Project Board # Replace with your actual project board name
+    #     column: 📋 Backlog # Replace with your actual column name
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
 
   # PR 자동 관리
   pr-management:
@@ -58,21 +58,21 @@ jobs:
         configuration-path: .github/labeler.yml
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: 📊 Move PR to board
-      if: github.event.action == 'opened'
-      uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
-      with:
-        project: Team Project Board # Replace with your actual project board name
-        column: 👀 Review # Replace with your actual column name
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    # - name: 📊 Move PR to board
+    #   if: github.event.action == 'opened'
+    #   uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
+    #   with:
+    #     project: Team Project Board # Replace with your actual project board name
+    #     column: 👀 Review # Replace with your actual column name
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: 🎉 Celebrate merge
-      if: github.event.action == 'merged'
-      uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
-      with:
-        project: Team Project Board  # Replace with your actual project board name
-        column: ✅ Done # Replace with your actual column name
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    # - name: 🎉 Celebrate merge
+    #   if: github.event.action == 'merged'
+    #   uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
+    #   with:
+    #     project: Team Project Board  # Replace with your actual project board name
+    #     column: ✅ Done # Replace with your actual column name
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
 
   # 알림 시스템
   notifications:
