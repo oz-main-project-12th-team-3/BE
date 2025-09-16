@@ -158,21 +158,21 @@ class TestUserViews:
         self.profile_url = reverse("user-profile", args=[self.user.id])
 
     def test_check_email(self):
-        unauthenticated_client = APIClient() # New client
+        unauthenticated_client = APIClient()  # New client
         resp = unauthenticated_client.post(
             self.check_email_url, {"email": "apitestuser@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["available"] is False
 
-        resp = unauthenticated_client.post( # Use new client
+        resp = unauthenticated_client.post(  # Use new client
             self.check_email_url, {"email": "newemail@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["available"] is True
 
     def test_login_fail_without_password(self):
-        unauthenticated_client = APIClient() # New client
+        unauthenticated_client = APIClient()  # New client
         resp = unauthenticated_client.post(
             self.login_url, {"email": "apitestuser@test.com"}, format="json"
         )

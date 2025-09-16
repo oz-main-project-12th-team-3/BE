@@ -146,7 +146,7 @@ class LogoutView(APIView):
     def post(self, request):
         # If using session authentication, just log out the user
         if request.user.is_authenticated:
-            logout(request) # Django's logout function
+            logout(request)  # Django's logout function
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         # Otherwise, proceed with JWT token blacklisting
