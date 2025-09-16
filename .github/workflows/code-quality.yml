@@ -36,6 +36,8 @@ jobs:
     - name: 🧪 Run Tests with Coverage
       run: |
         pytest --cov=. --cov-report=xml
+      env:
+        RUNNING_TESTS: 1
 
     - name: 🔒 Run Security Audit
       run: |
