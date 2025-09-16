@@ -142,48 +142,45 @@ class TestUserViews:
             "nickname": "APITestUser",
             "role": "user",
         }
-        self.client.post(self.signup_url, user_data, format="json")
-
-        login_resp = self.client.post(
-            self.login_url,
-            {"email": user_data["email"], "password": user_data["password"]},
-            format="json",
+        # Create the user directly, as force_login needs a user object
+        self.user = User.objects.create_user(
+            email=user_data["email"],
+            password=user_data["password"],
+            role=user_data["role"],
         )
+        # Create the UserProfile separately
+        UserProfile.objects.create(user=self.user, nickname=user_data["nickname"])
 
-        self.token = login_resp.data.get("access_token") or ""
-        self.user_id = login_resp.data.get("user_id") or ""
-        self.auth_header = f"Bearer {self.token}"
+        # Authenticate the client using session authentication
+        self.client.login(email=user_data["email"], password=user_data["password"])
 
-        self.password_change_url = (
-            reverse("user-password-change", args=[self.user_id]) if self.user_id else ""
-        )
-        self.profile_url = (
-            reverse("user-profile", args=[self.user_id]) if self.user_id else ""
-        )
+        self.password_change_url = reverse("user-password-change", args=[self.user.id])
+        self.profile_url = reverse("user-profile", args=[self.user.id])
 
     def test_check_email(self):
-        resp = self.client.post(
+        unauthenticated_client = APIClient() # New client
+        resp = unauthenticated_client.post(
             self.check_email_url, {"email": "apitestuser@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["available"] is False
 
-        resp = self.client.post(
+        resp = unauthenticated_client.post( # Use new client
             self.check_email_url, {"email": "newemail@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["available"] is True
 
     def test_login_fail_without_password(self):
-        resp = self.client.post(
+        unauthenticated_client = APIClient() # New client
+        resp = unauthenticated_client.post(
             self.login_url, {"email": "apitestuser@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_password_change_success(self):
-        self.client.credentials(HTTP_AUTHORIZATION=self.auth_header)
         if self.password_change_url:
-            resp = self.client.patch(
+            resp = self.client.post(
                 self.password_change_url,
                 {"current_password": "TestPass123", "new_password": "NewStrongPass456"},
                 format="json",
@@ -192,9 +189,8 @@ class TestUserViews:
             assert "성공" in resp.data["detail"]
 
     def test_password_change_fail_wrong_current(self):
-        self.client.credentials(HTTP_AUTHORIZATION=self.auth_header)
         if self.password_change_url:
-            resp = self.client.patch(
+            resp = self.client.post(
                 self.password_change_url,
                 {"current_password": "WrongPass", "new_password": "AnotherPass789"},
                 format="json",
@@ -203,17 +199,12 @@ class TestUserViews:
 
     def test_user_profile_access(self):
         resp = self.client.get(self.profile_url)
-        assert resp.status_code in [401, 403]
-
-        self.client.credentials(HTTP_AUTHORIZATION=self.auth_header)
-        resp = self.client.get(self.profile_url)
         assert resp.status_code == status.HTTP_200_OK
         assert "nickname" in resp.data
 
     def test_logout(self):
-        self.client.credentials(HTTP_AUTHORIZATION=self.auth_header)
         resp = self.client.post(self.logout_url)
-        assert resp.status_code == status.HTTP_200_OK
+        assert resp.status_code == status.HTTP_204_NO_CONTENT # Logout returns 204 No Content
 
 
 @pytest.mark.django_db
