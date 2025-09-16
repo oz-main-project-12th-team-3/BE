@@ -47,6 +47,8 @@ INSTALLED_APPS = [
 
     # local apps
     'users',
+    'chat',
+    'ai',
 ]
 
 MIDDLEWARE = [
