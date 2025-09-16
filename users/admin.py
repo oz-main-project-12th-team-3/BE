@@ -1,17 +1,37 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from .models import User, UserProfile, Token
 
-
-@admin.register(CustomUser)
-class CustomUserAdmin(UserAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'is_staff')
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    model = User
+    list_display = ('email', 'role', 'is_staff', 'is_active', 'two_factor_enabled')
+    list_filter = ('role', 'is_staff', 'is_active', 'two_factor_enabled')
     ordering = ('email',)
-    # UserAdmin의 fieldsets을 커스터마이징하여 username 필드를 제거할 수 있습니다.
-    # 필요 시 아래 주석을 해제하고 수정하세요.
-    # fieldsets = (
-    #     (None, {'fields': ('email', 'password')}),
-    #     ('Personal info', {'fields': ('first_name', 'last_name')}),
-    #     ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-    #     ('Important dates', {'fields': ('last_login', 'date_joined')}),
-    # )
+    search_fields = ('email',)
+
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        ('Personal Info', {'fields': ()}),  # 필요한 추가 개인 정보 필드가 있으면 여기에 추가
+        ('Permissions', {'fields': ('role', 'is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Two Factor Authentication', {'fields': ('two_factor_enabled',)}),
+        ('Important dates', {'fields': ('last_login', 'password_changed_at', 'account_lockout_en')}),
+    )
+
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'password1', 'password2', 'role', 'is_staff', 'is_active'),
+        }),
+    )
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'nickname', 'profile_image_url', 'last_login')
+    search_fields = ('nickname', 'user__email')
+
+@admin.register(Token)
+class TokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'refresh_token', 'issued_at', 'expires_at')
+    search_fields = ('user__email', 'refresh_token')
+    readonly_fields = ('issued_at', 'expires_at')
