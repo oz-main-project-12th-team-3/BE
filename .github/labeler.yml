@@ -1,35 +1,40 @@
 # PR 자동 라벨링
-'🎯 backend': # Renamed from 'backend' to be more specific
-  - 'ai/**/*'
-  - 'chat/**/*'
-  - 'users/**/*'
-  - 'config/**/*'
-  - '**/*.py' # Catch all Python files
-  - '**/models/**/*' # Explicitly include models
-  - '**/views/**/*' # Explicitly include views
-  - '**/serializers/**/*' # Explicitly include serializers
+'🎯 backend':
+  - paths:
+    - 'ai/**/*'
+    - 'chat/**/*'
+    - 'users/**/*'
+    - 'config/**/*'
+    - '**/*.py'
+    - '**/models/**/*'
+    - '**/views/**/*'
+    - '**/serializers/**/*'
 
 '📝 documentation':
-  - '**/*.md'
-  - 'docs/**/*' # If you have a docs folder
-  - 'README*'
+  - paths:
+    - '**/*.md'
+    - 'docs/**/*'
+    - 'README*'
 
 '🔧 configuration':
-  - '.github/**/*'
-  - '**/*.json'
-  - '**/*.yml'
-  - '**/*.yaml'
-  - 'Dockerfile'
-  - 'docker-compose.*'
-  - 'pyproject.toml'
-  - 'pytest.ini'
-  - 'requirements.txt'
+  - paths:
+    - '.github/**/*'
+    - '**/*.json'
+    - '**/*.yml'
+    - '**/*.yaml'
+    - 'Dockerfile'
+    - 'docker-compose.*'
+    - 'pyproject.toml'
+    - 'pytest.ini'
+    - 'requirements.txt'
 
 '🧪 tests':
-  - '**/*.test.*'
-  - '**/tests/**/*' # Include test files within app directories
+  - paths:
+    - '**/*.test.*'
+    - '**/tests/**/*'
 
 '🚀 deployment':
-  - 'k8s/**/*' # If you use Kubernetes
-  - 'deployment/**/*' # If you have a deployment folder
-  - '.github/workflows/deploy*'
+  - paths:
+    - 'k8s/**/*'
+    - 'deployment/**/*'
+    - '.github/workflows/deploy*'
