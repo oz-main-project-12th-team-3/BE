@@ -204,7 +204,7 @@ class TestUserViews:
 
     def test_logout(self):
         resp = self.client.post(self.logout_url)
-        assert resp.status_code == status.HTTP_204_NO_CONTENT # Logout returns 204 No Content
+        assert resp.status_code == status.HTTP_204_NO_CONTENT  # Logout returns 204
 
 
 @pytest.mark.django_db

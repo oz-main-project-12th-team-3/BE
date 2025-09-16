@@ -1,5 +1,4 @@
 import pytest
-from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -27,7 +26,7 @@ def authenticated_user(api_client):
 class TestChatAPI: # Changed inheritance to TestCase
     def test_unauthenticated_access(self, api_client):
         """인증되지 않은 사용자는 API에 접근할 수 없다."""
-        # Use self.client which is provided by TestCase and is unauthenticated by default
+        # Use api_client for unauthenticated requests
         session_url = reverse("chat-session-list-create")
         message_url = reverse("chat-message-list-create")
 
