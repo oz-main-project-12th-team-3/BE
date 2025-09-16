@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import timedelta
+from rest_framework import serializers
+from .models import Task
 
 User = get_user_model()
 
@@ -40,7 +42,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['user_id'] = self.user.id
         data['access_token'] = data.pop('access')
         data['refresh_token'] = data.pop('refresh')
-        
+
         # expires_in은 access_token의 유효 시간(초 단위)을 의미합니다.
         # SIMPLE_JWT 설정에서 ACCESS_TOKEN_LIFETIME을 가져와 사용합니다.
         from django.conf import settings
@@ -48,3 +50,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['expires_in'] = int(access_token_lifetime.total_seconds())
 
         return data
+
+# ====== Task Serializer 추가 ======
+
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ['id', 'user', 'title', 'description', 'due_time', 'is_completed', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
