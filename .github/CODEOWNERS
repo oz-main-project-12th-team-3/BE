@@ -1,0 +1,22 @@
+# Global ownership
+* @team-lead @senior-dev
+
+# Backend specific
+/ai/ @backend-team
+/chat/ @backend-team
+/users/ @backend-team
+/config/ @backend-team
+/migrations/ @database-admin @team-lead
+
+# DevOps & Infrastructure
+/.github/ @devops-team @team-lead
+/docker-compose.yml @devops-team
+/Dockerfile @devops-team
+
+# Documentation
+*.md @tech-writer @team-lead
+
+# Configuration files
+pyproject.toml @team-lead @senior-dev
+pytest.ini @team-lead @senior-dev
+requirements.txt @team-lead @senior-dev

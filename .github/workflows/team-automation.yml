@@ -1,0 +1,109 @@
+name: 👥 Team Automation
+
+on:
+  issues:
+    types: [opened, closed, labeled]
+  pull_request:
+    types: [opened, closed, merged, review_requested, ready_for_review]
+  issue_comment:
+    types: [created]
+
+jobs:
+  # 자동 이슈 분류 및 할당
+  issue-management:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📋 Auto-label issues
+      uses: github/issue-labeler @v3.4 # Check for latest version
+      with:
+        configuration-path: .github/issue-labeler.yml
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: 👤 Auto-assign issues
+      if: github.event.action == 'opened'
+      uses: pozil/auto-assign-issue @v1.3.0 # Check for latest version
+      with:
+        assignees: backend-team,devops-team # Adjusted for backend-only project
+        numOfAssignee: 1
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    
+    # - name: 📊 Move to project board
+    #   if: github.event.action == 'opened'
+    #   uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
+    #   with:
+    #     project: Team Project Board # Replace with your actual project board name
+    #     column: 📋 Backlog # Replace with your actual column name
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # PR 자동 관리
+  pr-management:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📁 Checkout code
+      uses: actions/checkout @v4
+    
+    - name: 👥 Auto-assign reviewers
+      if: github.event.action == 'opened' || github.event.action == 'ready_for_review'
+      uses: kentaro-m/auto-assign-action @v1.2.6 # Check for latest version
+      with:
+        configuration-path: .github/auto-assign.yml
+    
+    - name: 🏷️ Auto-label PR
+      uses: actions/labeler @v5 # Check for latest version
+      with:
+        configuration-path: .github/labeler.yml
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    
+    # - name: 📊 Move PR to board
+    #   if: github.event.action == 'opened'
+    #   uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
+    #   with:
+    #     project: Team Project Board # Replace with your actual project board name
+    #     column: 👀 Review # Replace with your actual column name
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
+    
+    # - name: 🎉 Celebrate merge
+    #   if: github.event.action == 'merged'
+    #   uses: alex-page/github-project-automation-plus @v0.9.0 # Check for latest version
+    #   with:
+    #     project: Team Project Board  # Replace with your actual project board name
+    #     column: ✅ Done # Replace with your actual column name
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # 알림 시스템
+  notifications:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📢 Slack notification
+      uses: 8398a7/action-slack @v3 # Check for latest version
+      with:
+        status: custom
+        custom_payload: |
+          {
+            "text": "GitHub Activity Alert",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "${{ github.event_name == 'issues' && '📋' || '🔄' }} *${{ github.event_name == 'issues' && 'Issue' || 'PR' }}* ${{ github.event.action }}\n*Repository:* ${{ github.repository }}\n*Actor:* ${{ github.actor }}\n*Title:* ${{ github.event.issue.title || github.event.pull_request.title }}"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    
+    - name: 💬 Discord notification
+      uses: Ilshidur/action-discord @master # Check for latest version
+      with:
+        args: |
+          🚀 **${{ github.repository }}**\n          ${{ github.event_name == 'issues' && '📋 Issue' || '🔄 PR' }} **${{ github.event.action }}** by ${{ github.actor }}\n          **Title:** ${{ github.event.issue.title || github.event.pull_request.title }}
+          **Link:** ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
