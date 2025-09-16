@@ -74,7 +74,7 @@ class UserLoginView(APIView):
             return Response(
                 {
                     "detail": (
-                        f"계정이 잠겼습니다. {int(remaining.total_seconds() // 60)}분 후" 
+                        f"계정이 잠겼습니다. {int(remaining.total_seconds() // 60)}분 후"
                         " 다시 시도해주세요."
                     )
                 },
