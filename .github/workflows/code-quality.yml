@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main", "develop" ]
 
 jobs:
   lint-and-test:
@@ -27,6 +26,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install pytest-django pytest-cov
 
     - name: 🧽 Lint with ruff
       run: |
