@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 88
+exclude = ["*/migrations/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I"]
+ignore = []
+
+# Allow unused variables in `__init__.py`.
+per-file-ignores = {"__init__.py" = ["F401"]}
+
+[tool.ruff.lint.mccabe]
+# "C901": `function` is too complex (`11` > `10`)
+max-complexity = 10
