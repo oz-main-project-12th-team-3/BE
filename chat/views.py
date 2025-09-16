@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied
-from .models import ChatSession, ChatLog, Sender
-from .serializers import ChatSessionSerializer, ChatLogSerializer
+from .models import ChatSession, ChatLog, VoiceLog, Sender
+from .serializers import ChatSessionSerializer, ChatLogSerializer, VoiceLogSerializer
 from django.utils import timezone
 
 
@@ -40,6 +40,33 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
         serializer.save(
             user=self.request.user,
             sender=Sender.USER,
+            timestamp=timezone.now()
+        )
+
+
+class VoiceLogListCreateView(generics.ListCreateAPIView):
+    serializer_class = VoiceLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        session_id = self.request.query_params.get('session_id')
+        if not session_id:
+            return VoiceLog.objects.none()
+
+        try:
+            session = ChatSession.objects.get(id=session_id)
+        except ChatSession.DoesNotExist:
+            return VoiceLog.objects.none()
+
+        if session.user != self.request.user:
+            raise PermissionDenied("You do not have permission to view this chat session.")
+
+        return VoiceLog.objects.filter(session_id=session_id).order_by('timestamp')
+
+    def perform_create(self, serializer):
+        # output_audio_url, transcribed_text 등은 AI 처리 후 별도로 업데이트
+        serializer.save(
+            user=self.request.user,
             timestamp=timezone.now()
         )
 
