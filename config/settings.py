@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "users",
     "chat",
     "ai",
+    "tasks",  # ← 여기 추가
 ]
 
 MIDDLEWARE = [
