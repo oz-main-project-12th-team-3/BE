@@ -25,7 +25,7 @@ jobs:
       if: github.event.action == 'opened'
       uses: pozil/auto-assign-issue@v1.3.0
       with:
-        assignees: 209512,BE12-OZ
+        assignees: 209512,BE12-OZ,zlfktm
         numOfAssignee: 1
         repo-token: ${{ secrets.GITHUB_TOKEN }}
 
