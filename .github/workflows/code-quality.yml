@@ -5,6 +5,18 @@ on:
     branches: [ "main", "develop", "feature", "feature/**" ]
   pull_request:
 
+  workflow_call: # Add this block
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+        type: string
+      SLACK_WEBHOOK_URL:
+        required: false # Slack webhook might not be required for all calls
+        type: string
+      DISCORD_WEBHOOK:
+        required: false # Discord webhook might not be required for all calls
+        type: string
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
