@@ -165,6 +165,22 @@ jobs:
           safety check || true
         fi
 
+    - name: ☁️ SonarCloud Analysis
+      uses: SonarSource/sonarcloud-github-action@master
+      if: github.event_name == 'pull_request' || github.event_name == 'push'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        # Project-specific parameters (replace with your actual values)
+        projectBaseDir: .
+        args: >
+          -Dsonar.projectKey=your_project_key
+          -Dsonar.organization=your_organization_key
+          -Dsonar.sources=.
+          -Dsonar.python.version=${{ matrix.python-version }}
+          -Dsonar.python.coverage.reportPaths=coverage.xml # If you generate coverage.xml
+
     - name: 📈 Upload test results
       uses: actions/upload-artifact@v4
       if: always()
