@@ -201,9 +201,13 @@ jobs:
           comment += '- 🧹 Code formatting: ${{ steps.code-formatting-check.outcome || \'not run\' }}\n';
           comment += '- 🧽 Linting: ${{ steps.lint-with-ruff.outcome || \'not run\'}}\n';
           comment += '- 📏 Import sorting: ${{ steps.import-sorting-check.outcome || \'not run\'}}\n';
-          comment += '- 🔍 Type checking: ${{ steps.type-checking.outcome || \'not run\' }}\n';
-          comment += '- 🧪 Tests: ${{ steps.run-tests-with-coverage.outcome || \'not run\'}}\n';
-          comment += '- 🔒 Security audit: ${{ steps.security-audit-with-pip-audit.outcome || \'not run\'}}\n\n';
+          comment += '- 🔍 Type checking: ${{ steps.type-checking.outcome || \'not run\' }}
+';
+          comment += '- 🧪 Tests: ${{ steps.run-tests-with-coverage.outcome || \'not run\'}}
+';
+          comment += '- 🔒 Security audit: ${{ steps.security-audit-with-pip-audit.outcome || \'not run\'}}
+
+';
           
           // Find existing comment
           const comments = await github.rest.issues.listComments({
