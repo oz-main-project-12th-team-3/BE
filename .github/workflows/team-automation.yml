@@ -91,7 +91,7 @@ jobs:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: 📊 Move PR to board
-      if: github.event.action == 'opened'
+      if: github.event.action == 'opened' && github.event_name == 'pull_request' # Add github.event_name check
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -131,7 +131,7 @@ jobs:
           `, { projectId, itemId, fieldId: statusFieldId, optionId: reviewOptionId });
     
     - name: 🎉 Celebrate merge
-      if: github.event.action == 'merged'
+      if: github.event.action == 'merged' && github.event_name == 'pull_request' # Add github.event_name check
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -164,7 +164,7 @@ jobs:
               updateProjectV2ItemFieldValue(input: {
                 projectId: $projectId,
                 itemId: $itemId,
-              fieldId: $fieldId,
+                fieldId: $fieldId,
                 value: { singleSelectOptionId: $optionId }
               }) {
                 projectV2Item {
