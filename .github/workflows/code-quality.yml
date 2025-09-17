@@ -1,0 +1,44 @@
+name: Code Quality Check
+
+on:
+  push:
+    branches: [ "main", "develop", "feature", "feature/**" ]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    name: 🔎 Lint & Test
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - name: 📂 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: 📥 Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-django pytest-cov
+
+    - name: 🧽 Lint with ruff
+      run: |
+        ruff check .
+        ruff format --check .
+
+    - name: 🧪 Run Tests with Coverage
+      run: |
+        pytest --cov=. --cov-report=xml
+      env:
+        RUNNING_TESTS: 1
+
+    - name: 🔒 Run Security Audit
+      run: |
+        pip-audit

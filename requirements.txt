@@ -3,3 +3,10 @@ djangorestframework
 djangorestframework-simplejwt
 python-dotenv
 psycopg2-binary
+
+# Code Quality
+ruff
+pytest
+pytest-cov
+pip-audit
+setuptools>=78.1.1
