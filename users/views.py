@@ -2,7 +2,11 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserCreateSerializer, UserSerializer, MyTokenObtainPairSerializer
+from .serializers import (
+    UserCreateSerializer,
+    UserSerializer,
+    MyTokenObtainPairSerializer,
+)
 from django.contrib.auth import get_user_model
 
 User = get_user_model()

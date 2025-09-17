@@ -15,21 +15,54 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Task',
+            name="Task",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255, verbose_name='제목')),
-                ('description', models.TextField(blank=True, null=True, verbose_name='상세 내용')),
-                ('due_time', models.DateTimeField(blank=True, null=True, verbose_name='마감 시간')),
-                ('is_completed', models.BooleanField(default=False, verbose_name='완료 여부')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='생성일')),
-                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='수정일')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='tasks', to=settings.AUTH_USER_MODEL, verbose_name='사용자')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=255, verbose_name="제목")),
+                (
+                    "description",
+                    models.TextField(blank=True, null=True, verbose_name="상세 내용"),
+                ),
+                (
+                    "due_time",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="마감 시간"
+                    ),
+                ),
+                (
+                    "is_completed",
+                    models.BooleanField(default=False, verbose_name="완료 여부"),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="생성일"),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="수정일"),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="tasks",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="사용자",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '태스크',
-                'verbose_name_plural': '태스크 목록',
-                'ordering': ['-created_at'],
+                "verbose_name": "태스크",
+                "verbose_name_plural": "태스크 목록",
+                "ordering": ["-created_at"],
             },
         ),
     ]
