@@ -96,39 +96,41 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          const projectId = 'PVT_kwDODcPCt84BDOZc';
-          const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
-          const reviewOptionId = 'd677263c';
-          const contentId = github.event.pull_request.node_id;
+          if (github.event.pull_request) {
+            const projectId = 'PVT_kwDODcPCt84BDOZc';
+            const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
+            const reviewOptionId = 'd677263c';
+            const contentId = github.event.pull_request.node_id;
 
-          // Add PR to project
-          const addResponse = await github.graphql(`
-            mutation($projectId: ID!, $contentId: ID!) {
-              addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
-                item {
-                  id
+            // Add PR to project
+            const addResponse = await github.graphql(`
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
+                  item {
+                    id
+                  }
                 }
               }
-            }
-          `, { projectId, contentId });
+            `, { projectId, contentId });
 
-          const itemId = addResponse.addProjectV2Item.item.id;
+            const itemId = addResponse.addProjectV2Item.item.id;
 
-          // Update status field
-          await github.graphql(`
-            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-              updateProjectV2ItemFieldValue(input: {
-                projectId: $projectId,
-                itemId: $itemId,
-                fieldId: $fieldId,
-                value: { singleSelectOptionId: $optionId }
-              }) {
-                projectV2Item {
-                  id
+            // Update status field
+            await github.graphql(`
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId,
+                  itemId: $itemId,
+                  fieldId: $fieldId,
+                  value: { singleSelectOptionId: $optionId }
+                }) {
+                  projectV2Item {
+                    id
+                  }
                 }
               }
-            }
-          `, { projectId, itemId, fieldId: statusFieldId, optionId: reviewOptionId });
+            `, { projectId, itemId, fieldId: statusFieldId, optionId: reviewOptionId });
+          }
     
     - name: 🎉 Celebrate merge
       if: github.event.action == 'merged' && github.event_name == 'pull_request' # Add github.event_name check
