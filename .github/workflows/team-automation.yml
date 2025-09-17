@@ -33,9 +33,9 @@ jobs:
       if: github.event.action == 'opened'
       uses: actions/add-to-project@v0.6.1 # Use the official action
       with:
-        project-id: PVT_kwDODcPCt84BDOZc
-        field: Status # Name of your status field
-        value: 📋 Backlog # Name of the option
+        project-url: https://github.com/orgs/oz-main-project-12th-team-3/projects/6
+        field-name: Status # Name of your status field
+        field-value: 📋 Backlog # Name of the option
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
   # PR 자동 관리
@@ -63,18 +63,18 @@ jobs:
       if: github.event.action == 'opened'
       uses: actions/add-to-project@v0.6.1
       with:
-        project-id: PVT_kwDODcPCt84BDOZc
-        field: Status
-        value: 👀 Review
+        project-url: https://github.com/orgs/oz-main-project-12th-team-3/projects/6
+        field-name: Status
+        field-value: 👀 Review
         github-token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: 🎉 Celebrate merge
       if: github.event.action == 'merged'
       uses: actions/add-to-project@v0.6.1
       with:
-        project-id: PVT_kwDODcPCt84BDOZc
-        field: Status
-        value: ✅ Done
+        project-url: https://github.com/orgs/oz-main-project-12th-team-3/projects/6
+        field-name: Status
+        field-value: ✅ Done
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
   # 알림 시스템
