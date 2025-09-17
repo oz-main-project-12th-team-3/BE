@@ -29,14 +29,45 @@ jobs:
         numOfAssignee: 1
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: 📊 Move to project board
+    - name: 📊 Move issue to project board (Backlog)
       if: github.event.action == 'opened'
-      uses: actions/add-to-project@v0.6.1 # Use the official action
+      uses: actions/github-script@v6
       with:
-        project-url: https://github.com/orgs/oz-main-project-12th-team-3/projects/6
-        field-name: Status # Name of your status field
-        field-value: 📋 Backlog # Name of the option
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const projectId = 'PVT_kwDODcPCt84BDOZc';
+          const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
+          const backlogOptionId = 'f75ad846';
+          const contentId = github.event.issue.node_id;
+
+          // Add issue to project
+          const addResponse = await github.graphql(`
+            mutation($projectId: ID!, $contentId: ID!) {
+              addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
+                item {
+                  id
+                }
+              }
+            }
+          `, { projectId, contentId });
+
+          const itemId = addResponse.addProjectV2Item.item.id;
+
+          // Update status field
+          await github.graphql(`
+            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $projectId,
+                itemId: $itemId,
+                fieldId: $fieldId,
+                value: { singleSelectOptionId: $optionId }
+              }) {
+                projectV2Item {
+                  id
+                }
+              }
+            }
+          `, { projectId, itemId, fieldId: statusFieldId, optionId: backlogOptionId });
 
   # PR 자동 관리
   pr-management:
@@ -61,21 +92,87 @@ jobs:
     
     - name: 📊 Move PR to board
       if: github.event.action == 'opened'
-      uses: actions/add-to-project@v0.6.1
+      uses: actions/github-script@v6
       with:
-        project-url: https://github.com/orgs/oz-main-project-12th-team-3/projects/6
-        field-name: Status
-        field-value: 👀 Review
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const projectId = 'PVT_kwDODcPCt84BDOZc';
+          const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
+          const reviewOptionId = 'd677263c';
+          const contentId = github.event.pull_request.node_id;
+
+          // Add PR to project
+          const addResponse = await github.graphql(`
+            mutation($projectId: ID!, $contentId: ID!) {
+              addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
+                item {
+                  id
+                }
+              }
+            }
+          `, { projectId, contentId });
+
+          const itemId = addResponse.addProjectV2Item.item.id;
+
+          // Update status field
+          await github.graphql(`
+            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $projectId,
+                itemId: $itemId,
+                fieldId: $fieldId,
+                value: { singleSelectOptionId: $optionId }
+              }) {
+                projectV2Item {
+                  id
+                }
+              }
+            }
+          `, { projectId, itemId, fieldId: statusFieldId, optionId: reviewOptionId });
     
     - name: 🎉 Celebrate merge
       if: github.event.action == 'merged'
-      uses: actions/add-to-project@v0.6.1
+      uses: actions/github-script@v6
       with:
-        project-url: https://github.com/orgs/oz-main-project-12th-team-3/projects/6
-        field-name: Status
-        field-value: ✅ Done
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const projectId = 'PVT_kwDODcPCt84BDOZc';
+          const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
+          const doneOptionId = '98236657';
+          const contentId = github.event.pull_request.node_id;
+
+          // Find the project item ID for the merged PR
+          const queryResponse = await github.graphql(`
+            query($projectId: ID!, $contentId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  items(first: 100, query: "content: ${contentId}") {
+                    nodes {
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          `, { projectId, contentId });
+
+          const itemId = queryResponse.node.items.nodes[0].id;
+
+          // Update status field
+          await github.graphql(`
+            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $projectId,
+                itemId: $itemId,
+              fieldId: $fieldId,
+                value: { singleSelectOptionId: $optionId }
+              }) {
+                projectV2Item {
+                  id
+                }
+              }
+            }
+          `, { projectId, itemId, fieldId: statusFieldId, optionId: doneOptionId });
 
   # 알림 시스템
   notifications:
