@@ -1,0 +1,47 @@
+# 자동 이슈 라벨링 규칙
+'🐛 bug':
+  - 'bug'
+  - 'error' 
+  - 'issue'
+  - 'problem'
+  - 'fix'
+
+'✨ feature':
+  - 'feature'
+  - 'enhancement'
+  - 'new'
+  - 'add'
+
+'📝 documentation':
+  - 'docs'
+  - 'documentation'
+  - 'readme'
+  - 'guide'
+
+'🚀 performance':
+  - 'performance'
+  - 'optimization'
+  - 'speed'
+  - 'slow'
+
+'🔐 security':
+  - 'security'
+  - 'vulnerability'
+  - 'auth'
+  - 'permission'
+
+'⚙️ backend': # Renamed from 'backend' to be more specific
+  - 'backend'
+  - 'api'
+  - 'server'
+  - 'database'
+  - 'django'
+  - 'drf'
+
+'🔧 devops':
+  - 'ci'
+  - 'cd'
+  - 'deploy'
+  - 'docker'
+  - 'kubernetes'
+  - 'workflow'
