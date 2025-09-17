@@ -25,7 +25,7 @@ jobs:
       if: github.event.action == 'opened'
       uses: pozil/auto-assign-issue @v1.3.0 # Check for latest version
       with:
-        assignees: backend-team,devops-team # Adjusted for backend-only project
+        assignees: 209512,BE12-OZ # Adjusted for backend-only project
         numOfAssignee: 1
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     
