@@ -4,30 +4,30 @@ addAssignees: false
 numberOfReviewers: 1 # Reduced to 1 for simplicity, adjust as needed
 
 reviewers:
-  - team-lead
-  - senior-dev
-  - backend-team
-  - devops-team # Added devops for relevant changes
+  - BE12-OZ
+  - BE12-OZ
+  - 209512
+  - BE12-OZ
 
 # 파일 경로별 전문 리뷰어
 filePathReviewers:
   'ai/**':
-    - backend-team
+    - 209512
   'chat/**':
-    - backend-team
+    - 209512
   'users/**':
-    - backend-team
+    - 209512
   'config/**':
-    - backend-team
+    - 209512
   'migrations/**': # Assuming migrations are in app subdirectories
-    - database-admin
-    - team-lead
+    - Bzlfktm
+    - BE12-OZ
   '.github/**':
-    - devops-team
-    - team-lead
+    - BE12-OZ
+    - BE12-OZ
   '*.md': # For documentation changes
-    - tech-writer
-    - team-lead
+    - BE12-OZ
+    - BE12-OZ
 
 # 스킵 조건
 skipDraft: true
