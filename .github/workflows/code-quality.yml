@@ -38,13 +38,13 @@ jobs:
     - name: 📂 Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Fetch full history for better analysis
+        fetch-depth: 0
 
     - name: 🐍 Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'  # Cache pip dependencies
+        cache: 'pip'
 
     - name: 📥 Install system dependencies
       run: |
@@ -86,31 +86,27 @@ jobs:
           ${{ runner.os }}-test-cache-
 
     - name: 🧹 Code formatting check
+      id: code-formatting-check
       run: |
         echo "🔍 Checking code formatting with ruff..."
         ruff format --check --diff .
-        
-        # Alternative: use black if preferred
-        # black --check --diff .
 
     - name: 🧽 Lint with ruff
+      id: lint-with-ruff
       run: |
         echo "🔍 Running ruff linter..."
         ruff check . --output-format=github
-        
-        # Show statistics
         ruff check . --statistics || true
 
     - name: 📏 Import sorting check
+      id: import-sorting-check
       run: |
         echo "🔍 Checking import sorting..."
         ruff check --select I .
-        
-        # Alternative: use isort if preferred
-        # isort --check-only --diff .
 
     - name: 🔍 Type checking
-      continue-on-error: true  # Don't fail the workflow on type errors initially
+      id: type-checking
+      continue-on-error: true
       run: |
         if command -v mypy &> /dev/null; then
           echo "🔍 Running type checking with mypy..."
@@ -120,6 +116,7 @@ jobs:
         fi
 
     - name: 🧪 Run Tests with Coverage
+      id: run-tests-with-coverage
       if: ${{ !inputs.skip-tests }}
       run: |
         echo "🧪 Running tests with coverage..."
@@ -148,6 +145,7 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: 🔒 Security audit with pip-audit
+      id: security-audit-with-pip-audit
       continue-on-error: true
       run: |
         echo "🔒 Running security audit..."
@@ -155,6 +153,7 @@ jobs:
         pip-audit --format=columns || true
 
     - name: 🔒 Security scan with safety
+      id: security-scan-with-safety
       continue-on-error: true
       run: |
         if command -v safety &> /dev/null; then
@@ -196,14 +195,14 @@ jobs:
           // Add Python version info
           comment += `🐍 **Python Version:** ${{ matrix.python-version }}\n\n`;
           
-          // Add steps summary
+          // Add steps summary - 올바른 step outcome 참조 방법
           comment += '### Steps Summary:\n';
-          comment += '- 🧹 Code formatting: ${{ steps.code-formatting-check.outcome || "not run" }}\n';
-          comment += '- 🧽 Linting: ${{ steps.lint-with-ruff.outcome || "not run" }}\n';
-          comment += '- 📏 Import sorting: ${{ steps.import-sorting-check.outcome || "not run" }}\n';
-          comment += '- 🔍 Type checking: ${{ steps.type-checking.outcome || "not run" }}\n';
-          comment += '- 🧪 Tests: ${{ steps.run-tests-with-coverage.outcome || "not run" }}\n';
-          comment += '- 🔒 Security audit: ${{ steps.security-audit-with-pip-audit.outcome || "not run" }}\n\n';
+          comment += `- 🧹 Code formatting: ${{ steps.code-formatting-check.outcome || 'skipped' }}\n`;
+          comment += `- 🧽 Linting: ${{ steps.lint-with-ruff.outcome || 'skipped' }}\n`;
+          comment += `- 📏 Import sorting: ${{ steps.import-sorting-check.outcome || 'skipped' }}\n`;
+          comment += `- 🔍 Type checking: ${{ steps.type-checking.outcome || 'skipped' }}\n`;
+          comment += `- 🧪 Tests: ${{ steps.run-tests-with-coverage.outcome || 'skipped' }}\n`;
+          comment += `- 🔒 Security audit: ${{ steps.security-audit-with-pip-audit.outcome || 'skipped' }}\n\n`;
           
           // Find existing comment
           const comments = await github.rest.issues.listComments({
@@ -260,7 +259,7 @@ jobs:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     - name: 💬 Discord notification
-      if: secrets.DISCORD_WEBHOOK != ''
+      if: inputs.DISCORD_WEBHOOK != ''
       uses: Ilshidur/action-discord@master
       with:
         args: |
