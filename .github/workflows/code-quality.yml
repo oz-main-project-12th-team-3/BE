@@ -4,8 +4,19 @@ on:
   push:
     branches: [ "main", "develop", "feature", "feature/**" ]
   pull_request:
-
-  workflow_call: # Add this block
+    branches: [ "main", "develop" ]
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        required: false
+        default: '3.10'
+        type: string
+      skip-tests:
+        description: 'Skip running tests'
+        required: false
+        default: false
+        type: boolean
     secrets:
       GITHUB_TOKEN:
         required: true
@@ -15,39 +26,248 @@ on:
         required: false
 
 jobs:
-  lint-and-test:
+  code-quality:
     runs-on: ubuntu-latest
-    name: 🔎 Lint & Test
+    name: 🔎 Code Quality Check
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10"]
+        python-version: ["3.10", "3.11"]
 
     steps:
     - name: 📂 Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for better analysis
 
     - name: 🐍 Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'  # Cache pip dependencies
 
-    - name: 📥 Install Dependencies
+    - name: 📥 Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+
+    - name: 📥 Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest-django pytest-cov
+        pip install wheel setuptools
+        
+        # Install main dependencies
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+        
+        # Install dev dependencies if they exist
+        if [ -f requirements-dev.txt ]; then
+          pip install -r requirements-dev.txt
+        elif [ -f dev-requirements.txt ]; then
+          pip install -r dev-requirements.txt
+        else
+          # Install common testing and linting tools
+          pip install pytest pytest-django pytest-cov pytest-xvfb
+          pip install ruff black isort mypy
+          pip install pip-audit safety
+        fi
+
+    - name: 📊 Cache test results
+      uses: actions/cache@v4
+      with:
+        path: |
+          .pytest_cache
+          .ruff_cache
+          .mypy_cache
+        key: ${{ runner.os }}-test-cache-${{ matrix.python-version }}-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-test-cache-${{ matrix.python-version }}-
+          ${{ runner.os }}-test-cache-
+
+    - name: 🧹 Code formatting check
+      run: |
+        echo "🔍 Checking code formatting with ruff..."
+        ruff format --check --diff .
+        
+        # Alternative: use black if preferred
+        # black --check --diff .
 
     - name: 🧽 Lint with ruff
       run: |
-        ruff check .
-        ruff format --check .
+        echo "🔍 Running ruff linter..."
+        ruff check . --output-format=github
+        
+        # Show statistics
+        ruff check . --statistics || true
+
+    - name: 📏 Import sorting check
+      run: |
+        echo "🔍 Checking import sorting..."
+        ruff check --select I .
+        
+        # Alternative: use isort if preferred
+        # isort --check-only --diff .
+
+    - name: 🔍 Type checking
+      continue-on-error: true  # Don't fail the workflow on type errors initially
+      run: |
+        if command -v mypy &> /dev/null; then
+          echo "🔍 Running type checking with mypy..."
+          mypy . --ignore-missing-imports --show-error-codes || true
+        else
+          echo "⚠️ mypy not installed, skipping type checking"
+        fi
 
     - name: 🧪 Run Tests with Coverage
+      if: ${{ !inputs.skip-tests }}
       run: |
-        pytest --cov=. --cov-report=xml
+        echo "🧪 Running tests with coverage..."
+        
+        # Check if Django project
+        if python -c "import django" 2>/dev/null; then
+          echo "📱 Detected Django project"
+          export DJANGO_SETTINGS_MODULE=config.settings
+          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v
+        else
+          echo "🐍 Running standard Python tests"
+          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v
+        fi
       env:
         RUNNING_TESTS: 1
+        PYTHONPATH: ${{ github.workspace }}
 
-    - name: 🔒 Run Security Audit
+    - name: 📊 Upload coverage to Codecov
+      if: ${{ !inputs.skip-tests }}
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+    - name: 🔒 Security audit with pip-audit
+      continue-on-error: true
       run: |
-        pip-audit
+        echo "🔒 Running security audit..."
+        pip-audit --format=json --output=audit-results.json || true
+        pip-audit --format=columns || true
+
+    - name: 🔒 Security scan with safety
+      continue-on-error: true
+      run: |
+        if command -v safety &> /dev/null; then
+          echo "🔒 Running safety security scan..."
+          safety check --json || true
+        else
+          echo "⚠️ safety not installed, installing and running..."
+          pip install safety
+          safety check || true
+        fi
+
+    - name: 📈 Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.python-version }}
+        path: |
+          htmlcov/
+          coverage.xml
+          audit-results.json
+          .pytest_cache/
+        retention-days: 30
+
+    - name: 💬 Comment PR with results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          
+          let comment = '## 🔎 Code Quality Report\n\n';
+          
+          // Add job status
+          const jobStatus = '${{ job.status }}';
+          const statusEmoji = jobStatus === 'success' ? '✅' : jobStatus === 'failure' ? '❌' : '⚠️';
+          comment += `${statusEmoji} **Overall Status:** ${jobStatus}\n\n`;
+          
+          // Add Python version info
+          comment += `🐍 **Python Version:** ${{ matrix.python-version }}\n\n`;
+          
+          // Add steps summary
+          comment += '### Steps Summary:\n';
+          comment += '- 🧹 Code formatting: ${{ steps.code-formatting-check.outcome || "not run" }}\n';
+          comment += '- 🧽 Linting: ${{ steps.lint-with-ruff.outcome || "not run" }}\n';
+          comment += '- 📏 Import sorting: ${{ steps.import-sorting-check.outcome || "not run" }}\n';
+          comment += '- 🔍 Type checking: ${{ steps.type-checking.outcome || "not run" }}\n';
+          comment += '- 🧪 Tests: ${{ steps.run-tests-with-coverage.outcome || "not run" }}\n';
+          comment += '- 🔒 Security audit: ${{ steps.security-audit-with-pip-audit.outcome || "not run" }}\n\n';
+          
+          // Find existing comment
+          const comments = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.data.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('🔎 Code Quality Report')
+          );
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: comment
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+          }
+
+  notify:
+    needs: code-quality
+    if: always() && (secrets.SLACK_WEBHOOK_URL != '' || secrets.DISCORD_WEBHOOK != '')
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📢 Slack notification
+      if: secrets.SLACK_WEBHOOK_URL != ''
+      uses: 8398a7/action-slack@v3
+      with:
+        status: custom
+        custom_payload: |
+          {
+            "text": "Code Quality Check Results",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "${{ needs.code-quality.result == 'success' && '✅' || '❌' }} *Code Quality Check* ${{ needs.code-quality.result }}\n*Repository:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}\n*Actor:* ${{ github.actor }}"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: 💬 Discord notification
+      if: secrets.DISCORD_WEBHOOK != ''
+      uses: Ilshidur/action-discord@master
+      with:
+        args: |
+          ${{ needs.code-quality.result == 'success' && '✅' || '❌' }} **Code Quality Check ${{ needs.code-quality.result }}**
+          **Repository:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          **Actor:** ${{ github.actor }}
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}

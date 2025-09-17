@@ -13,22 +13,22 @@ jobs:
   issue-management:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: 📋 Auto-label issues
-      uses: github/issue-labeler @v3.4 # Check for latest version
+      uses: github/issue-labeler@v3.4
       with:
         configuration-path: .github/issue-labeler.yml
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: 👤 Auto-assign issues
       if: github.event.action == 'opened'
-      uses: pozil/auto-assign-issue @v1.3.0 # Check for latest version
+      uses: pozil/auto-assign-issue@v1.3.0
       with:
-        assignees: 209512,BE12-OZ # Adjusted for backend-only project
+        assignees: 209512,BE12-OZ
         numOfAssignee: 1
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: 📊 Move issue to project board (Backlog)
       if: github.event.action == 'opened'
       uses: actions/github-script@v6
@@ -38,71 +38,10 @@ jobs:
           const projectId = 'PVT_kwDODcPCt84BDOZc';
           const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
           const backlogOptionId = 'f75ad846';
-          const contentId = github.event.issue.node_id;
+          const contentId = context.payload.issue.node_id;
 
-          // Add issue to project
-          const addResponse = await github.graphql(`
-            mutation($projectId: ID!, $contentId: ID!) {
-              addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
-                item {
-                  id
-                }
-              }
-            }
-          `, { projectId, contentId });
-
-          const itemId = addResponse.addProjectV2Item.item.id;
-
-          // Update status field
-          await github.graphql(`
-            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-              updateProjectV2ItemFieldValue(input: {
-                projectId: $projectId,
-                itemId: $itemId,
-                fieldId: $fieldId,
-                value: { singleSelectOptionId: $optionId }
-              }) {
-                projectV2Item {
-                  id
-                }
-              }
-            }
-          `, { projectId, itemId, fieldId: statusFieldId, optionId: backlogOptionId });
-
-  # PR 자동 관리
-  pr-management:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: 📁 Checkout code
-      uses: actions/checkout @v4
-    
-    - name: 👥 Auto-assign reviewers
-      if: github.event.action == 'opened' || github.event.action == 'ready_for_review'
-      uses: kentaro-m/auto-assign-action @v1.2.6 # Check for latest version
-      with:
-        configuration-path: .github/auto-assign.yml
-    
-    - name: 🏷️ Auto-label PR
-      uses: actions/labeler @v5 # Check for latest version
-      with:
-        configuration-path: .github/labeler.yml
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: 📊 Move PR to board
-      if: github.event.action == 'opened' && github.event_name == 'pull_request' # Add github.event_name check
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          if (github.event.pull_request) {
-            const projectId = 'PVT_kwDODcPCt84BDOZc';
-            const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
-            const reviewOptionId = 'd677263c';
-            const contentId = github.event.pull_request.node_id;
-
-            // Add PR to project
+          try {
+            // Add issue to project
             const addResponse = await github.graphql(`
               mutation($projectId: ID!, $contentId: ID!) {
                 addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
@@ -129,60 +68,178 @@ jobs:
                   }
                 }
               }
-            `, { projectId, itemId, fieldId: statusFieldId, optionId: reviewOptionId });
+            `, { projectId, itemId, fieldId: statusFieldId, optionId: backlogOptionId });
+            
+            console.log(`Issue moved to project board with item ID: ${itemId}`);
+          } catch (error) {
+            console.error('Error moving issue to project board:', error);
           }
-    
-    - name: 🎉 Celebrate merge
-      if: github.event.action == 'merged' && github.event_name == 'pull_request' # Add github.event_name check
+
+  # PR 자동 관리 (수정된 부분)
+  pr-management:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📁 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 👥 Auto-assign reviewers
+      if: github.event.action == 'opened' || github.event.action == 'ready_for_review'
+      uses: kentaro-m/auto-assign-action@v1.2.6
+      with:
+        configuration-path: .github/auto-assign.yml
+
+    - name: 🏷️ Auto-label PR
+      uses: actions/labeler@v5
+      with:
+        configuration-path: .github/labeler.yml
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 📊 Move PR to project board
+      if: github.event.action == 'opened'
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
+          console.log('=== PR Project Board Integration ===');
+          console.log('Event Name:', context.eventName);
+          console.log('Action:', context.payload.action);
+          
+          // context.payload 사용 (github.event 대신)
+          const payload = context.payload;
+          
+          if (!payload.pull_request) {
+            console.log('❌ No pull_request found in payload');
+            console.log('Available payload keys:', Object.keys(payload));
+            return;
+          }
+          
+          const pullRequest = payload.pull_request;
+          console.log('✅ Pull Request found:', pullRequest.number);
+          
+          const projectId = 'PVT_kwDODcPCt84BDOZc';
+          const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
+          const reviewOptionId = 'd677263c';
+          const contentId = pullRequest.node_id;
+          
+          try {
+            // Add PR to project
+            const addResponse = await github.graphql(`
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
+                  item {
+                    id
+                  }
+                }
+              }
+            `, { projectId, contentId });
+            
+            const itemId = addResponse.addProjectV2Item.item.id;
+            console.log('✅ PR added to project. Item ID:', itemId);
+            
+            // Update status field
+            await github.graphql(`
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId,
+                  itemId: $itemId,
+                  fieldId: $fieldId,
+                  value: { singleSelectOptionId: $optionId }
+                }) {
+                  projectV2Item {
+                    id
+                  }
+                }
+              }
+            `, { projectId, itemId, fieldId: statusFieldId, optionId: reviewOptionId });
+            
+            console.log('✅ PR moved to Review status');
+            
+          } catch (error) {
+            console.error('❌ Error:', error.message);
+            if (error.response?.data?.errors) {
+              console.error('GraphQL Errors:', error.response.data.errors);
+            }
+          }
+
+    - name: 🎉 Handle PR merge
+      if: github.event.action == 'closed' && github.event.pull_request.merged == true
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const pullRequest = context.payload.pull_request;
           const projectId = 'PVT_kwDODcPCt84BDOZc';
           const statusFieldId = 'PVTSSF_lADODcPCt84BDOZczg1NKqA';
           const doneOptionId = '98236657';
-          const contentId = github.event.pull_request.node_id;
-
-          // Find the project item ID for the merged PR
-          const queryResponse = await github.graphql(`
-            query($projectId: ID!, $contentId: ID!) {
-              node(id: $projectId) {
-                ... on ProjectV2 {
-                  items(first: 100, query: "content: ${contentId}") {
-                    nodes {
-                      id
+          
+          try {
+            // Find project item by PR number
+            const queryResponse = await github.graphql(`
+              query($projectId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content {
+                          ... on PullRequest {
+                            number
+                          }
+                        }
+                      }
                     }
                   }
                 }
               }
+            `, { projectId });
+            
+            const matchingItem = queryResponse.node.items.nodes.find(item => 
+              item.content && item.content.number === pullRequest.number
+            );
+            
+            if (!matchingItem) {
+              console.log('PR not found in project board');
+              return;
             }
-          `, { projectId, contentId });
-
-          const itemId = queryResponse.node.items.nodes[0].id;
-
-          // Update status field
-          await github.graphql(`
-            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-              updateProjectV2ItemFieldValue(input: {
-                projectId: $projectId,
-                itemId: $itemId,
-                fieldId: $fieldId,
-                value: { singleSelectOptionId: $optionId }
-              }) {
-                projectV2Item {
-                  id
+            
+            // Update to Done status
+            await github.graphql(`
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId,
+                  itemId: $itemId,
+                  fieldId: $fieldId,
+                  value: { singleSelectOptionId: $optionId }
+                }) {
+                  projectV2Item {
+                    id
+                  }
                 }
               }
-            }
-          `, { projectId, itemId, fieldId: statusFieldId, optionId: doneOptionId });
+            `, { 
+              projectId, 
+              itemId: matchingItem.id, 
+              fieldId: statusFieldId, 
+              optionId: doneOptionId 
+            });
+            
+            console.log('✅ Merged PR moved to Done');
+            
+          } catch (error) {
+            console.error('❌ Error moving merged PR:', error.message);
+          }
 
   # 알림 시스템
   notifications:
+    if: github.event_name == 'issues' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: 📢 Slack notification
-      uses: 8398a7/action-slack @v3 # Check for latest version
+      if: env.SLACK_WEBHOOK_URL != ''
+      uses: 8398a7/action-slack@v3
       with:
         status: custom
         custom_payload: |
@@ -200,12 +257,15 @@ jobs:
           }
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-    
+
     - name: 💬 Discord notification
-      uses: Ilshidur/action-discord @master # Check for latest version
+      if: env.DISCORD_WEBHOOK != ''
+      uses: Ilshidur/action-discord@master
       with:
         args: |
-          🚀 **${{ github.repository }}**\n          ${{ github.event_name == 'issues' && '📋 Issue' || '🔄 PR' }} **${{ github.event.action }}** by ${{ github.actor }}\n          **Title:** ${{ github.event.issue.title || github.event.pull_request.title }}
+          🚀 **${{ github.repository }}**
+          ${{ github.event_name == 'issues' && '📋 Issue' || '🔄 PR' }} **${{ github.event.action }}** by ${{ github.actor }}
+          **Title:** ${{ github.event.issue.title || github.event.pull_request.title }}
           **Link:** ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
       env:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
