@@ -259,7 +259,7 @@ jobs:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     - name: 💬 Discord notification
-      if: secrets.DISCORD_WEBHOOK != ''
+      if: inputs.DISCORD_WEBHOOK != ''
       uses: Ilshidur/action-discord@master
       with:
         args: |
