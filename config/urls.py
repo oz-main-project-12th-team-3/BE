@@ -13,6 +13,4 @@ urlpatterns = [
     path("api/", include("chat.urls")),
 ]
 
-# DEBUG 모드에서만 정적 파일 서빙
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
