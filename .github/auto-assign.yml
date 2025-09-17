@@ -6,19 +6,19 @@ numberOfReviewers: 1 # Reduced to 1 for simplicity, adjust as needed
 reviewers:
   - BE12-OZ
   - BE12-OZ
-  - 209512
+  - '209512'
   - BE12-OZ
 
 # 파일 경로별 전문 리뷰어
 filePathReviewers:
   'ai/**':
-    - 209512
+    - '209512'
   'chat/**':
-    - 209512
+    - '209512'
   'users/**':
-    - 209512
+    - '209512'
   'config/**':
-    - 209512
+    - '209512'
   'migrations/**': # Assuming migrations are in app subdirectories
     - Bzlfktm
     - BE12-OZ
