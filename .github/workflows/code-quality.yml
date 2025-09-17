@@ -9,13 +9,10 @@ on:
     secrets:
       GITHUB_TOKEN:
         required: true
-        type: string
       SLACK_WEBHOOK_URL:
-        required: false # Slack webhook might not be required for all calls
-        type: string
+        required: false
       DISCORD_WEBHOOK:
-        required: false # Discord webhook might not be required for all calls
-        type: string
+        required: false
 
 jobs:
   lint-and-test:
