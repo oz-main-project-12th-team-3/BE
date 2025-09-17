@@ -1,22 +1,22 @@
 # Global ownership
-* @team-lead @senior-dev
+* @BE12-OZ @BE12-OZ
 
 # Backend specific
-/ai/ @backend-team
-/chat/ @backend-team
-/users/ @backend-team
-/config/ @backend-team
-/migrations/ @database-admin @team-lead
+/ai/ @209512
+/chat/ @209512
+/users/ @209512
+/config/ @209512
+/migrations/ @Bzlfktm @BE12-OZ
 
 # DevOps & Infrastructure
-/.github/ @devops-team @team-lead
-/docker-compose.yml @devops-team
-/Dockerfile @devops-team
+/.github/ @BE12-OZ @BE12-OZ
+/docker-compose.yml @BE12-OZ
+/Dockerfile @BE12-OZ
 
 # Documentation
-*.md @tech-writer @team-lead
+*.md @BE12-OZ @BE12-OZ
 
 # Configuration files
-pyproject.toml @team-lead @senior-dev
-pytest.ini @team-lead @senior-dev
-requirements.txt @team-lead @senior-dev
+pyproject.toml @BE12-OZ @BE12-OZ
+pytest.ini @BE12-OZ @BE12-OZ
+requirements.txt @BE12-OZ @BE12-OZ
