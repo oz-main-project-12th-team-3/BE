@@ -167,7 +167,7 @@ jobs:
         fi
 
     - name: ☁️ SonarCloud Analysis
-      uses: SonarSource/sonarqube-scan-action@v2
+      uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
       if: github.event_name == 'pull_request' || github.event_name == 'push'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
@@ -179,7 +179,6 @@ jobs:
         args: >
           -Dsonar.projectKey=oz-main-project-12th-team-3_BE
           -Dsonar.organization=oz-main-project-12th-team-3
-          -Dsonar.sources=.
           -Dsonar.python.version=${{ matrix.python-version }}
           -Dsonar.python.coverage.reportPaths=coverage.xml
 
