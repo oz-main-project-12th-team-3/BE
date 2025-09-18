@@ -18,8 +18,6 @@ on:
         default: false
         type: boolean
     secrets:
-      GITHUB_TOKEN:
-        required: true
       SLACK_WEBHOOK_URL:
         required: false
       DISCORD_WEBHOOK:
