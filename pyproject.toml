@@ -12,3 +12,10 @@ per-file-ignores = {"__init__.py" = ["F401"]}
 [tool.ruff.lint.mccabe]
 # "C901": `function` is too complex (`11` > `10`)
 max-complexity = 10
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "django_db: Mark the test as requiring database access (pytest-django)",
+    "asyncio: Mark the test as being asynchronous (pytest-anyio)",
+]
