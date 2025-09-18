@@ -3,6 +3,8 @@ djangorestframework
 djangorestframework-simplejwt
 python-dotenv
 psycopg2-binary
+channels
+channels_redis
 
 # Code Quality
 ruff
