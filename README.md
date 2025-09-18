@@ -2,9 +2,9 @@
 
 [🤩 우리 팀을 소개합니다](https://www.notion.so/268caf5650aa813fa60fe7775857251a?pvs=21)
 
-[회의록 📅](https://www.notion.so/268caf5650aa817d9268e38a33445a41?pvs=21)
+[📅 회의록](https://www.notion.so/268caf5650aa817d9268e38a33445a41?pvs=21)
 
-[팀 별 문서 공간 (4)](https://www.notion.so/268caf5650aa812d9d0ff38ca19dd1b5?pvs=21)
+[팀 별 문서 공간](https://www.notion.so/268caf5650aa812d9d0ff38ca19dd1b5?pvs=21)
 
 🚀 완전 자동화 GitHub 팀 프로젝트 설정
 📋 구현 로드맵
@@ -14,7 +14,7 @@
 
 ## 🚀 개발 환경 설정 (Docker Compose)
 
-이 프로젝트는 Docker Compose를 사용하여 일관된 개발 환경을 제공합니다.
+이 프로젝트는 Docker Compose를 사용하여 일관된 개발 환경을 제공
 
 ### 📋 필수 조건
 
