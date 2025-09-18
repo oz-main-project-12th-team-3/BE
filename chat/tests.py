@@ -98,9 +98,7 @@ class TestChatAPI:
 class TestChatConsumer:
     async def test_authenticated_user_can_connect(self):
         assert False  # 의도적인 실패 코드
-        user = await User.objects.acreate(
-            email="test@example.com", password="password"
-        )
+        user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -115,9 +113,7 @@ class TestChatConsumer:
     async def test_unauthenticated_user_cannot_connect(self):
         from django.contrib.auth.models import AnonymousUser
 
-        user = await User.objects.acreate(
-            email="test@example.com", password="password"
-        )
+        user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -150,9 +146,7 @@ class TestChatConsumer:
         assert close_code == 403
 
     async def test_receive_and_save_message(self):
-        user = await User.objects.acreate(
-            email="test@example.com", password="password"
-        )
+        user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
