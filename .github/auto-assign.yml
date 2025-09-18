@@ -20,7 +20,6 @@ filePathReviewers:
   'config/**':
     - '209512'
   'migrations/**': # Assuming migrations are in app subdirectories
-    - Bzlfktm
     - BE12-OZ
   '.github/**':
     - BE12-OZ
