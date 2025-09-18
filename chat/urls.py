@@ -8,10 +8,14 @@ from .views import (
 
 urlpatterns = [
     path(
-        "session", ChatSessionListCreateView.as_view(), name="chat-session-list-create"
+        "chat-sessions",
+        ChatSessionListCreateView.as_view(),
+        name="chat-sessions-list-create",
     ),
     path(
-        "message", ChatMessageListCreateView.as_view(), name="chat-message-list-create"
+        "chat-messages",
+        ChatMessageListCreateView.as_view(),
+        name="chat-messages-list-create",
     ),
-    path("voicelog", VoiceLogListCreateView.as_view(), name="voicelog-list-create"),
+    path("voice-logs", VoiceLogListCreateView.as_view(), name="voice-logs-list-create"),
 ]
