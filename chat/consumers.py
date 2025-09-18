@@ -1,5 +1,7 @@
 import json
 
+from django.utils import timezone
+
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
@@ -55,5 +57,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def save_message(self, message):
         session = ChatSession.objects.get(id=self.session_id)
         ChatLog.objects.create(
-            session=session, user=self.user, sender=Sender.USER, message=message
+            session=session,
+            user=self.user,
+            sender=Sender.USER,
+            message=message,
+            timestamp=timezone.now(),
         )
