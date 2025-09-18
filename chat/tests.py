@@ -97,7 +97,6 @@ class TestChatAPI:
 @pytest.mark.asyncio
 class TestChatConsumer:
     async def test_authenticated_user_can_connect(self):
-        assert False  # 의도적인 실패 코드
         user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
