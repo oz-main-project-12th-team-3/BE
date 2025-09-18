@@ -176,8 +176,8 @@ jobs:
         # Project-specific parameters (replace with your actual values)
         projectBaseDir: .
         args: >
-          -Dsonar.projectKey=your_project_key
-          -Dsonar.organization=your_organization_key
+          -Dsonar.projectKey=oz-main-project-12th-team-3_BE
+          -Dsonar.organization=oz-main-project-12th-team-3
           -Dsonar.sources=.
           -Dsonar.python.version=${{ matrix.python-version }}
           -Dsonar.python.coverage.reportPaths=coverage.xml # If you generate coverage.xml
