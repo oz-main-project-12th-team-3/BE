@@ -249,7 +249,7 @@ jobs:
 
   notify:
     needs: code-quality
-    if: always() && (secrets.SLACK_WEBHOOK_URL != '' || secrets.DISCORD_WEBHOOK != '')
+    if: always()
     runs-on: ubuntu-latest
 
     steps:
