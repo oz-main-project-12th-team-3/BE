@@ -27,8 +27,8 @@ class TestChatAPI:  # Changed inheritance to TestCase
     def test_unauthenticated_access(self, api_client):
         """인증되지 않은 사용자는 API에 접근할 수 없다."""
         # Use api_client for unauthenticated requests
-        session_url = reverse("chat-session-list-create")
-        message_url = reverse("chat-message-list-create")
+        session_url = reverse("chat-sessions-list-create")
+        message_url = reverse("chat-messages-list-create")
 
         response = api_client.get(session_url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -39,7 +39,7 @@ class TestChatAPI:  # Changed inheritance to TestCase
     def test_chat_session_create_and_list(self, authenticated_user):
         """사용자는 채팅 세션을 생성하고 자신의 세션 목록을 조회할 수 있다."""
         user, client = authenticated_user
-        url = reverse("chat-session-list-create")
+        url = reverse("chat-sessions-list-create")
 
         # 세션 생성
         response = client.post(url, {"title": "My First Session"}, format="json")
@@ -57,7 +57,7 @@ class TestChatAPI:  # Changed inheritance to TestCase
         """사용자는 자신의 세션에 메시지를 생성하고 조회할 수 있다."""
         user, client = authenticated_user
         session = ChatSession.objects.create(user=user, title="Test Session")
-        url = reverse("chat-message-list-create")
+        url = reverse("chat-messages-list-create")
 
         # 메시지 생성
         response = client.post(
@@ -86,7 +86,7 @@ class TestChatAPI:  # Changed inheritance to TestCase
         )
 
         # user1이 user2의 세션에 메시지를 보내려고 시도 -> 실패해야 함
-        message_url = reverse("chat-message-list-create")
+        message_url = reverse("chat-messages-list-create")
         response = client1.post(
             message_url,
             {"session": session_of_user2.id, "message": "Hi there!"},
