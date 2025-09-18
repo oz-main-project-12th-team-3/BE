@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from channels.testing import WebsocketCommunicator
 from django.urls import reverse
@@ -94,10 +96,14 @@ class TestChatAPI:
 
 
 @pytest.mark.django_db
-@pytest.mark.asyncio
 class TestChatConsumer:
-    async def test_authenticated_user_can_connect(self):
-        user = await User.objects.acreate(email="test@example.com", password="password")
+    def test_authenticated_user_can_connect(self):
+        asyncio.run(self._test_authenticated_user_can_connect())
+
+    async def _test_authenticated_user_can_connect(self):
+        user = await User.objects.acreate(
+            email="test@example.com", password="password"
+        )
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -109,10 +115,15 @@ class TestChatConsumer:
         assert connected
         await communicator.disconnect()
 
-    async def test_unauthenticated_user_cannot_connect(self):
+    def test_unauthenticated_user_cannot_connect(self):
+        asyncio.run(self._test_unauthenticated_user_cannot_connect())
+
+    async def _test_unauthenticated_user_cannot_connect(self):
         from django.contrib.auth.models import AnonymousUser
 
-        user = await User.objects.acreate(email="test@example.com", password="password")
+        user = await User.objects.acreate(
+            email="test@example.com", password="password"
+        )
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -124,7 +135,10 @@ class TestChatConsumer:
         assert not connected
         assert close_code == 401
 
-    async def test_user_cannot_connect_to_others_session(self):
+    def test_user_cannot_connect_to_others_session(self):
+        asyncio.run(self._test_user_cannot_connect_to_others_session())
+
+    async def _test_user_cannot_connect_to_others_session(self):
         user1 = await User.objects.acreate(
             email="user1@example.com", password="password"
         )
@@ -144,8 +158,13 @@ class TestChatConsumer:
         assert not connected
         assert close_code == 403
 
-    async def test_receive_and_save_message(self):
-        user = await User.objects.acreate(email="test@example.com", password="password")
+    def test_receive_and_save_message(self):
+        asyncio.run(self._test_receive_and_save_message())
+
+    async def _test_receive_and_save_message(self):
+        user = await User.objects.acreate(
+            email="test@example.com", password="password"
+        )
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
