@@ -180,7 +180,7 @@ jobs:
           -Dsonar.organization=oz-main-project-12th-team-3
           -Dsonar.sources=.
           -Dsonar.python.version=${{ matrix.python-version }}
-          -Dsonar.python.coverage.reportPaths=coverage.xml # If you generate coverage.xml
+          -Dsonar.python.coverage.reportPaths=coverage.xml
 
     - name: 📈 Upload test results
       uses: actions/upload-artifact@v4
