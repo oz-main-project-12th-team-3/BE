@@ -7,13 +7,9 @@
 [팀 별 문서 공간](https://www.notion.so/268caf5650aa812d9d0ff38ca19dd1b5?pvs=21)
 
 🚀 완전 자동화 GitHub 팀 프로젝트 설정
-</br>
 📋 구현 로드맵
-</br>
 🎯 1단계: 코드 품질 관리 시스템
-</br>
 🚀 2단계: 배포 자동화 파이프라인
-</br>
 👥 3단계: 팀 협업 자동화
 
 ## 🚀 개발 환경 설정 (Docker Compose)
