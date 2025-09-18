@@ -167,7 +167,7 @@ jobs:
         fi
 
     - name: ☁️ SonarCloud Analysis
-      uses: SonarSource/sonarcloud-github-action@master
+      uses: SonarSource/sonarqube-scan-action@v2
       if: github.event_name == 'pull_request' || github.event_name == 'push'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
