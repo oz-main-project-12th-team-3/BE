@@ -49,7 +49,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_session(self, session_id):
-        return ChatSession.objects.get(id=session_id)
+        return ChatSession.objects.select_related("user").get(id=session_id)
 
     @database_sync_to_async
     def save_message(self, message):

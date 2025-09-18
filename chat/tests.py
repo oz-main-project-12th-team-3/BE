@@ -95,7 +95,7 @@ class TestChatAPI:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestChatConsumer:
     def test_authenticated_user_can_connect(self):
         asyncio.run(self._test_authenticated_user_can_connect())
