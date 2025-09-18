@@ -1,17 +1,25 @@
 # 디지털 휴먼 AI 가상비서 서비스 구현
-
+</br>
 [🤩 우리 팀을 소개합니다](https://www.notion.so/268caf5650aa813fa60fe7775857251a?pvs=21)
-
+</br>
 [📅 회의록](https://www.notion.so/268caf5650aa817d9268e38a33445a41?pvs=21)
-
+</br>
 [팀 별 문서 공간](https://www.notion.so/268caf5650aa812d9d0ff38ca19dd1b5?pvs=21)
-
+</br>
+</br>
+</br>
 🚀 완전 자동화 GitHub 팀 프로젝트 설정
+</br>
 📋 구현 로드맵
+</br>
 🎯 1단계: 코드 품질 관리 시스템
+</br>
 🚀 2단계: 배포 자동화 파이프라인
+</br>
 👥 3단계: 팀 협업 자동화
-
+</br>
+</br>
+</br>
 ## 🚀 개발 환경 설정 (Docker Compose)
 
 이 프로젝트는 Docker Compose를 사용하여 일관된 개발 환경을 제공
