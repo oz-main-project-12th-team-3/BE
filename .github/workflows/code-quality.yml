@@ -27,6 +27,9 @@ jobs:
   code-quality:
     runs-on: ubuntu-latest
     name: 🔎 Code Quality Check
+    permissions:
+      contents: read
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
