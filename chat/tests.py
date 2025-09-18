@@ -101,9 +101,7 @@ class TestChatConsumer:
         asyncio.run(self._test_authenticated_user_can_connect())
 
     async def _test_authenticated_user_can_connect(self):
-        user = await User.objects.acreate(
-            email="test@example.com", password="password"
-        )
+        user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -121,9 +119,7 @@ class TestChatConsumer:
     async def _test_unauthenticated_user_cannot_connect(self):
         from django.contrib.auth.models import AnonymousUser
 
-        user = await User.objects.acreate(
-            email="test@example.com", password="password"
-        )
+        user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -162,9 +158,7 @@ class TestChatConsumer:
         asyncio.run(self._test_receive_and_save_message())
 
     async def _test_receive_and_save_message(self):
-        user = await User.objects.acreate(
-            email="test@example.com", password="password"
-        )
+        user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
