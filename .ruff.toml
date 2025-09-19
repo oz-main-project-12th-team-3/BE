@@ -1,7 +1,8 @@
-# .ruff.toml
 exclude = [
     "users/migrations/*",
     "Schedule/migrations/*",
+    "chat/migrations/*",
+    "ai/migrations/*",
     ".venv*",
     "__pycache__",
 ]
