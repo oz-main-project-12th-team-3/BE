@@ -3,7 +3,13 @@ djangorestframework
 djangorestframework-simplejwt
 python-dotenv
 psycopg2-binary
+channels
+channels_redis
+daphne
+
+# Code Quality
+ruff
 pytest
-pytest-django
 pytest-cov
-coverage
+pip-audit
+setuptools>=78.1.1
