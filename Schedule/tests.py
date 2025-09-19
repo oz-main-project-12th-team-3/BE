@@ -1,4 +1,3 @@
-import os
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -12,11 +11,9 @@ User = get_user_model()
 
 class ScheduleAPITest(APITestCase):
     def setUp(self):
-        # 환경변수에서 테스트용 비밀번호 가져오기, 없으면 기본값 사용
-        test_password = os.environ.get("TEST_USER_PASSWORD", "defaultpass")
         self.user = User.objects.create_user(
             email="test@example.com",
-            password=test_password,
+            password="testpass123",
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -65,13 +62,9 @@ class ScheduleAPITest(APITestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_only_user_schedules_returned(self):
-        # 환경변수에서 다른 사용자 비밀번호 가져오기, 없으면 기본값 사용
-        other_user_password = os.environ.get(
-            "TEST_OTHER_USER_PASSWORD", "defaultotherpass"
-        )
         other_user = User.objects.create_user(
             email="other@example.com",
-            password=other_user_password,
+            password="testpass5678",
         )
         Schedule.objects.create(user=other_user, title="다른 일정")
         Schedule.objects.create(user=self.user, title="내 일정")
