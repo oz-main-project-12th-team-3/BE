@@ -5,6 +5,7 @@ python-dotenv
 psycopg2-binary
 channels
 channels_redis
+daphne
 
 # Code Quality
 ruff
