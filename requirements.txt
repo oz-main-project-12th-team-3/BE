@@ -7,9 +7,10 @@ channels
 channels_redis
 daphne
 
-# Code Quality
+# Code Quality & Testing
 ruff
 pytest
+pytest-django
 pytest-cov
 pip-audit
 setuptools>=78.1.1
