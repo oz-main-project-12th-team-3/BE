@@ -1,5 +1,7 @@
+import secrets
+import string
+
 import pytest
-from django.conf import settings
 from django.contrib.admin.sites import AdminSite
 from django.urls import reverse
 from django.utils import timezone
@@ -17,14 +19,23 @@ from users.serializers import (
 )
 
 
+def generate_random_password():
+    """Generates a random password for tests."""
+    chars = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(12))
+
+
 @pytest.mark.django_db
 class TestUserModel:
     def test_create_user_and_superuser(self):
+        user_password = generate_random_password()
+        admin_password = "AdminPass123"  # This is fine, as it's not a common password
+
         user = User.objects.create_user(
-            email="user@test.com", password=settings.TEST_USER_PASSWORD, role="user"
+            email="user@test.com", password=user_password, role="user"
         )
         assert user.email == "user@test.com"
-        assert user.check_password(settings.TEST_USER_PASSWORD)
+        assert user.check_password(user_password)
         assert user.role == "user"
         assert not user.is_staff
         assert user.is_active
@@ -38,8 +49,9 @@ class TestUserModel:
         assert admin.role == "admin"
 
     def test_user_str_method(self):
+        user_password = generate_random_password()
         user = User.objects.create_user(
-            email="strtest@test.com", password=settings.TEST_USER_PASSWORD
+            email="strtest@test.com", password=user_password
         )
         # None 방지를 위해 str()로 감싸거나 or '' 처리
         assert str(user) == (user.email or "")
@@ -48,8 +60,9 @@ class TestUserModel:
 @pytest.mark.django_db
 class TestUserProfileModel:
     def test_profile_creation(self):
+        user_password = generate_random_password()
         user = User.objects.create_user(
-            email="profileuser@test.com", password=settings.TEST_USER_PASSWORD
+            email="profileuser@test.com", password=user_password
         )
         profile = UserProfile.objects.create(user=user, nickname="Tester")
         assert profile.user == user
@@ -60,8 +73,9 @@ class TestUserProfileModel:
 @pytest.mark.django_db
 class TestTokenModel:
     def test_token_creation(self):
+        user_password = generate_random_password()
         user = User.objects.create_user(
-            email="tokenuser@test.com", password=settings.TEST_USER_PASSWORD
+            email="tokenuser@test.com", password=user_password
         )
         issued_at = timezone.now()
         expires_at = issued_at + timezone.timedelta(days=7)
@@ -81,7 +95,7 @@ class TestSerializers:
     def test_user_serializer_create(self):
         data = {
             "email": "serializer@test.com",
-            "password": "StrongPass123",
+            "password": generate_random_password(),
             "nickname": "serializer_nick",
             "role": "user",
             "two_factor_enabled": False,
@@ -93,15 +107,17 @@ class TestSerializers:
         assert user.profile.nickname == data["nickname"]
 
     def test_user_profile_serializer(self):
+        user_password = generate_random_password()
         user = User.objects.create_user(
-            email="profile@test.com", password="password123"
+            email="profile@test.com", password=user_password
         )
         profile = UserProfile.objects.create(user=user, nickname="profile_nick")
         serializer = UserProfileSerializer(profile)
         assert serializer.data["nickname"] == "profile_nick"
 
     def test_token_serializer(self):
-        user = User.objects.create_user(email="token@test.com", password="password123")
+        user_password = generate_random_password()
+        user = User.objects.create_user(email="token@test.com", password=user_password)
         token = Token.objects.create(
             user=user,
             refresh_token="refreshtoken",
@@ -137,9 +153,10 @@ class TestUserViews:
         self.check_email_url = reverse("check-email")
         self.logout_url = reverse("user-logout")
 
+        self.test_password = generate_random_password()
         user_data = {
             "email": "apitestuser@test.com",
-            "password": settings.TEST_USER_PASSWORD,
+            "password": self.test_password,
             "nickname": "APITestUser",
             "role": "user",
         }
@@ -152,7 +169,10 @@ class TestUserViews:
 
         login_resp = self.client.post(
             self.login_url,
-            {"email": user_data["email"], "password": user_data["password"]},
+            {
+                "email": user_data["email"],
+                "password": user_data["password"],
+            },
             format="json",
         )
         assert login_resp.status_code == status.HTTP_200_OK
@@ -185,7 +205,7 @@ class TestUserViews:
         resp = self.client.patch(
             self.password_change_url,
             {
-                "current_password": settings.TEST_USER_PASSWORD,
+                "current_password": self.test_password,
                 "new_password": "NewStrongPass456",
             },
             format="json",
@@ -196,7 +216,10 @@ class TestUserViews:
     def test_password_change_fail_wrong_current(self):
         resp = self.client.patch(
             self.password_change_url,
-            {"current_password": "WrongPass", "new_password": "AnotherPass789"},
+            {
+                "current_password": "WrongPass",
+                "new_password": "AnotherPass789"
+            },
             format="json",
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
@@ -216,7 +239,10 @@ class TestUserViews:
 
         response = self.client.post(
             self.login_url,
-            {"email": self.user.email, "password": settings.TEST_USER_PASSWORD},
+            {
+                "email": self.user.email,
+                "password": self.test_password
+            },
             format="json",
         )
         assert response.status_code == status.HTTP_200_OK
@@ -239,7 +265,10 @@ class TestUserViews:
 
         resp = self.client.post(
             self.login_url,
-            {"email": self.user.email, "password": settings.TEST_USER_PASSWORD},
+            {
+                "email": self.user.email,
+                "password": self.test_password
+            },
             format="json",
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
@@ -249,7 +278,7 @@ class TestUserViews:
             self.login_url,
             {
                 "email": self.user.email,
-                "password": settings.TEST_USER_PASSWORD,
+                "password": self.test_password,
                 "two_factor_code": "wrong",
             },
             format="json",
