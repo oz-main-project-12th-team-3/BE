@@ -10,12 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Token, User, UserProfile
-from .serializers import (
-    PasswordChangeSerializer,
-    TokenSerializer,
-    UserProfileSerializer,
-    UserSerializer,
-)
+from .serializers import (PasswordChangeSerializer, TokenSerializer,
+                          UserProfileSerializer, UserSerializer)
 
 
 def generate_tokens(user):

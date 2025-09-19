@@ -3,7 +3,8 @@ from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied
 
 from .models import ChatLog, ChatSession, Sender, VoiceLog
-from .serializers import ChatLogSerializer, ChatSessionSerializer, VoiceLogSerializer
+from .serializers import (ChatLogSerializer, ChatSessionSerializer,
+                          VoiceLogSerializer)
 
 
 class ChatSessionListCreateView(generics.ListCreateAPIView):

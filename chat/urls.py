@@ -1,10 +1,7 @@
 from django.urls import path
 
-from .views import (
-    ChatMessageListCreateView,
-    ChatSessionListCreateView,
-    VoiceLogListCreateView,
-)
+from .views import (ChatMessageListCreateView, ChatSessionListCreateView,
+                    VoiceLogListCreateView)
 
 urlpatterns = [
     path(

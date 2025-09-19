@@ -15,20 +15,58 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Schedule',
+            name="Schedule",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255, verbose_name='제목')),
-                ('description', models.TextField(blank=True, null=True, verbose_name='상세 내용')),
-                ('start_time', models.DateTimeField(blank=True, null=True, verbose_name='시작 시간')),
-                ('end_time', models.DateTimeField(blank=True, null=True, verbose_name='종료 시간')),
-                ('is_completed', models.BooleanField(default=False, verbose_name='완료 여부')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='생성 시각')),
-                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='수정 시각')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='schedules', to=settings.AUTH_USER_MODEL, verbose_name='사용자')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=255, verbose_name="제목")),
+                (
+                    "description",
+                    models.TextField(blank=True, null=True, verbose_name="상세 내용"),
+                ),
+                (
+                    "start_time",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="시작 시간"
+                    ),
+                ),
+                (
+                    "end_time",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="종료 시간"
+                    ),
+                ),
+                (
+                    "is_completed",
+                    models.BooleanField(default=False, verbose_name="완료 여부"),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="생성 시각"),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="수정 시각"),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="schedules",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="사용자",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
     ]
