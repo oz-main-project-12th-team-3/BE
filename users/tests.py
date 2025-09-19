@@ -7,9 +7,13 @@ from rest_framework.test import APIClient
 
 from users.admin import TokenAdmin, UserAdmin, UserProfileAdmin
 from users.models import Token, User, UserProfile
-from users.serializers import (PasswordChangeSerializer, TokenSerializer,
-                               TwoFactorAuthSerializer, UserProfileSerializer,
-                               UserSerializer)
+from users.serializers import (
+    PasswordChangeSerializer,
+    TokenSerializer,
+    TwoFactorAuthSerializer,
+    UserProfileSerializer,
+    UserSerializer,
+)
 
 
 @pytest.mark.django_db
