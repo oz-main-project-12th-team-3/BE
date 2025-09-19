@@ -1,0 +1,42 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ main, feature-Schedule ]
+  pull_request:
+    branches: [ main, feature-Schedule ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+
+    - name: Cache pip
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}-v2
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Format code with Ruff
+      run: ruff format .
+
+    - name: Check code formatting with Ruff
+      run: ruff check .
+
+    - name: Run tests
+      run: python manage.py test
+
