@@ -1,0 +1,22 @@
+# Global ownership
+* @BE12-OZ @BE12-OZ
+
+# Backend specific
+/ai/ @209512
+/chat/ @209512
+/users/ @209512
+/config/ @209512
+/migrations/ @BE12-OZ
+
+# DevOps & Infrastructure
+/.github/ @BE12-OZ @BE12-OZ
+/docker-compose.yml @BE12-OZ
+/Dockerfile @BE12-OZ
+
+# Documentation
+*.md @BE12-OZ @BE12-OZ
+
+# Configuration files
+pyproject.toml @BE12-OZ @BE12-OZ
+pytest.ini @BE12-OZ @BE12-OZ
+requirements.txt @BE12-OZ @BE12-OZ

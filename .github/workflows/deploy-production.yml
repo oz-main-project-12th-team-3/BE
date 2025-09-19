@@ -1,0 +1,90 @@
+name: ⭐ Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  quality-gate:
+    uses: ./.github/workflows/code-quality.yml
+    secrets: inherit
+
+  build-and-deploy-prod:
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: ⬇️ Checkout code
+      uses: actions/checkout@v4
+
+    # --- 배포 전략 및 환경 설정 가이드 ---
+    # 이 워크플로우는 프로덕션 환경으로의 배포를 담당합니다.
+    #
+    # 1. 배포 전략:
+    #    현재는 Elastic Beanstalk을 통한 직접 배포 방식입니다.
+    #    프로덕션 환경에서는 더 안정적인 전략(예: Blue/Green, Canary)을 강력히 권장합니다.
+    #    해당 전략에 맞는 추가 단계나 도구(예: AWS CodeDeploy, Spinnaker)를 통합해야 합니다.
+    #    예시: Blue/Green 배포를 위해 새 환경에 배포 후 트래픽 전환 로직 추가
+    #
+    # 2. 환경 변수 설정:
+    #    환경별로 다른 설정(예: API 엔드포인트, 데이터베이스 연결 문자열)이 필요한 경우,
+    #    GitHub Environments의 Secrets 또는 Variables 기능을 활용하거나,
+    #    애플리케이션 내에서 환경 변수를 로드하는 방식을 사용해야 합니다.
+    #    예시: - name: Set Production Environment Variables
+    #            run: |
+    #              echo "API_URL=https://api.production.example.com" >> $GITHUB_ENV
+    #              echo "DB_HOST=${{ vars.PRODUCTION_DB_HOST }}" >> $GITHUB_ENV
+    #
+    # -----------------------------------
+
+    - name: 🔑 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2 # 예: ap-northeast-2
+
+    - name: 📦 Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: 🐏 Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: oz-be-main-project # 예: oz-be-repo
+        IMAGE_TAG: ${{ github.ref_name }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    - name: ⭐ Deploy to Elastic Beanstalk Production
+      uses: einaregilsson/beanstalk-deploy@v21
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: oz-digital-human # EB 애플리케이션 이름
+        environment_name: oz-production # Production 환경 이름
+        version_label: ${{ github.ref_name }}
+        region: ap-northeast-2 # 예: ap-northeast-2
+        deployment_package: docker-compose.yml # Docker 배포 명시
+
+    # --- 롤백 시스템 테스트 가이드 ---
+    # 배포 실패 또는 문제 발생 시 롤백을 위한 단계입니다.
+    # 실제 롤백 명령어는 배포 방식(예: Elastic Beanstalk, Kubernetes)에 따라 달라집니다.
+    # 프로덕션 환경에서는 자동 롤백 또는 수동 롤백 절차를 명확히 정의해야 합니다.
+    #
+    # 예시: Elastic Beanstalk의 경우, 이전 버전으로 환경을 업데이트하는 명령을 사용합니다.
+    # - name: ↩️ Rollback on Failure (Placeholder)
+    #   if: ${{ failure() }} # 이전 단계가 실패했을 때만 실행
+    #   run: |
+    #     echo "⚠️ Deployment failed. Initiating rollback to previous stable version..."
+    #     # 여기에 실제 롤백 명령어를 추가하세요.
+    #     # 예: aws elasticbeanstalk update-environment --environment-name your-env --version-label previous-version
+    #     # 예: kubectl rollout undo deployment/your-app
+    #     echo "✅ Rollback initiated. Please verify manually."
+    # -----------------------------------
