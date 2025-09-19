@@ -1,6 +1,6 @@
 # 서드파티 라이브러리
-from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 
@@ -14,7 +14,8 @@ User = get_user_model()
 class ScheduleAPITest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            email="test@example.com", password="testpass123"
+            email="test@example.com",
+            password="testpass123"
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)  # ✅ 인증 강제
@@ -56,9 +57,8 @@ class ScheduleAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Schedule.objects.count(), 0)
 
-    # 🔹 추가 권한 및 필드 테스트
     def test_unauthenticated_access(self):
-        self.client.force_authenticate(user=None)  # 인증 제거
+        self.client.force_authenticate(user=None)
         url = reverse("schedule-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 401)
