@@ -22,14 +22,14 @@ from users.serializers import (
 def generate_random_password():
     """Generates a random password for tests."""
     chars = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(chars) for _ in range(12))
+    return "".join(secrets.choice(chars) for _ in range(12))
 
 
 @pytest.mark.django_db
 class TestUserModel:
     def test_create_user_and_superuser(self):
         user_password = generate_random_password()
-        admin_password = "AdminPass123"  # This is fine, as it's not a common password
+        admin_password = "AdminPass123"  # This is fine, as it s not a common password
 
         user = User.objects.create_user(
             email="user@test.com", password=user_password, role="user"
@@ -53,7 +53,7 @@ class TestUserModel:
         user = User.objects.create_user(
             email="strtest@test.com", password=user_password
         )
-        # None 방지를 위해 str()로 감싸거나 or '' 처리
+        # None 방지를 위해 str()로 감싸거나 or "" 처리
         assert str(user) == (user.email or "")
 
 
