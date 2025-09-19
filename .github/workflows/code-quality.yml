@@ -27,10 +27,13 @@ jobs:
   code-quality:
     runs-on: ubuntu-latest
     name: 🔎 Code Quality Check
+    permissions:
+      contents: read
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.13"]
 
     steps:
     - name: 📂 Checkout code
@@ -164,20 +167,20 @@ jobs:
         fi
 
     - name: ☁️ SonarCloud Analysis
-      uses: SonarSource/sonarcloud-github-action@master
+      uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
       if: github.event_name == 'pull_request' || github.event_name == 'push'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: https://sonarcloud.io
       with:
         # Project-specific parameters (replace with your actual values)
         projectBaseDir: .
         args: >
-          -Dsonar.projectKey=your_project_key
-          -Dsonar.organization=your_organization_key
-          -Dsonar.sources=.
+          -Dsonar.projectKey=oz-main-project-12th-team-3_BE
+          -Dsonar.organization=oz-main-project-12th-team-3
           -Dsonar.python.version=${{ matrix.python-version }}
-          -Dsonar.python.coverage.reportPaths=coverage.xml # If you generate coverage.xml
+          -Dsonar.python.coverage.reportPaths=coverage.xml
 
     - name: 📈 Upload test results
       uses: actions/upload-artifact@v4
