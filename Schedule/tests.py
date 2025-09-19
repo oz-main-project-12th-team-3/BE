@@ -60,7 +60,7 @@ class ScheduleAPITest(APITestCase):
         self.assertEqual(Schedule.objects.count(), 0)
 
     def test_unauthenticated_access(self):
-        self.client.force_authenticate(user=None)
+        self.client.logout()
         url = reverse("schedule-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 401)
