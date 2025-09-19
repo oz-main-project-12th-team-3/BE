@@ -1,3 +1,4 @@
+import secrets
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
@@ -11,9 +12,11 @@ User = get_user_model()
 
 class ScheduleAPITest(APITestCase):
     def setUp(self):
+        # 랜덤 비밀번호 생성
+        random_password = secrets.token_urlsafe(16)
         self.user = User.objects.create_user(
             email="test@example.com",
-            password="testpass123",
+            password=random_password,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -62,9 +65,11 @@ class ScheduleAPITest(APITestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_only_user_schedules_returned(self):
+        # 다른 사용자도 랜덤 비밀번호
+        other_user_password = secrets.token_urlsafe(16)
         other_user = User.objects.create_user(
             email="other@example.com",
-            password="testpass5678",
+            password=other_user_password,
         )
         Schedule.objects.create(user=other_user, title="다른 일정")
         Schedule.objects.create(user=self.user, title="내 일정")
