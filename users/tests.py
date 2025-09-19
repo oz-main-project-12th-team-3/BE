@@ -223,7 +223,10 @@ class TestUserViews:
     def test_password_change_fail_wrong_current(self):
         resp = self.client.patch(
             self.password_change_url,
-            {"current_password": "WrongPass", "new_password": generate_random_string()},
+            {
+                "current_password": generate_random_string(),
+                "new_password": generate_random_string(),
+            },
             format="json",
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
@@ -277,7 +280,7 @@ class TestUserViews:
             {
                 "email": self.user.email,
                 "password": self.test_password,
-                "two_factor_code": "wrong",
+                "two_factor_code": generate_random_string(6),
             },
             format="json",
         )
