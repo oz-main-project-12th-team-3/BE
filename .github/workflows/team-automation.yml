@@ -13,6 +13,8 @@ jobs:
   issue-management:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
 
     steps:
     - name: 📋 Auto-label issues
