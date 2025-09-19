@@ -136,18 +136,14 @@ if os.environ.get("RUNNING_TESTS"):
         "DEFAULT_AUTHENTICATION_CLASSES": (
             "rest_framework.authentication.SessionAuthentication",
         ),
-        "DEFAULT_PERMISSION_CLASSES": (
-            "rest_framework.permissions.IsAuthenticated",
-        ),
+        "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     }
 else:
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": (
             "rest_framework_simplejwt.authentication.JWTAuthentication",
         ),
-        "DEFAULT_PERMISSION_CLASSES": (
-            "rest_framework.permissions.IsAuthenticated",
-        ),
+        "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     }
 
 # -----------------------------
