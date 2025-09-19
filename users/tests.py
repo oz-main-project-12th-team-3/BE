@@ -234,14 +234,20 @@ class TestUserViews:
         self.user.save()
 
         resp = self.client.post(
-            self.login_url, {"email": self.user.email, "password": "TestPass123"}, format="json"
+            self.login_url,
+            {"email": self.user.email, "password": "TestPass123"},
+            format="json",
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         assert resp.data["detail"] == "2단계 인증 코드를 입력해주세요."
 
         resp = self.client.post(
             self.login_url,
-            {"email": self.user.email, "password": "TestPass123", "two_factor_code": "wrong"},
+            {
+                "email": self.user.email,
+                "password": "TestPass123",
+                "two_factor_code": "wrong",
+            },
             format="json",
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
