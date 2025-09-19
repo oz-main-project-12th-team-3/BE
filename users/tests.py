@@ -142,60 +142,60 @@ class TestUserViews:
             "nickname": "APITestUser",
             "role": "user",
         }
-        # Create the user directly, as force_login needs a user object
         self.user = User.objects.create_user(
             email=user_data["email"],
             password=user_data["password"],
             role=user_data["role"],
         )
-        # Create the UserProfile separately
         UserProfile.objects.create(user=self.user, nickname=user_data["nickname"])
 
-        # Authenticate the client using session authentication
-        self.client.login(email=user_data["email"], password=user_data["password"])
+        login_resp = self.client.post(
+            self.login_url,
+            {"email": user_data["email"], "password": user_data["password"]},
+            format="json",
+        )
+        assert login_resp.status_code == status.HTTP_200_OK
 
         self.password_change_url = reverse("user-password-change", args=[self.user.id])
         self.profile_url = reverse("user-profile", args=[self.user.id])
 
     def test_check_email(self):
-        unauthenticated_client = APIClient()  # New client
+        unauthenticated_client = APIClient()
         resp = unauthenticated_client.post(
             self.check_email_url, {"email": "apitestuser@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["available"] is False
 
-        resp = unauthenticated_client.post(  # Use new client
+        resp = unauthenticated_client.post(
             self.check_email_url, {"email": "newemail@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["available"] is True
 
     def test_login_fail_without_password(self):
-        unauthenticated_client = APIClient()  # New client
+        unauthenticated_client = APIClient()
         resp = unauthenticated_client.post(
             self.login_url, {"email": "apitestuser@test.com"}, format="json"
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_password_change_success(self):
-        if self.password_change_url:
-            resp = self.client.post(
-                self.password_change_url,
-                {"current_password": "TestPass123", "new_password": "NewStrongPass456"},
-                format="json",
-            )
-            assert resp.status_code == status.HTTP_200_OK
-            assert "성공" in resp.data["detail"]
+        resp = self.client.patch(
+            self.password_change_url,
+            {"current_password": "TestPass123", "new_password": "NewStrongPass456"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert "성공" in resp.data["detail"]
 
     def test_password_change_fail_wrong_current(self):
-        if self.password_change_url:
-            resp = self.client.post(
-                self.password_change_url,
-                {"current_password": "WrongPass", "new_password": "AnotherPass789"},
-                format="json",
-            )
-            assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+        resp = self.client.patch(
+            self.password_change_url,
+            {"current_password": "WrongPass", "new_password": "AnotherPass789"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_user_profile_access(self):
         resp = self.client.get(self.profile_url)
@@ -204,7 +204,48 @@ class TestUserViews:
 
     def test_logout(self):
         resp = self.client.post(self.logout_url)
-        assert resp.status_code == status.HTTP_204_NO_CONTENT  # Logout returns 204
+        assert resp.status_code in {status.HTTP_200_OK, status.HTTP_204_NO_CONTENT}
+        assert "detail" in resp.data
+
+    def test_jwt_authenticate_via_cookie(self):
+        from users.views import JWTAuthentication
+
+        response = self.client.post(
+            self.login_url,
+            {"email": self.user.email, "password": "TestPass123"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        token = response.cookies.get("access_token").value
+        assert token is not None
+
+        class Req:
+            def __init__(self, cookies):
+                self.headers = {}
+                self.COOKIES = cookies
+
+        jwt_auth = JWTAuthentication()
+        req = Req(cookies={"access_token": token})
+        user, _ = jwt_auth.authenticate(req)
+        assert user == self.user
+
+    def test_userlogin_2fa_failure(self):
+        self.user.two_factor_enabled = True
+        self.user.save()
+
+        resp = self.client.post(
+            self.login_url, {"email": self.user.email, "password": "TestPass123"}, format="json"
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert resp.data["detail"] == "2단계 인증 코드를 입력해주세요."
+
+        resp = self.client.post(
+            self.login_url,
+            {"email": self.user.email, "password": "TestPass123", "two_factor_code": "wrong"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+        assert resp.data["detail"] == "2단계 인증 코드가 올바르지 않습니다."
 
 
 @pytest.mark.django_db
