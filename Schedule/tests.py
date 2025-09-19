@@ -1,7 +1,12 @@
+# 표준 라이브러리
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+
+# 서드파티 라이브러리
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
+
+# 로컬 모듈
 from .models import Schedule
 from .serializers import ScheduleSerializer
 
@@ -14,7 +19,7 @@ class ScheduleAPITest(APITestCase):
             email="test@example.com", password="testpass123"
         )
         self.client = APIClient()
-        self.client.force_authenticate(user=self.user)  # ✅ 여기서 인증 강제
+        self.client.force_authenticate(user=self.user)  # ✅ 인증 강제
 
     def test_create_schedule(self):
         url = reverse("schedule-list")
