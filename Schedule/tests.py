@@ -7,9 +7,12 @@ from .serializers import ScheduleSerializer
 
 User = get_user_model()
 
+
 class ScheduleAPITest(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(email="test@example.com", password="testpass123")
+        self.user = User.objects.create_user(
+            email="test@example.com", password="testpass123"
+        )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)  # ✅ 여기서 인증 강제
 
@@ -20,7 +23,7 @@ class ScheduleAPITest(APITestCase):
             "description": "테스트 내용",
             "start_time": "2025-09-18T10:00:00Z",
             "end_time": "2025-09-18T11:00:00Z",
-            "is_completed": False
+            "is_completed": False,
         }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -58,7 +61,9 @@ class ScheduleAPITest(APITestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_only_user_schedules_returned(self):
-        other_user = User.objects.create_user(email="other@example.com", password="1234")
+        other_user = User.objects.create_user(
+            email="other@example.com", password="1234"
+        )
         Schedule.objects.create(user=other_user, title="다른 일정")
         Schedule.objects.create(user=self.user, title="내 일정")
         url = reverse("schedule-list")
