@@ -59,7 +59,7 @@ class ScheduleAPITest(APITestCase):
         self.client.force_authenticate(user=None)
         url = reverse("schedule-list")
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 403)
 
     def test_only_user_schedules_returned(self):
         other_user = User.objects.create_user(
