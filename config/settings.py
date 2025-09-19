@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "users",
     "chat",
     "ai",
+    "Schedule",
 ]
 
 MIDDLEWARE = [
