@@ -9,6 +9,7 @@ from rest_framework.test import APIClient, APITestCase
 from .models import Schedule
 from .serializers import ScheduleSerializer
 
+
 User = get_user_model()
 
 
