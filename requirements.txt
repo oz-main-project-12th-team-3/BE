@@ -12,5 +12,6 @@ ruff
 pytest
 pytest-django
 pytest-cov
+pytest-django
 pip-audit
 setuptools>=78.1.1
