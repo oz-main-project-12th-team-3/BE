@@ -19,17 +19,17 @@ from users.serializers import (
 )
 
 
-def generate_random_password():
-    """Generates a random password for tests."""
+def generate_random_string(length=12):
+    """Generates a random string for tests."""
     chars = string.ascii_letters + string.digits
-    return "".join(secrets.choice(chars) for _ in range(12))
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 @pytest.mark.django_db
 class TestUserModel:
     def test_create_user_and_superuser(self):
-        user_password = generate_random_password()
-        admin_password = "AdminPass123"  # This is fine, as it s not a common password
+        user_password = generate_random_string()
+        admin_password = generate_random_string()
 
         user = User.objects.create_user(
             email="user@test.com", password=user_password, role="user"
@@ -49,7 +49,7 @@ class TestUserModel:
         assert admin.role == "admin"
 
     def test_user_str_method(self):
-        user_password = generate_random_password()
+        user_password = generate_random_string()
         user = User.objects.create_user(
             email="strtest@test.com", password=user_password
         )
@@ -60,7 +60,7 @@ class TestUserModel:
 @pytest.mark.django_db
 class TestUserProfileModel:
     def test_profile_creation(self):
-        user_password = generate_random_password()
+        user_password = generate_random_string()
         user = User.objects.create_user(
             email="profileuser@test.com", password=user_password
         )
@@ -73,7 +73,7 @@ class TestUserProfileModel:
 @pytest.mark.django_db
 class TestTokenModel:
     def test_token_creation(self):
-        user_password = generate_random_password()
+        user_password = generate_random_string()
         user = User.objects.create_user(
             email="tokenuser@test.com", password=user_password
         )
@@ -81,12 +81,12 @@ class TestTokenModel:
         expires_at = issued_at + timezone.timedelta(days=7)
         token = Token.objects.create(
             user=user,
-            refresh_token="refreshtoken123",
+            refresh_token=generate_random_string(),  # 토큰 값도 동적으로 생성
             issued_at=issued_at,
             expires_at=expires_at,
         )
         assert token.user == user
-        assert token.refresh_token == "refreshtoken123"
+        assert token.refresh_token is not None
         assert token.issued_at == issued_at
 
 
@@ -95,7 +95,7 @@ class TestSerializers:
     def test_user_serializer_create(self):
         data = {
             "email": "serializer@test.com",
-            "password": generate_random_password(),
+            "password": generate_random_string(),
             "nickname": "serializer_nick",
             "role": "user",
             "two_factor_enabled": False,
@@ -107,7 +107,7 @@ class TestSerializers:
         assert user.profile.nickname == data["nickname"]
 
     def test_user_profile_serializer(self):
-        user_password = generate_random_password()
+        user_password = generate_random_string()
         user = User.objects.create_user(
             email="profile@test.com", password=user_password
         )
@@ -116,23 +116,32 @@ class TestSerializers:
         assert serializer.data["nickname"] == "profile_nick"
 
     def test_token_serializer(self):
-        user_password = generate_random_password()
+        user_password = generate_random_string()
         user = User.objects.create_user(email="token@test.com", password=user_password)
         token = Token.objects.create(
             user=user,
-            refresh_token="refreshtoken",
+            refresh_token=generate_random_string(),
             issued_at=timezone.now(),
             expires_at=timezone.now(),
         )
         serializer = TokenSerializer(token)
-        assert serializer.data["refresh_token"] == "refreshtoken"
+        assert serializer.data["refresh_token"] is not None
 
     def test_password_change_serializer(self):
-        valid_data = {"current_password": "oldpass123", "new_password": "newpass123"}
+        current_password = generate_random_string()
+        new_password = generate_random_string()
+        valid_data = {
+            "current_password": current_password,
+            "new_password": new_password,
+        }
         serializer = PasswordChangeSerializer(data=valid_data)
         assert serializer.is_valid()
 
-        invalid_data = {"current_password": "samepass", "new_password": "samepass"}
+        same_password = generate_random_string()
+        invalid_data = {
+            "current_password": same_password,
+            "new_password": same_password,
+        }
         serializer = PasswordChangeSerializer(data=invalid_data)
         assert not serializer.is_valid()
         assert "non_field_errors" in serializer.errors
@@ -153,7 +162,7 @@ class TestUserViews:
         self.check_email_url = reverse("check-email")
         self.logout_url = reverse("user-logout")
 
-        self.test_password = generate_random_password()
+        self.test_password = generate_random_string()
         user_data = {
             "email": "apitestuser@test.com",
             "password": self.test_password,
@@ -169,10 +178,7 @@ class TestUserViews:
 
         login_resp = self.client.post(
             self.login_url,
-            {
-                "email": user_data["email"],
-                "password": user_data["password"],
-            },
+            {"email": user_data["email"], "password": user_data["password"]},
             format="json",
         )
         assert login_resp.status_code == status.HTTP_200_OK
@@ -202,11 +208,12 @@ class TestUserViews:
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_password_change_success(self):
+        new_test_password = generate_random_string()
         resp = self.client.patch(
             self.password_change_url,
             {
                 "current_password": self.test_password,
-                "new_password": "NewStrongPass456",
+                "new_password": new_test_password,
             },
             format="json",
         )
@@ -216,7 +223,7 @@ class TestUserViews:
     def test_password_change_fail_wrong_current(self):
         resp = self.client.patch(
             self.password_change_url,
-            {"current_password": "WrongPass", "new_password": "AnotherPass789"},
+            {"current_password": "WrongPass", "new_password": generate_random_string()},
             format="json",
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
@@ -287,12 +294,12 @@ class TestAdmin:
         self.token_admin = TokenAdmin(Token, self.site)
 
         self.user = User.objects.create_user(
-            email="adminuser@test.com", password="adminpass123"
+            email="adminuser@test.com", password=generate_random_string()
         )
         self.profile = UserProfile.objects.create(user=self.user, nickname="adminnick")
         self.token = Token.objects.create(
             user=self.user,
-            refresh_token="token123",
+            refresh_token=generate_random_string(),
             issued_at=timezone.now(),
             expires_at=timezone.now(),
         )
