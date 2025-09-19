@@ -143,6 +143,11 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
 
+# 쿠키 보안 관련 설정 (쿠키 사용 시)
+SECURE_COOKIE = not DEBUG  # DEBUG 모드에서는 False, 운영환경에서는 True 권장
+
+SESSION_COOKIE_SECURE = SECURE_COOKIE
+CSRF_COOKIE_SECURE = SECURE_COOKIE
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
