@@ -64,7 +64,7 @@ class ScheduleAPITest(APITestCase):
     def test_only_user_schedules_returned(self):
         other_user = User.objects.create_user(
             email="other@example.com",
-            password="1234",
+            password="testpass5678",
         )
         Schedule.objects.create(user=other_user, title="다른 일정")
         Schedule.objects.create(user=self.user, title="내 일정")
