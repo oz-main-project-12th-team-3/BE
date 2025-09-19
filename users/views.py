@@ -1,19 +1,22 @@
-from rest_framework import generics, status, permissions
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from datetime import datetime, timedelta, timezone
+
+import jwt
+from django.conf import settings
+from django.contrib.auth.hashers import check_password
+from rest_framework import generics, permissions, status
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
-from django.contrib.auth.hashers import check_password
-import jwt
-from datetime import datetime, timedelta, timezone
-from django.conf import settings
-from .models import User, UserProfile, Token
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Token, User, UserProfile
 from .serializers import (
-    UserSerializer,
-    UserProfileSerializer,
-    TokenSerializer,
     PasswordChangeSerializer,
+    TokenSerializer,
+    UserProfileSerializer,
+    UserSerializer,
 )
+
 
 def generate_tokens(user):
     access_token_lifetime = timedelta(minutes=30)
@@ -38,6 +41,7 @@ def generate_tokens(user):
     )
     return access_token, refresh_token, access_token_lifetime
 
+
 class JWTAuthentication(BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.headers.get("Authorization")
@@ -48,7 +52,9 @@ class JWTAuthentication(BaseAuthentication):
                 if prefix.lower() != "bearer":
                     raise AuthenticationFailed("Bearer 토큰이어야 합니다.")
             except ValueError:
-                raise AuthenticationFailed("유효하지 않은 Authorization 헤더 형식입니다.")
+                raise AuthenticationFailed(
+                    "유효하지 않은 Authorization 헤더 형식입니다."
+                )
         else:
             token = request.COOKIES.get("access_token")
         if not token:
@@ -60,6 +66,7 @@ class JWTAuthentication(BaseAuthentication):
         except (jwt.ExpiredSignatureError, jwt.DecodeError, User.DoesNotExist):
             raise AuthenticationFailed("유효하지 않은 토큰입니다.")
 
+
 class UserRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -69,9 +76,10 @@ class UserRegisterView(generics.CreateAPIView):
         response = super().create(request, *args, **kwargs)
         response.data = {
             "detail": "회원가입이 성공적으로 완료되었습니다.",
-            **response.data
+            **response.data,
         }
         return response
+
 
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -96,12 +104,16 @@ class UserLoginView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         if user.account_lockout_en and user.account_lockout_en > datetime.now(
-                timezone.utc
+            timezone.utc
         ):
             remaining = user.account_lockout_en - datetime.now(timezone.utc)
             return Response(
                 {
-                    "detail": f"계정이 잠겼습니다. {int(remaining.total_seconds() // 60)}분 후 다시 시도해주세요."
+                    "detail": (
+                        "계정이 잠겼습니다. "
+                        f"{int(remaining.total_seconds() // 60)}분 후 "
+                        "다시 시도해주세요."
+                    )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -158,16 +170,20 @@ class UserLoginView(APIView):
         )
         return response
 
+
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         Token.objects.filter(user=request.user).delete()
-        response = Response({"detail": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
+        response = Response(
+            {"detail": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
+        )
         response.delete_cookie("access_token")
         response.delete_cookie("refresh_token")
         return response
+
 
 class UserProfileView(generics.RetrieveUpdateDestroyAPIView):
     queryset = UserProfile.objects.all()
@@ -182,7 +198,10 @@ class UserProfileView(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"detail": "프로필이 삭제되었습니다."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "프로필이 삭제되었습니다."}, status=status.HTTP_200_OK
+        )
+
 
 class TokenDetailView(generics.RetrieveDestroyAPIView):
     queryset = Token.objects.all()
@@ -195,6 +214,7 @@ class TokenDetailView(generics.RetrieveDestroyAPIView):
         self.perform_destroy(instance)
         return Response({"detail": "토큰이 삭제되었습니다."}, status=status.HTTP_200_OK)
 
+
 class PasswordChangeView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
@@ -205,17 +225,29 @@ class PasswordChangeView(APIView):
         try:
             user = User.objects.get(id=id)
         except User.DoesNotExist:
-            return Response({"detail": "사용자를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "사용자를 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         if request.user.id != user.id:
-            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN
+            )
         current_password = serializer.validated_data["current_password"]
         new_password = serializer.validated_data["new_password"]
         if not check_password(current_password, user.password):
-            return Response({"detail": "현재 비밀번호가 올바르지 않습니다."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"detail": "현재 비밀번호가 올바르지 않습니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         user.set_password(new_password)
         user.password_changed_at = datetime.now(timezone.utc)
         user.save()
-        return Response({"detail": "비밀번호가 성공적으로 변경되었습니다."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "비밀번호가 성공적으로 변경되었습니다."},
+            status=status.HTTP_200_OK,
+        )
+
 
 class CheckEmailView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -223,10 +255,18 @@ class CheckEmailView(APIView):
     def post(self, request):
         email = request.data.get("email")
         if not email:
-            return Response({"detail": "이메일을 입력해주세요."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "이메일을 입력해주세요."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         exists = User.objects.filter(email=email).exists()
         if exists:
-            return Response({"available": False, "detail": "이미 사용중인 이메일입니다."}, status=status.HTTP_200_OK)
+            return Response(
+                {"available": False, "detail": "이미 사용중인 이메일입니다."},
+                status=status.HTTP_200_OK,
+            )
         else:
-            return Response({"available": True, "detail": "사용 가능한 이메일입니다."}, status=status.HTTP_200_OK)
+            return Response(
+                {"available": True, "detail": "사용 가능한 이메일입니다."},
+                status=status.HTTP_200_OK,
+            )
