@@ -1,10 +1,8 @@
-# 서드파티 라이브러리
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 
-# 로컬 모듈
 from .models import Schedule
 from .serializers import ScheduleSerializer
 
@@ -15,10 +13,10 @@ class ScheduleAPITest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email="test@example.com",
-            password="testpass123"
+            password="testpass123",
         )
         self.client = APIClient()
-        self.client.force_authenticate(user=self.user)  # ✅ 인증 강제
+        self.client.force_authenticate(user=self.user)
 
     def test_create_schedule(self):
         url = reverse("schedule-list")
@@ -65,7 +63,8 @@ class ScheduleAPITest(APITestCase):
 
     def test_only_user_schedules_returned(self):
         other_user = User.objects.create_user(
-            email="other@example.com", password="1234"
+            email="other@example.com",
+            password="1234",
         )
         Schedule.objects.create(user=other_user, title="다른 일정")
         Schedule.objects.create(user=self.user, title="내 일정")
@@ -80,3 +79,5 @@ class ScheduleAPITest(APITestCase):
         self.assertIn("created_at", serializer.data)
         self.assertIn("updated_at", serializer.data)
         self.assertIn("user", serializer.data)
+
+# 마지막 줄 빈 줄 추가
