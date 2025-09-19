@@ -1,0 +1,9 @@
+# .ruff.toml
+exclude = [
+    "users/migrations/*",
+    "Schedule/migrations/*",
+    ".venv*",
+    "__pycache__",
+]
+
+line-length = 88
