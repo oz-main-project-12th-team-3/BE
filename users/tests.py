@@ -41,7 +41,7 @@ class TestUserModel:
         assert user.is_active
 
         admin = User.objects.create_superuser(
-            email="admin@test.com", password="AdminPass123"
+            email="admin@test.com", password=admin_password
         )
         assert admin.email == "admin@test.com"
         assert admin.is_staff
@@ -216,10 +216,7 @@ class TestUserViews:
     def test_password_change_fail_wrong_current(self):
         resp = self.client.patch(
             self.password_change_url,
-            {
-                "current_password": "WrongPass",
-                "new_password": "AnotherPass789"
-            },
+            {"current_password": "WrongPass", "new_password": "AnotherPass789"},
             format="json",
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
@@ -239,10 +236,7 @@ class TestUserViews:
 
         response = self.client.post(
             self.login_url,
-            {
-                "email": self.user.email,
-                "password": self.test_password
-            },
+            {"email": self.user.email, "password": self.test_password},
             format="json",
         )
         assert response.status_code == status.HTTP_200_OK
@@ -265,10 +259,7 @@ class TestUserViews:
 
         resp = self.client.post(
             self.login_url,
-            {
-                "email": self.user.email,
-                "password": self.test_password
-            },
+            {"email": self.user.email, "password": self.test_password},
             format="json",
         )
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
