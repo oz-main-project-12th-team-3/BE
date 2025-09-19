@@ -11,5 +11,6 @@ daphne
 ruff
 pytest
 pytest-cov
+pytest-django
 pip-audit
 setuptools>=78.1.1
