@@ -191,3 +191,6 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# 테스트 환경에서 사용할 변수 -Sonar 통과에 필요
+TEST_USER_PASSWORD = "TestPass123"
