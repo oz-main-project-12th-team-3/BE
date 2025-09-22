@@ -89,7 +89,7 @@ class FullNotificationAPITest(APITestCase):
             "notification_type": self.type_message.id,
             "title": "새 알림",
             "message": "테스트 메시지",
-            "link": "/test-link/",
+            "link": "https://example.com/test-link/",  # <- 절대 URL로 수정
         }
         response = self.client.post(url_list, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

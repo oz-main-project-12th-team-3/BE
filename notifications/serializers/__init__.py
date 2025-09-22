@@ -1,6 +1,4 @@
 from .notification_serializer import NotificationSerializer, NotificationReadSerializer
 from .notification_type_serializer import NotificationTypeSerializer
+from .user_notification_preference_serializer import UserNotificationPreferenceSerializer
 from .schedule_notification_serializer import ScheduleNotificationSerializer
-from .user_notification_preference_serializer import (
-    UserNotificationPreferenceSerializer,
-)

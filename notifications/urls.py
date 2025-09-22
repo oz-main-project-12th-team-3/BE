@@ -9,13 +9,11 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"notifications", NotificationViewSet, basename="notification")
+router.register(r"notification-types", NotificationTypeViewSet, basename="notificationtype")
 router.register(
-    r"notification-types", NotificationTypeViewSet, basename="notificationtype"
-)
-router.register(
-    r"user-preferences", UserNotificationPreferenceViewSet, basename="userpreference"
+    r"user-preferences", UserNotificationPreferenceViewSet, basename="usernotificationpreference"
 )
 
 urlpatterns = [
-    path("api/", include(router.urls)),
+    path("", include(router.urls)),
 ]
