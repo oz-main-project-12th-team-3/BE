@@ -1,8 +1,7 @@
-import hashlib
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
-import uuid
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from rest_framework.exceptions import AuthenticationFailed
@@ -15,27 +14,37 @@ REFRESH_TOKEN_LIFETIME = settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
 
 def generate_tokens(user, parent_token_id=None):
     now = datetime.now(timezone.utc)
-    token_id = uuid.uuid4() # 고유한 UUID 생성
+    token_id = uuid.uuid4()  # 고유한 UUID 생성
 
     access_token_payload = {
         "user_id": user.id,
         "exp": now + ACCESS_TOKEN_LIFETIME,
         "iat": now,
-        "pwd_changed_at": user.password_changed_at.isoformat() if user.password_changed_at else None,
+        "pwd_changed_at": user.password_changed_at.isoformat()
+        if user.password_changed_at
+        else None,
     }
-    access_token = jwt.encode(access_token_payload, settings.SIMPLE_JWT["SIGNING_KEY"], algorithm=settings.SIMPLE_JWT["ALGORITHM"])
+    access_token = jwt.encode(
+        access_token_payload,
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+    )
 
     refresh_token_payload = {
-        "token_id": str(token_id), # 페이로드에 UUID 포함
+        "token_id": str(token_id),  # 페이로드에 UUID 포함
         "user_id": user.id,
         "exp": now + REFRESH_TOKEN_LIFETIME,
         "iat": now,
     }
-    refresh_token = jwt.encode(refresh_token_payload, settings.SIMPLE_JWT["SIGNING_KEY"], algorithm=settings.SIMPLE_JWT["ALGORITHM"])
+    refresh_token = jwt.encode(
+        refresh_token_payload,
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+    )
 
     token_obj = Token(
         user=user,
-        refresh_token_id=token_id, # UUID 저장
+        refresh_token_id=token_id,  # UUID 저장
         issued_at=now,
         expires_at=now + REFRESH_TOKEN_LIFETIME,
         parent_token_id=parent_token_id,
@@ -92,7 +101,7 @@ def refresh_user_tokens(refresh_token):
             expires_at__gt=datetime.now(timezone.utc),
             is_blacklisted=False,
         )
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, Token.DoesNotExist) as e:
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, Token.DoesNotExist):
         raise AuthenticationFailed("유효하지 않거나 만료된 Refresh 토큰입니다.")
 
     # 토큰 해시가 일치하는지 마지막으로 확인 (보안 강화)
