@@ -55,6 +55,8 @@ def record_refresh_token(user: User, refresh_token: str):
 
 import hashlib
 
+from django.db import transaction
+
 def blacklist_token(refresh_token: str):
     """
     Blacklists a refresh token by deleting it from the database.
@@ -69,14 +71,36 @@ def blacklist_token(refresh_token: str):
 
 def validate_refresh_token(token_str: str) -> User:
     """
-    Validates a refresh token.
+    Validates a refresh token, locking the row to prevent race conditions.
     """
     if not token_str:
         raise AuthenticationFailed("리프레시 토큰이 제공되지 않았습니다.")
 
-    try:
-        hashed_token = hashlib.sha256(token_str.encode("utf-8")).hexdigest()
-        token_obj = Token.objects.select_related("user").get(refresh_token_hash=hashed_token)
-        return token_obj.user
-    except Token.DoesNotExist:
-        raise AuthenticationFailed("유효하지 않거나 블랙리스트에 등록된 리프레시 토큰입니다.")
+    with transaction.atomic():
+        try:
+            hashed_token = hashlib.sha256(token_str.encode("utf-8")).hexdigest()
+            token_obj = (
+                Token.objects.select_for_update()
+                .select_related("user")
+                .get(refresh_token_hash=hashed_token)
+            )
+
+            # Decode the token to check for expiry and signature
+            jwt.decode(
+                token_str,
+                settings.SIMPLE_JWT["SIGNING_KEY"],
+                algorithms=[settings.SIMPLE_JWT["ALGORITHM"]],
+            )
+
+            user = token_obj.user
+            if not user.is_active:
+                raise AuthenticationFailed("비활성화된 계정입니다.")
+
+            return user
+
+        except Token.DoesNotExist:
+            raise AuthenticationFailed("유효하지 않거나 블랙리스트에 등록된 리프레시 토큰입니다.")
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed("만료된 리프레시 토큰입니다.")
+        except jwt.InvalidTokenError:
+            raise AuthenticationFailed("유효하지 않은 리프레시 토큰입니다.")
