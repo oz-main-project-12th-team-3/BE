@@ -4,6 +4,7 @@ from .models.notification_type import NotificationType
 from .models.schedule_notification import ScheduleNotification
 from .models.user_notification_preference import UserNotificationPreference
 
+
 # === 알림 관리자 ===
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
