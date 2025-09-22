@@ -23,6 +23,7 @@ services:
       - ./users:/home/appuser/app/users
       - ./chat:/home/appuser/app/chat
       - ./ai:/home/appuser/app/ai
+      - ./schedule:/home/appuser/app/schedule
       - ./manage.py:/home/appuser/app/manage.py
     ports:
       - "8000:8000"
@@ -42,6 +43,7 @@ services:
       - ./users:/home/appuser/app/users
       - ./chat:/home/appuser/app/chat
       - ./ai:/home/appuser/app/ai
+      - ./schedule:/home/appuser/app/schedule
       - ./manage.py:/home/appuser/app/manage.py
     depends_on:
       - db

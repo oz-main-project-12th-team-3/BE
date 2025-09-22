@@ -15,10 +15,11 @@ class CheckEmailSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
+    nickname = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "role", "is_active", "two_factor_enabled"]
+        fields = ["id", "email", "password", "nickname", "role", "is_active", "two_factor_enabled"]
 
     def create(self, validated_data):
         nickname = validated_data.pop("nickname")

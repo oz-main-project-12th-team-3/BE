@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from django.utils import timezone
 
 from django.contrib.auth.hashers import check_password
 from django.db import transaction
 from django.http import Http404
-from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, PermissionDenied
 
 from ..models import User, UserProfile
 
@@ -39,16 +39,13 @@ def authenticate_user(email: str, password: str, two_factor_code: str | None = N
         # Use a generic message to avoid revealing which emails are registered.
         raise AuthenticationFailed("이메일 또는 비밀번호가 올바르지 않습니다.")
 
-    if user.account_lockout_en and user.account_lockout_en > datetime.now(timezone.utc):
-        remaining = user.account_lockout_en - datetime.now(timezone.utc)
-        raise PermissionDenied(
-            f"계정이 잠겼습니다. {int(remaining.total_seconds() // 60)}분 후 다시 시도해주세요."
-        )
+    if user.account_locked_until and user.account_locked_until > timezone.now():
+        raise PermissionDenied("계정이 잠겼습니다.")
 
     if not check_password(password, user.password):
         user.login_fail_count += 1
         if user.login_fail_count >= MAX_LOGIN_FAILURES:
-            user.account_lockout_en = datetime.now(timezone.utc) + timedelta(
+            user.account_locked_until = timezone.now() + timedelta(
                 minutes=LOCKOUT_DURATION_MINUTES
             )
         user.save()
