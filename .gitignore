@@ -132,3 +132,5 @@ ai/migrations/0001_initial.py
 
 # 정적파일
 staticfiles/
+
+.coveragerc
