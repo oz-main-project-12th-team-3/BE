@@ -109,7 +109,7 @@ class UserProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        UserProfile.objects.create(user=instance)
+# @receiver(post_save, sender=User)
+# def create_user_profile(sender, instance, created, **kwargs):
+#     if created and not hasattr(instance, "user_profile"):
+#         UserProfile.objects.create(user=instance, nickname=instance.email.split('@')[0])

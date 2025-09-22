@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 import jwt
 from django.conf import settings
@@ -8,6 +9,8 @@ from users.models import Token, User
 
 
 def generate_tokens(user: User) -> tuple[str, str]:
+    if not user:
+        raise ValueError("User cannot be None")
     """
     Generates access and refresh tokens for a given user, including password change claim.
     """
@@ -21,8 +24,8 @@ def generate_tokens(user: User) -> tuple[str, str]:
 
     access_token_payload = {
         "user_id": user.id,
-        "exp": datetime.now(timezone.utc) + access_token_lifetime,
-        "iat": datetime.now(timezone.utc),
+        "exp": timezone.now() + access_token_lifetime,
+        "iat": timezone.now(),
         "pwd_changed_at": password_changed_at,
     }
     access_token = jwt.encode(
@@ -31,8 +34,7 @@ def generate_tokens(user: User) -> tuple[str, str]:
 
     refresh_token_payload = {
         "user_id": user.id,
-        "exp": datetime.now(timezone.utc) + refresh_token_lifetime,
-        "iat": datetime.now(timezone.utc),
+        "iat": timezone.now(),
     }
     refresh_token = jwt.encode(
         refresh_token_payload, settings.SIMPLE_JWT["SIGNING_KEY"], algorithm=settings.SIMPLE_JWT["ALGORITHM"]
@@ -45,14 +47,25 @@ def record_refresh_token(user: User, refresh_token: str):
     """
     Saves the generated refresh token to the database.
     """
-    expires_at = datetime.now(timezone.utc) + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
-    Token.objects.create(
-        user=user,
-        refresh_token=refresh_token,
-        issued_at=datetime.now(timezone.utc),
-        expires_at=expires_at,
-    )
+    expires_at = timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+    token = Token(user=user, issued_at=timezone.now(), expires_at=expires_at)
+    token.set_refresh_token(refresh_token)
+    token.save()
 
+
+import hashlib
+
+def blacklist_token(refresh_token: str):
+    """
+    Blacklists a refresh token by deleting it from the database.
+    """
+    if refresh_token:
+        try:
+            hashed_token = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
+            token = Token.objects.get(refresh_token_hash=hashed_token)
+            token.delete()
+        except Token.DoesNotExist:
+            pass
 
 def validate_refresh_token(token_str: str) -> User:
     """
@@ -62,35 +75,8 @@ def validate_refresh_token(token_str: str) -> User:
         raise AuthenticationFailed("리프레시 토큰이 제공되지 않았습니다.")
 
     try:
-        token_obj = Token.objects.select_related("user").get(refresh_token=token_str)
+        hashed_token = hashlib.sha256(token_str.encode("utf-8")).hexdigest()
+        token_obj = Token.objects.select_related("user").get(refresh_token_hash=hashed_token)
+        return token_obj.user
     except Token.DoesNotExist:
         raise AuthenticationFailed("유효하지 않거나 블랙리스트에 등록된 리프레시 토큰입니다.")
-
-    try:
-        payload = jwt.decode(
-            token_str,
-            settings.SIMPLE_JWT["SIGNING_KEY"],
-            algorithms=[settings.SIMPLE_JWT["ALGORITHM"]],
-        )
-    except jwt.ExpiredSignatureError:
-        raise AuthenticationFailed("만료된 리프레시 토큰입니다.")
-    except jwt.InvalidTokenError:
-        raise AuthenticationFailed("유효하지 않은 리프레시 토큰입니다.")
-
-    user = token_obj.user
-    if not user.is_active:
-        raise AuthenticationFailed("비활성화된 계정입니다.")
-
-    return user
-
-
-def blacklist_token(refresh_token: str):
-    """
-    Blacklists a refresh token by deleting it from the database.
-    """
-    if refresh_token:
-        try:
-            token = Token.objects.get(refresh_token=refresh_token)
-            token.delete()
-        except Token.DoesNotExist:
-            pass

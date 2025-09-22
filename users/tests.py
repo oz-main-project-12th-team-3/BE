@@ -11,7 +11,7 @@ from django.contrib.admin.sites import AdminSite
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.test import APIClient
 
 from users.admin import TokenAdmin, UserAdmin, UserProfileAdmin
@@ -21,7 +21,7 @@ from users.serializers import (
     UserSerializer,
 )
 from users.services import user_service, token_service
-from users.views import JWTAuthentication
+from users.authentication import JWTAuthentication
 
 
 # --- Helper Functions ---
@@ -102,10 +102,13 @@ def test_authenticate_user_valid(create_user_fixture):
 @pytest.mark.django_db
 def test_authenticate_user_account_locked(create_user_fixture):
     user, password = create_user_fixture("locked@example.com")
-    user.account_lockout_en = timezone.now() + timedelta(minutes=30)
+    user.account_locked_until = timezone.now() + timedelta(minutes=30)
     user.save()
-    with pytest.raises(PermissionDenied, match=r"계정이 잠겼습니다"):
+    try:
         user_service.authenticate_user(user.email, password)
+        pytest.fail("PermissionDenied가 발생해야 합니다.")
+    except PermissionDenied as e:
+        assert "계정이 잠겼습니다" in str(e)
 
 
 @pytest.mark.django_db
