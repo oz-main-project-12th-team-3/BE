@@ -116,21 +116,28 @@ def test_create_user_and_profile(create_user):
 @pytest.mark.django_db
 def test_create_user_no_email_fail():
     with pytest.raises(ValueError, match="이메일은 필수 입력 항목입니다."):
-        User.objects.create_user(email=None, password="password123")
+        User.objects.create_user(email=None, password=generate_random_password())
 
 
 @pytest.mark.django_db
-def test_create_superuser_valid_and_invalid():
-    superuser = User.objects.create_superuser("admin@example.com", "adminpassword123")
+def test_create_superuser_valid_and_invalid(create_user):
+    admin_password = generate_random_password()
+    superuser = User.objects.create_superuser("admin@example.com", admin_password)
     assert superuser.email == "admin@example.com"
     assert superuser.is_staff and superuser.is_superuser and superuser.role == "admin"
     with pytest.raises(ValueError, match="슈퍼유저는 is_staff=True여야 합니다."):
         User.objects.create_superuser(
-            "admin2@example.com", "password", is_staff=False, is_superuser=True
+            "admin2@example.com",
+            generate_random_password(),
+            is_staff=False,
+            is_superuser=True,
         )
     with pytest.raises(ValueError, match="슈퍼유저는 is_superuser=True여야 합니다."):
         User.objects.create_superuser(
-            "admin3@example.com", "password", is_staff=True, is_superuser=False
+            "admin3@example.com",
+            generate_random_password(),
+            is_staff=True,
+            is_superuser=False,
         )
 
 
@@ -184,7 +191,7 @@ def test_authenticate_user_account_locked_after_max_attempts(create_user):
     user.login_fail_count = 4
     user.save()
     with pytest.raises(AuthenticationFailed, match="비밀번호가 올바르지 않습니다."):
-        authenticate_user(user.email, "wrongpass")
+        authenticate_user(user.email, generate_random_password())
     user.refresh_from_db()
     assert user.login_fail_count == 5
     assert user.is_account_locked()
@@ -193,7 +200,7 @@ def test_authenticate_user_account_locked_after_max_attempts(create_user):
 @pytest.mark.django_db
 def test_authenticate_user_not_found():
     with pytest.raises(AuthenticationFailed, match="사용자를 찾을 수 없습니다."):
-        authenticate_user("notfound@example.com", "anypass")
+        authenticate_user("notfound@example.com", generate_random_password())
 
 
 @pytest.mark.django_db
@@ -202,14 +209,14 @@ def test_authenticate_user_account_locked(create_user):
     user.account_locked_until = timezone.now() + timedelta(minutes=30)
     user.save()
     with pytest.raises(AuthenticationFailed, match=r"계정이 잠겼습니다"):
-        authenticate_user(user.email, "testpass")
+        authenticate_user(user.email, generate_random_password())
 
 
 @pytest.mark.django_db
 def test_authenticate_user_inactive(create_user):
     user, _ = create_user("inactive@example.com", is_active=False)
     with pytest.raises(AuthenticationFailed, match="비활성 사용자입니다."):
-        authenticate_user(user.email, "any")
+        authenticate_user(user.email, generate_random_password())
 
 
 @pytest.mark.django_db
@@ -252,7 +259,7 @@ def test_generate_tokens_with_none_password_changed(user_with_profile):
 
 @pytest.mark.django_db
 def test_user_serializer_create_valid():
-    data = {"email": "serializer@example.com", "password": "strongpass123"}
+    data = {"email": "serializer@example.com", "password": generate_random_password()}
     serializer = UserSerializer(data=data)
     assert serializer.is_valid(), serializer.errors
     user = serializer.save()
@@ -282,7 +289,7 @@ def test_check_email_serializer_valid():
 @pytest.mark.django_db
 def test_user_register_view_without_nickname(api_client):
     url = reverse("user-register")
-    data = {"email": "nonickname@test.com", "password": "newpassword123"}
+    data = {"email": "nonickname@test.com", "password": generate_random_password()}
     response = api_client.post(url, data, format="json")
     assert response.status_code == status.HTTP_201_CREATED
     assert UserProfile.objects.filter(user__email=data["email"]).exists()
@@ -293,7 +300,7 @@ def test_user_register_view_with_nickname(api_client):
     url = reverse("user-register")
     data = {
         "email": "newuser@test.com",
-        "password": "newpassword123",
+        "password": generate_random_password(),
         "nickname": "nick123",
     }
     response = api_client.post(url, data, format="json")
@@ -315,7 +322,7 @@ def test_user_login_view_with_exception(api_client):
     url = reverse("user-login")
     with patch("users.views.authenticate_user") as mock_auth:
         mock_auth.side_effect = Exception("테스트 오류")
-        data = {"email": "any@user.com", "password": "anypass"}
+        data = {"email": "any@user.com", "password": generate_random_password()}
         response = api_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert "로그인 처리 중 오류가 발생했습니다." in response.data["detail"]
@@ -364,7 +371,7 @@ def test_jwt_authentication_invalid_password_changed_at(user_with_profile):
     user, _ = user_with_profile
     auth = JWTAuthentication()
     access_token, _, _ = generate_tokens(user)
-    user.set_password("new_password123")
+    user.set_password(generate_random_password())
     user.password_changed_at = timezone.now()
     user.save()
     request = type(
@@ -383,7 +390,9 @@ def test_jwt_authentication_user_not_found():
     auth = JWTAuthentication()
 
     # 임시 사용자를 생성하여 토큰을 만듭니다.
-    temp_user = User.objects.create_user("temp_user@example.com", "pass")
+    temp_user = User.objects.create_user(
+        "temp_user@example.com", generate_random_password()
+    )
     access_token, _, _ = generate_tokens(temp_user)
 
     # User.objects.get()이 DoesNotExist 예외를 반환하도록 모킹합니다.
