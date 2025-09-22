@@ -170,7 +170,7 @@ SIMPLE_JWT = {
 # -----------------------------
 # 쿠키 보안
 # -----------------------------
-SECURE_COOKIE = not os.getenv("DEBUG", "0") == "1"
+SECURE_COOKIE = os.getenv("DEBUG", "0") != "1"
 SESSION_COOKIE_SECURE = SECURE_COOKIE
 CSRF_COOKIE_SECURE = SECURE_COOKIE
 

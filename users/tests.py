@@ -1,3 +1,5 @@
+# users/tests.py 파일
+
 import hashlib
 import random
 import string
@@ -30,7 +32,9 @@ def generate_random_password(length=12):
     """숫자, 대문자, 소문자, 특수문자가 포함된 안전한 랜덤 비밀번호를 생성합니다."""
     characters = string.ascii_letters + string.digits + string.punctuation
     while True:
-        password = "".join(random.choice(characters) for i in range(length))
+        password = "".join(
+            random.choice(characters) for _ in range(length)
+        )  # 변경: i를 _로 변경
         if (
             any(c.islower() for c in password)
             and any(c.isupper() for c in password)
