@@ -265,7 +265,6 @@ def test_refresh_user_tokens_double_use_fail(api_client, user_with_tokens):
     assert response3.status_code == status.HTTP_200_OK
 
 
-
 @pytest.mark.django_db
 def test_generate_tokens_with_none_password_changed(user_with_profile):
     user = user_with_profile
