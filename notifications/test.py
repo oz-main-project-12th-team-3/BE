@@ -133,8 +133,14 @@ class FullNotificationAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # 생성
-        type_new = NotificationType.objects.create(code="NEW_ALERT", description="새 알림")
-        data = {"user": self.user.id, "notification_type": type_new.id, "is_enabled": True}
+        type_new = NotificationType.objects.create(
+            code="NEW_ALERT", description="새 알림"
+        )
+        data = {
+            "user": self.user.id,
+            "notification_type": type_new.id,
+            "is_enabled": True,
+        }
         response = self.client.post(url_list, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
