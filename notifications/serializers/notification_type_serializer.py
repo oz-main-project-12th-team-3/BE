@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from ..models.notification_type import NotificationType
 
 
