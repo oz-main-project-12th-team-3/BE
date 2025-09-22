@@ -1,23 +1,19 @@
+# 표준 라이브러리
 import secrets
+
+# Django 라이브러리
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from rest_framework import status
-from rest_framework.test import APIClient, APITestCase
 from django.utils import timezone
 
-from notifications.models import (
-    Notification,
-    NotificationType,
-    ScheduleNotification,
-    UserNotificationPreference,
-)
+# 서드파티 라이브러리
+from rest_framework import status
+from rest_framework.test import APIClient, APITestCase
+
+# 로컬 앱
+from notifications.models import Notification, NotificationType, ScheduleNotification, UserNotificationPreference
+from notifications.serializers import NotificationSerializer, NotificationTypeSerializer, UserNotificationPreferenceSerializer
 from notifications.tasks import send_scheduled_notifications
-from notifications.serializers import (
-    NotificationSerializer,
-    NotificationReadSerializer,
-    NotificationTypeSerializer,
-    UserNotificationPreferenceSerializer,
-)
 
 User = get_user_model()
 
