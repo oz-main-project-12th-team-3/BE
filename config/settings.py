@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "chat",
     "ai",
     "Schedule",
+    "notifications",
 ]
 
 # -----------------------------
