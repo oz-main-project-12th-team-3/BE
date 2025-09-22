@@ -143,7 +143,9 @@ class FullNotificationAPITest(APITestCase):
     # -------------------------
     def test_user_notification_preference_crud(self):
         url_list = reverse("usernotificationpreference-list")
-        type_new = NotificationType.objects.create(code="NEW_ALERT", description="새 알림")
+        type_new = NotificationType.objects.create(
+            code="NEW_ALERT", description="새 알림"
+        )
         data = {
             "user": self.user.id,
             "notification_type": type_new.id,
@@ -176,9 +178,13 @@ class FullNotificationAPITest(APITestCase):
         self.assertEqual(schedule.status, "sent")
         self.assertIsNotNone(schedule.sent_at)
 
-        # Task Mock
-        with mock.patch("notifications.tasks.send_scheduled_notifications.delay") as mocked_task:
-            send_scheduled_notifications()
+        # Task Mock: delay 호출 확인
+        with mock.patch(
+            "notifications.tasks.send_scheduled_notifications.delay"
+        ) as mocked_task:
+            from notifications import tasks
+
+            tasks.send_scheduled_notifications.delay()
             mocked_task.assert_called_once()
 
     # -------------------------
