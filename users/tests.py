@@ -397,6 +397,7 @@ def test_jwt_authentication_user_not_found():
         with pytest.raises(AuthenticationFailed, match="사용자가 존재하지 않습니다."):
             auth.authenticate(request)
 
+
 @pytest.mark.django_db
 def test_jwt_authentication_expired_token(user_with_profile):
     auth = JWTAuthentication()
