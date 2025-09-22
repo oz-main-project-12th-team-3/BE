@@ -18,8 +18,8 @@ from notifications.models import (
     UserNotificationPreference,
 )
 from notifications.serializers import (
-    NotificationSerializer,
     NotificationReadSerializer,
+    NotificationSerializer,
     NotificationTypeSerializer,
     ScheduleNotificationSerializer,
     UserNotificationPreferenceSerializer,
