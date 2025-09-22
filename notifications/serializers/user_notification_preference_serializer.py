@@ -1,6 +1,5 @@
 from rest_framework import serializers
-
-from notifications.models.user_notification_preference import UserNotificationPreference
+from ..models.user_notification_preference import UserNotificationPreference
 
 
 # === 사용자 알림 설정 Serializer ===
