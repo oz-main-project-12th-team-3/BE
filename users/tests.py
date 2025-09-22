@@ -1,7 +1,4 @@
-# users/tests.py 파일
-
 import hashlib
-import random
 import string
 from datetime import timedelta
 from unittest.mock import patch
@@ -30,11 +27,12 @@ from users.views import JWTAuthentication
 # --- Helper Functions ---
 def generate_random_password(length=12):
     """숫자, 대문자, 소문자, 특수문자가 포함된 안전한 랜덤 비밀번호를 생성합니다."""
+    # 보안 경고 해결: 암호학적으로 안전한 secrets 모듈 사용
+    import secrets
+
     characters = string.ascii_letters + string.digits + string.punctuation
     while True:
-        password = "".join(
-            random.choice(characters) for _ in range(length)
-        )  # 변경: i를 _로 변경
+        password = "".join(secrets.choice(characters) for _ in range(length))
         if (
             any(c.islower() for c in password)
             and any(c.isupper() for c in password)
@@ -124,7 +122,7 @@ def test_create_user_no_email_fail():
 
 
 @pytest.mark.django_db
-def test_create_superuser_valid_and_invalid(create_user):
+def test_create_superuser_valid_and_invalid():
     admin_password = generate_random_password()
     superuser = User.objects.create_superuser("admin@example.com", admin_password)
     assert superuser.email == "admin@example.com"
