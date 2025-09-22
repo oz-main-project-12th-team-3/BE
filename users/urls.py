@@ -4,21 +4,21 @@ from .views import (
     CheckEmailView,
     LogoutView,
     PasswordChangeView,
-    TokenDetailView,
+    TokenRefreshView,
     UserLoginView,
     UserProfileView,
     UserRegisterView,
 )
 
 urlpatterns = [
-    path("auth/signup/", UserRegisterView.as_view(), name="user-signup"),
+    path("auth/register/", UserRegisterView.as_view(), name="user-register"),
     path("auth/login/", UserLoginView.as_view(), name="user-login"),
     path("auth/logout/", LogoutView.as_view(), name="user-logout"),
-    path("auth/check-email/", CheckEmailView.as_view(), name="check-email"),
-    path("profiles/<int:user_id>/", UserProfileView.as_view(), name="user-profile"),
-    path("tokens/<int:pk>/", TokenDetailView.as_view(), name="token-detail"),
+    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("auth/email-check/", CheckEmailView.as_view(), name="email-check"),
+    path("users/profile/", UserProfileView.as_view(), name="user-profile"),
     path(
-        "users/<int:id>/password/",
+        "users/password-change/",
         PasswordChangeView.as_view(),
         name="user-password-change",
     ),
