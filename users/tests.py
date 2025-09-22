@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 import string
 from datetime import timedelta
 from unittest.mock import patch
@@ -28,8 +29,6 @@ from users.views import JWTAuthentication
 def generate_random_password(length=12):
     """숫자, 대문자, 소문자, 특수문자가 포함된 안전한 랜덤 비밀번호를 생성합니다."""
     # 보안 경고 해결: 암호학적으로 안전한 secrets 모듈 사용
-    import secrets
-
     characters = string.ascii_letters + string.digits + string.punctuation
     while True:
         password = "".join(secrets.choice(characters) for _ in range(length))
