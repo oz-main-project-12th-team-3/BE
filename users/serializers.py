@@ -21,12 +21,11 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        password = validated_data.pop("password")
         nickname = validated_data.pop("nickname")
-        with transaction.atomic():
-            user = User.objects.create_user(password=password, **validated_data)
-            UserProfile.objects.create(user=user, nickname=nickname)
+        user = User.objects.create_user(**validated_data)
+        UserProfile.objects.create(user=user, nickname=nickname)
         return user
+
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -47,10 +46,9 @@ class PasswordChangeSerializer(serializers.Serializer):
 
     def validate(self, data):
         if data["current_password"] == data["new_password"]:
-            raise serializers.ValidationError(
-                "새 비밀번호는 기존 비밀번호와 달라야 합니다."
-            )
+            raise serializers.ValidationError("새 비밀번호는 현재 비밀번호와 달라야 합니다.")
         return data
+
 
 
 class TwoFactorAuthSerializer(serializers.Serializer):

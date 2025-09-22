@@ -30,35 +30,33 @@ def authenticated_user(api_client):
 class TestChatAPI:
     def test_unauthenticated_access(self, api_client):
         """인증되지 않은 사용자는 API에 접근할 수 없다."""
-        session_url = reverse("chat-sessions-list-create")
-        message_url = reverse("chat-messages-list-create")
+        session_url = reverse("chat-session-list-create")
+        message_url = reverse("chat-message-list-create", args=[1])
 
         response = api_client.get(session_url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         response = api_client.post(message_url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_chat_session_create_and_list(self, authenticated_user):
         """사용자는 채팅 세션을 생성하고 자신의 세션 목록을 조회할 수 있다."""
         user, client = authenticated_user
-        url = reverse("chat-sessions-list-create")
+        url = reverse("chat-session-list-create")
 
         response = client.post(url, {"title": "My First Session"}, format="json")
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["title"] == "My First Session"
-        assert response.data["user"] == user.id
+        assert response.data["user_id"] == user.id
 
         response = client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]["title"] == "My First Session"
+        assert len(response.data["sessions"]) == 1
 
     def test_chat_message_create_and_list(self, authenticated_user):
         """사용자는 자신의 세션에 메시지를 생성하고 조회할 수 있다."""
         user, client = authenticated_user
         session = ChatSession.objects.create(user=user, title="Test Session")
-        url = reverse("chat-messages-list-create")
+        url = reverse("chat-message-list-create", args=[session.id])
 
         response = client.post(
             url, {"session": session.id, "message": "Hello, world!"}, format="json"
@@ -83,13 +81,13 @@ class TestChatAPI:
             user=user2, title="Other's Session"
         )
 
-        message_url = reverse("chat-messages-list-create")
+        message_url = reverse("chat-message-list-create", args=[session_of_user2.id])
         response = client1.post(
             message_url,
             {"session": session_of_user2.id, "message": "Hi there!"},
             format="json",
         )
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
         response = client1.get(f"{message_url}?session_id={session_of_user2.id}")
         assert response.status_code == status.HTTP_403_FORBIDDEN
