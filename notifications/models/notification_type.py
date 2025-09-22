@@ -1,12 +1,13 @@
 from django.db import models
 
+
 # === 알림 유형 모델 ===
 class NotificationType(models.Model):
     code = models.CharField(max_length=50, unique=True)  # 알림 코드 (예: NEW_MESSAGE)
-    description = models.TextField(blank=True)           # 알림 설명
+    description = models.TextField(blank=True)  # 알림 설명
     default_enabled = models.BooleanField(default=True)  # 기본 활성화 여부
-    created_at = models.DateTimeField(auto_now_add=True) # 생성 시간
-    updated_at = models.DateTimeField(auto_now=True)     # 수정 시간
+    created_at = models.DateTimeField(auto_now_add=True)  # 생성 시간
+    updated_at = models.DateTimeField(auto_now=True)  # 수정 시간
 
     class Meta:
         app_label = "notifications"
