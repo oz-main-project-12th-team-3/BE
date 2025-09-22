@@ -1,24 +1,24 @@
-from django.db import transaction
 from rest_framework import serializers
 
 from .models import Token, User, UserProfile
 
 
+class CheckEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField(
+        required=True,
+        error_messages={
+            "required": "이메일을 입력해주세요.",
+            "invalid": "유효한 이메일 주소를 입력하십시오.",
+        },
+    )
+
+
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
-    nickname = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = User
-        fields = [
-            "id",
-            "email",
-            "password",
-            "nickname",
-            "role",
-            "is_active",
-            "two_factor_enabled",
-        ]
+        fields = ["id", "email", "password", "role", "is_active", "two_factor_enabled"]
 
     def create(self, validated_data):
         nickname = validated_data.pop("nickname")
@@ -37,7 +37,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class TokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Token
-        fields = ["refresh_token", "issued_at", "expires_at"]
+        fields = ["issued_at", "expires_at"]
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -53,5 +53,3 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 class TwoFactorAuthSerializer(serializers.Serializer):
     code = serializers.CharField(write_only=True, required=True, max_length=6)
-
-    # 여기에 2FA 코드 검증 로직 추가 가능

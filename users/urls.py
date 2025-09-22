@@ -17,3 +17,4 @@ urlpatterns = [
     # Admin/specific user endpoints (example)
     # path("users/<int:user_id>/", views.UserDetailView.as_view(), name="user-detail"),
 ]
+

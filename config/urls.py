@@ -11,3 +11,4 @@ urlpatterns = [
         # path("ai/", include("ai.urls")), # 주석 처리, ai 앱 url 아직 없음
     ])),
 ]
+
