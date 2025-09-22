@@ -1,6 +1,5 @@
 from django.db import models
 
-
 # === 알림 유형 모델 ===
 class NotificationType(models.Model):
     code = models.CharField(max_length=50, unique=True)  # 알림 코드 (예: NEW_MESSAGE)
@@ -11,3 +10,6 @@ class NotificationType(models.Model):
 
     def __str__(self):
         return self.code
+
+    class Meta:
+        app_label = "notifications"
