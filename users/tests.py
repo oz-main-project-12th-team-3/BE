@@ -1,5 +1,7 @@
 import hashlib
-from datetime import timedelta, timezone
+import random
+import string
+from datetime import timedelta
 from unittest.mock import patch
 
 import jwt
@@ -22,6 +24,22 @@ from users.serializers import (
 from users.services import authenticate_user, generate_tokens, refresh_user_tokens
 from users.views import JWTAuthentication
 
+
+# --- Helper Functions ---
+def generate_random_password(length=12):
+    """숫자, 대문자, 소문자, 특수문자가 포함된 안전한 랜덤 비밀번호를 생성합니다."""
+    characters = string.ascii_letters + string.digits + string.punctuation
+    while True:
+        password = "".join(random.choice(characters) for i in range(length))
+        if (
+            any(c.islower() for c in password)
+            and any(c.isupper() for c in password)
+            and any(c.isdigit() for c in password)
+            and any(c in string.punctuation for c in password)
+        ):
+            return password
+
+
 # --- Fixtures ---
 
 
@@ -31,37 +49,32 @@ def api_client():
 
 
 @pytest.fixture
-def test_password():
-    return "testpassword123"
-
-
-@pytest.fixture
-def create_user(test_password):
+def create_user():
     def _create_user(email, password=None, **extra_fields):
         if password is None:
-            password = test_password
+            password = generate_random_password()
         user = User.objects.create_user(email=email, password=password, **extra_fields)
-        return user
+        return user, password
 
     return _create_user
 
 
 @pytest.fixture
 def user_with_profile(create_user):
-    user = create_user(email="testuser@example.com")
-    return user
+    user, password = create_user(email="testuser@example.com")
+    return user, password
 
 
 @pytest.fixture
 def user_with_tokens(user_with_profile):
-    user = user_with_profile
+    user, password = user_with_profile
     access_token, refresh_token, _ = generate_tokens(user)
-    return user, access_token, refresh_token
+    return user, access_token, refresh_token, password
 
 
 @pytest.fixture
 def authenticated_client(api_client, user_with_tokens):
-    user, access_token, refresh_token = user_with_tokens
+    user, access_token, refresh_token, _ = user_with_tokens
     client = api_client
     client.cookies["access_token"] = access_token
     client.cookies["refresh_token"] = refresh_token
@@ -71,19 +84,20 @@ def authenticated_client(api_client, user_with_tokens):
 
 @pytest.fixture
 def admin_user(create_user):
-    return create_user(
+    user, password = create_user(
         "admin@example.com",
-        "adminpassword123",
         is_staff=True,
         is_superuser=True,
         role="admin",
     )
+    return user, password
 
 
 @pytest.fixture
 def authenticated_admin_client(api_client, admin_user):
+    user, _ = admin_user
     client = api_client
-    client.force_authenticate(user=admin_user)
+    client.force_authenticate(user=user)
     return client
 
 
@@ -92,7 +106,7 @@ def authenticated_admin_client(api_client, admin_user):
 
 @pytest.mark.django_db
 def test_create_user_and_profile(create_user):
-    user = create_user("newuser@example.com")
+    user, _ = create_user("newuser@example.com")
     assert user.email == "newuser@example.com"
     assert user.is_active
     assert user.role == "user"
@@ -122,7 +136,7 @@ def test_create_superuser_valid_and_invalid():
 
 @pytest.mark.django_db
 def test_is_account_locked_check(create_user):
-    user = create_user("lockeduser@example.com")
+    user, _ = create_user("lockeduser@example.com")
     assert not user.is_account_locked()
     user.account_locked_until = timezone.now() + timedelta(minutes=20)
     user.save()
@@ -131,8 +145,8 @@ def test_is_account_locked_check(create_user):
 
 @pytest.mark.django_db
 def test_token_set_and_check(create_user):
-    user = create_user("tokenuser@example.com")
-    plain_token = "refresh-token-str"
+    user, _ = create_user("tokenuser@example.com")
+    plain_token = generate_random_password()
     token_obj = Token.objects.create(
         user=user,
         issued_at=timezone.now(),
@@ -148,16 +162,16 @@ def test_token_set_and_check(create_user):
 
 
 @pytest.mark.django_db
-def test_authenticate_user_valid_logout_reset(create_user, test_password):
-    user = create_user("authuser@example.com", password=test_password)
-    authenticated_user = authenticate_user(user.email, test_password)
+def test_authenticate_user_valid_logout_reset(create_user):
+    user, password = create_user("authuser@example.com")
+    authenticated_user = authenticate_user(user.email, password)
     assert authenticated_user.email == user.email
     assert authenticated_user.login_fail_count == 0
 
 
 @pytest.mark.django_db
 def test_authenticate_user_incorrect_password_increments_fail(create_user):
-    user = create_user("failuser@example.com", password="correctpass")
+    user, _ = create_user("failuser@example.com")
     with pytest.raises(AuthenticationFailed):
         authenticate_user(user.email, "wrongpass1")
     user.refresh_from_db()
@@ -166,8 +180,8 @@ def test_authenticate_user_incorrect_password_increments_fail(create_user):
 
 @pytest.mark.django_db
 def test_authenticate_user_account_locked_after_max_attempts(create_user):
-    user = create_user("lockuser@example.com")
-    user.login_fail_count = 4  # 4번 실패한 상태
+    user, _ = create_user("lockuser@example.com")
+    user.login_fail_count = 4
     user.save()
     with pytest.raises(AuthenticationFailed, match="비밀번호가 올바르지 않습니다."):
         authenticate_user(user.email, "wrongpass")
@@ -184,7 +198,7 @@ def test_authenticate_user_not_found():
 
 @pytest.mark.django_db
 def test_authenticate_user_account_locked(create_user):
-    user = create_user("locked@example.com")
+    user, _ = create_user("locked@example.com")
     user.account_locked_until = timezone.now() + timedelta(minutes=30)
     user.save()
     with pytest.raises(AuthenticationFailed, match=r"계정이 잠겼습니다"):
@@ -193,17 +207,15 @@ def test_authenticate_user_account_locked(create_user):
 
 @pytest.mark.django_db
 def test_authenticate_user_inactive(create_user):
-    user = create_user("inactive@example.com", is_active=False)
+    user, _ = create_user("inactive@example.com", is_active=False)
     with pytest.raises(AuthenticationFailed, match="비활성 사용자입니다."):
         authenticate_user(user.email, "any")
 
 
 @pytest.mark.django_db
 def test_refresh_user_tokens_success(user_with_tokens):
-    user, old_access_token, old_refresh_token = user_with_tokens
-    access_token, new_refresh_token, _, refreshed_user = refresh_user_tokens(
-        old_refresh_token
-    )
+    user, _, old_refresh_token, _ = user_with_tokens
+    _, _, _, refreshed_user = refresh_user_tokens(old_refresh_token)
     assert refreshed_user == user
     assert Token.objects.filter(
         user=user,
@@ -221,53 +233,8 @@ def test_refresh_user_tokens_invalid_token():
 
 
 @pytest.mark.django_db
-def test_jwt_authentication_invalid_password_changed_at(user_with_profile):
-    auth = JWTAuthentication()
-    # 1. 토큰을 먼저 발급합니다.
-    access_token, _, _ = generate_tokens(user_with_profile)
-    # 2. 비밀번호를 변경하고, password_changed_at을 업데이트합니다.
-    user_with_profile.set_password("new_password123")
-    user_with_profile.password_changed_at = timezone.now()  # <-- 현재 시간으로 변경
-    user_with_profile.save()
-    request = type(
-        "Request",
-        (object,),
-        {"headers": {"Authorization": f"Bearer {access_token}"}, "COOKIES": {}},
-    )
-    # 3. 변경 전 토큰으로 인증을 시도하면 예외가 발생해야 합니다.
-    with pytest.raises(
-        AuthenticationFailed, match="비밀번호가 변경되어 토큰이 무효화되었습니다."
-    ):
-        auth.authenticate(request)
-
-
-@pytest.mark.django_db
-def test_refresh_user_tokens_double_use_fail(api_client, user_with_tokens):
-    user, _, refresh_token = user_with_tokens
-    url = reverse("token-refresh")
-
-    # 첫 번째 요청: 토큰 갱신
-    response1 = api_client.post(url, {"refresh_token": refresh_token}, format="json")
-    assert response1.status_code == status.HTTP_200_OK
-
-    # 새로운 토큰을 응답에서 추출
-    new_refresh_token_from_response = response1.cookies["refresh_token"].value
-
-    # 두 번째 요청: 첫 번째 요청에서 사용했던 'refresh_token'을 다시 사용 시도 (실패해야 함)
-    response2 = api_client.post(url, {"refresh_token": refresh_token}, format="json")
-    assert response2.status_code == status.HTTP_401_UNAUTHORIZED
-    assert "유효하지 않거나 만료된 Refresh 토큰입니다." in response2.data["detail"]
-
-    # 새로운 토큰으로 세 번째 요청 (성공해야 함)
-    response3 = api_client.post(
-        url, {"refresh_token": new_refresh_token_from_response}, format="json"
-    )
-    assert response3.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.django_db
 def test_generate_tokens_with_none_password_changed(user_with_profile):
-    user = user_with_profile
+    user, _ = user_with_profile
     user.password_changed_at = None
     user.save()
     access_token, _, _ = generate_tokens(user)
@@ -335,9 +302,10 @@ def test_user_register_view_with_nickname(api_client):
 
 
 @pytest.mark.django_db
-def test_user_login_view(api_client, user_with_profile, test_password):
+def test_user_login_view(api_client, user_with_profile):
+    user, password = user_with_profile
     url = reverse("user-login")
-    data = {"email": user_with_profile.email, "password": test_password}
+    data = {"email": user.email, "password": password}
     response = api_client.post(url, data, format="json")
     assert response.status_code == status.HTTP_200_OK
 
@@ -377,10 +345,11 @@ def test_jwt_authentication_invalid_header():
 
 @pytest.mark.django_db
 def test_jwt_authentication_inactive_user(user_with_profile):
+    user, _ = user_with_profile
     auth = JWTAuthentication()
-    user_with_profile.is_active = False
-    user_with_profile.save()
-    access_token, _, _ = generate_tokens(user_with_profile)
+    user.is_active = False
+    user.save()
+    access_token, _, _ = generate_tokens(user)
     request = type(
         "Request",
         (object,),
@@ -392,11 +361,12 @@ def test_jwt_authentication_inactive_user(user_with_profile):
 
 @pytest.mark.django_db
 def test_jwt_authentication_invalid_password_changed_at(user_with_profile):
+    user, _ = user_with_profile
     auth = JWTAuthentication()
-    access_token, _, _ = generate_tokens(user_with_profile)
-    user_with_profile.set_password("new_password123")
-    user_with_profile.password_changed_at = timezone.now() + timedelta(seconds=1)
-    user_with_profile.save()
+    access_token, _, _ = generate_tokens(user)
+    user.set_password("new_password123")
+    user.password_changed_at = timezone.now()
+    user.save()
     request = type(
         "Request",
         (object,),
@@ -411,7 +381,9 @@ def test_jwt_authentication_invalid_password_changed_at(user_with_profile):
 @pytest.mark.django_db
 def test_jwt_authentication_user_not_found():
     auth = JWTAuthentication()
-    user = User.objects.create_user("temp_user@example.com", "pass")
+    user = User.objects.create_user(
+        "temp_user@example.com", "pass"
+    )  # 수정: 단일 User 객체만 받도록 변경
     access_token, _, _ = generate_tokens(user)
     user.delete()
     request = type(
@@ -458,25 +430,32 @@ def test_logout_view(authenticated_client):
     assert Token.objects.filter(user=user, is_blacklisted=False).exists()
     response = authenticated_client.post(url)
     assert response.status_code == status.HTTP_200_OK
-    assert response.cookies.get("access_token").value == ""
-    assert response.cookies.get("refresh_token").value == ""
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
+    assert response.cookies["access_token"].value == ""
+    assert response.cookies["refresh_token"].value == ""
     assert not Token.objects.filter(user=user, is_blacklisted=False).exists()
 
 
 @pytest.mark.django_db
-def test_password_change_view(authenticated_client, test_password):
-    user = User.objects.get(email="testuser@example.com")
+def test_password_change_view(authenticated_client, user_with_tokens):
+    user, _, _, old_password = user_with_tokens
     url = reverse("user-password-change")
-    data = {"current_password": test_password, "new_password": "newpass78910"}
+    new_password = generate_random_password()
+    data = {"current_password": old_password, "new_password": new_password}
     response = authenticated_client.patch(url, data, format="json")
     assert response.status_code == status.HTTP_200_OK
     assert not Token.objects.filter(user=user, is_blacklisted=False).exists()
 
 
 @pytest.mark.django_db
-def test_password_change_view_invalid_password(authenticated_client):
+def test_password_change_view_invalid_password(authenticated_client, user_with_tokens):
+    _, _, _, _ = user_with_tokens
     url = reverse("user-password-change")
-    data = {"current_password": "wrongpassword", "new_password": "newpass78910"}
+    data = {
+        "current_password": "wrongpassword",
+        "new_password": generate_random_password(),
+    }
     response = authenticated_client.patch(url, data, format="json")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert "현재 비밀번호가 올바르지 않습니다." in response.data["detail"]
@@ -484,7 +463,7 @@ def test_password_change_view_invalid_password(authenticated_client):
 
 @pytest.mark.django_db
 def test_token_refresh_from_body(api_client, user_with_tokens):
-    user, _, refresh_token = user_with_tokens
+    _, _, refresh_token, _ = user_with_tokens
     url = reverse("token-refresh")
     response = api_client.post(url, {"refresh_token": refresh_token}, format="json")
     assert response.status_code == status.HTTP_200_OK
@@ -494,11 +473,10 @@ def test_token_refresh_from_body(api_client, user_with_tokens):
 
 @pytest.mark.django_db
 def test_token_refresh_double_use_fail(api_client, user_with_tokens):
-    user, _, refresh_token = user_with_tokens
+    _, _, refresh_token, _ = user_with_tokens
     url = reverse("token-refresh")
     response1 = api_client.post(url, {"refresh_token": refresh_token}, format="json")
     assert response1.status_code == status.HTTP_200_OK
-    # APIClient 쿠키를 초기화하여 다음 요청이 쿠키가 아닌 바디의 토큰을 사용하도록 강제
     api_client.cookies.clear()
     response2 = api_client.post(url, {"refresh_token": refresh_token}, format="json")
     assert response2.status_code == status.HTTP_401_UNAUTHORIZED
@@ -507,24 +485,20 @@ def test_token_refresh_double_use_fail(api_client, user_with_tokens):
 
 @pytest.mark.django_db
 def test_token_refresh_from_cookies(api_client, user_with_tokens):
-    user, _, refresh_token = user_with_tokens
+    _, _, refresh_token, _ = user_with_tokens
     url = reverse("token-refresh")
     api_client.cookies["refresh_token"] = refresh_token
 
-    # 첫 번째 요청: 쿠키를 통해 토큰 갱신
     response1 = api_client.post(url, format="json")
     assert response1.status_code == status.HTTP_200_OK
 
-    # 토큰이 정상적으로 블랙리스트에 올랐는지 확인
     old_token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
     assert Token.objects.filter(
         refresh_token_hash=old_token_hash, is_blacklisted=True
     ).exists()
 
-    # 새롭게 받은 쿠키를 확인
     new_refresh_token = response1.cookies["refresh_token"].value
 
-    # 두 번째 요청: 새로운 토큰으로 다시 갱신 시도 (성공해야 함)
     api_client.cookies["refresh_token"] = new_refresh_token
     response2 = api_client.post(url, format="json")
     assert response2.status_code == status.HTTP_200_OK
@@ -543,8 +517,9 @@ def test_token_refresh_exception_handling(api_client):
 
 @pytest.mark.django_db
 def test_check_email_view_exists(api_client, user_with_profile):
+    user, _ = user_with_profile
     url = reverse("email-check")
-    data = {"email": user_with_profile.email}
+    data = {"email": user.email}
     response = api_client.post(url, data, format="json")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["available"] is False
