@@ -1,16 +1,13 @@
-# 표준 라이브러리
+# notifications/test.py
 import secrets
+from unittest import mock
 
-# Django 라이브러리
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
-
-# 서드파티 라이브러리
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-# 로컬 앱
 from notifications.models import (
     Notification,
     NotificationType,
@@ -75,17 +72,17 @@ class FullNotificationAPITest(APITestCase):
         )
 
     # -------------------------
-    # Notification ViewSet 테스트
+    # Notification ViewSet CRUD + mark_as_read
     # -------------------------
-    def test_notification_list_create_mark_read(self):
-        # 리스트
+    def test_notification_crud_and_mark_read(self):
         url_list = reverse("notification-list")
+
+        # LIST
         response = self.client.get(url_list)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
 
-        # 생성
-        url_create = reverse("notification-list")
+        # CREATE
         data = {
             "recipient": self.user.id,
             "sender": self.user.id,
@@ -94,8 +91,24 @@ class FullNotificationAPITest(APITestCase):
             "message": "테스트 메시지",
             "link": "/test-link/",
         }
-        response = self.client.post(url_create, data, format="json")
+        response = self.client.post(url_list, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        notif_id = response.data["id"]
+
+        # RETRIEVE
+        url_detail = reverse("notification-detail", args=[notif_id])
+        response = self.client.get(url_detail)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["title"], "새 알림")
+
+        # UPDATE (PATCH)
+        response = self.client.patch(url_detail, {"title": "수정 알림"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["title"], "수정 알림")
+
+        # DELETE
+        response = self.client.delete(url_detail)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         # mark_as_read
         url_mark = reverse("notification-mark-as-read", args=[self.notification1.id])
@@ -105,37 +118,32 @@ class FullNotificationAPITest(APITestCase):
         self.assertTrue(self.notification1.is_read)
 
     # -------------------------
-    # NotificationType ViewSet 테스트
+    # NotificationType CRUD + edge case
     # -------------------------
-    def test_notification_type_crud(self):
+    def test_notification_type_crud_and_edge_case(self):
         url_list = reverse("notificationtype-list")
-        response = self.client.get(url_list)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-
-        # 생성
+        # CREATE 정상
         data = {"code": "SYSTEM_ALERT", "description": "시스템 알림"}
         response = self.client.post(url_list, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        # 조회
         obj_id = response.data["id"]
+
+        # RETRIEVE
         url_detail = reverse("notificationtype-detail", args=[obj_id])
         response = self.client.get(url_detail)
         self.assertEqual(response.data["code"], "SYSTEM_ALERT")
 
+        # CREATE 실패 케이스: code 누락
+        data_invalid = {"description": "잘못된 알림"}
+        response = self.client.post(url_list, data_invalid, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     # -------------------------
-    # UserNotificationPreference ViewSet 테스트
+    # UserNotificationPreference CRUD
     # -------------------------
     def test_user_notification_preference_crud(self):
         url_list = reverse("usernotificationpreference-list")
-        response = self.client.get(url_list)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        # 생성
-        type_new = NotificationType.objects.create(
-            code="NEW_ALERT", description="새 알림"
-        )
+        type_new = NotificationType.objects.create(code="NEW_ALERT", description="새 알림")
         data = {
             "user": self.user.id,
             "notification_type": type_new.id,
@@ -143,19 +151,35 @@ class FullNotificationAPITest(APITestCase):
         }
         response = self.client.post(url_list, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        pref_id = response.data["id"]
+
+        # UPDATE
+        url_detail = reverse("usernotificationpreference-detail", args=[pref_id])
+        response = self.client.patch(url_detail, {"is_enabled": False}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_enabled"])
+
+        # DELETE
+        response = self.client.delete(url_detail)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
     # -------------------------
-    # ScheduleNotification Serializer + Task 테스트
+    # ScheduleNotification Serializer + Task + Mock
     # -------------------------
     def test_schedule_notification_serializer_and_task(self):
         serializer = ScheduleNotificationSerializer(self.schedule)
         self.assertEqual(serializer.data["notification"]["title"], "알림1")
 
-        # Task 실행
+        # Task 실제 실행
         send_scheduled_notifications()
         schedule = ScheduleNotification.objects.get(id=self.schedule.id)
         self.assertEqual(schedule.status, "sent")
         self.assertIsNotNone(schedule.sent_at)
+
+        # Task Mock
+        with mock.patch("notifications.tasks.send_scheduled_notifications.delay") as mocked_task:
+            send_scheduled_notifications()
+            mocked_task.assert_called_once()
 
     # -------------------------
     # Serializer 단독 테스트
