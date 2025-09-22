@@ -11,8 +11,17 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 # 로컬 앱
-from notifications.models import Notification, NotificationType, ScheduleNotification, UserNotificationPreference
-from notifications.serializers import NotificationSerializer, NotificationTypeSerializer, UserNotificationPreferenceSerializer
+from notifications.models import (
+    Notification,
+    NotificationType,
+    ScheduleNotification,
+    UserNotificationPreference,
+)
+from notifications.serializers import (
+    NotificationSerializer,
+    NotificationTypeSerializer,
+    UserNotificationPreferenceSerializer,
+)
 from notifications.tasks import send_scheduled_notifications
 
 User = get_user_model()
