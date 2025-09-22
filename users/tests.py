@@ -381,11 +381,12 @@ def test_jwt_authentication_invalid_password_changed_at(user_with_profile):
 @pytest.mark.django_db
 def test_jwt_authentication_user_not_found():
     auth = JWTAuthentication()
-    # 테스트를 위한 임시 사용자 생성
-    user = User.objects.create_user("temp_user@example.com", "pass")
-    access_token, _, _ = generate_tokens(user)
 
-    # 사용자를 삭제하지 않고, 대신 존재하지 않는 사용자를 찾도록 Mocking합니다.
+    # 임시 사용자를 생성하여 토큰을 만듭니다.
+    temp_user = User.objects.create_user("temp_user@example.com", "pass")
+    access_token, _, _ = generate_tokens(temp_user)
+
+    # User.objects.get()이 DoesNotExist 예외를 반환하도록 모킹합니다.
     with patch("users.views.User.objects.get") as mock_get:
         mock_get.side_effect = User.DoesNotExist
         request = type(
@@ -395,10 +396,6 @@ def test_jwt_authentication_user_not_found():
         )
         with pytest.raises(AuthenticationFailed, match="사용자가 존재하지 않습니다."):
             auth.authenticate(request)
-
-    # 임시 사용자를 테스트가 끝나면 삭제합니다.
-    user.delete()
-
 
 @pytest.mark.django_db
 def test_jwt_authentication_expired_token(user_with_profile):
