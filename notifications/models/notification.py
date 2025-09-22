@@ -12,9 +12,7 @@ class Notification(models.Model):
     sender = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="sent_notifications"
     )
-    notification_type = models.ForeignKey(
-        NotificationType, on_delete=models.CASCADE
-    )
+    notification_type = models.ForeignKey(NotificationType, on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     message = models.TextField(blank=True)
     link = models.URLField(blank=True, null=True)  # <- null=True 추가
