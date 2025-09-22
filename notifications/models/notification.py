@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+
 from .notification_type import NotificationType
 
 User = get_user_model()

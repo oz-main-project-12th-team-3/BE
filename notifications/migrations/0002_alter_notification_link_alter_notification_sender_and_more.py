@@ -8,25 +8,30 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('notifications', '0001_initial'),
+        ("notifications", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='notification',
-            name='link',
+            model_name="notification",
+            name="link",
             field=models.URLField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='notification',
-            name='sender',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='sent_notifications', to=settings.AUTH_USER_MODEL),
+            model_name="notification",
+            name="sender",
+            field=models.ForeignKey(
+                default=1,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="sent_notifications",
+                to=settings.AUTH_USER_MODEL,
+            ),
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='schedulenotification',
-            name='status',
-            field=models.CharField(default='pending', max_length=50),
+            model_name="schedulenotification",
+            name="status",
+            field=models.CharField(default="pending", max_length=50),
         ),
     ]
