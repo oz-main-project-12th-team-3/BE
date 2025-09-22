@@ -9,9 +9,13 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"notifications", NotificationViewSet, basename="notification")
-router.register(r"notification-types", NotificationTypeViewSet, basename="notificationtype")
 router.register(
-    r"user-preferences", UserNotificationPreferenceViewSet, basename="usernotificationpreference"
+    r"notification-types", NotificationTypeViewSet, basename="notificationtype"
+)
+router.register(
+    r"user-preferences",
+    UserNotificationPreferenceViewSet,
+    basename="usernotificationpreference",
 )
 
 urlpatterns = [
