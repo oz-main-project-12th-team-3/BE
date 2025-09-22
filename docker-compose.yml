@@ -1,26 +1,55 @@
-version: '3.8'
-
 services:
-  web:
-    build: .
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-    env_file:
-      - ./.env
-
   db:
     image: postgres:16
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
-      - POSTGRES_DB=mydatabase
-      - POSTGRES_USER=myuser
-      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=${DB_NAME:-mydatabase}
+      - POSTGRES_USER=${DB_USER:-myuser}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-mypassword}
+    env_file:
+      - ./.env
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    volumes:
+      - ./config:/home/appuser/app/config
+      - ./users:/home/appuser/app/users
+      - ./chat:/home/appuser/app/chat
+      - ./ai:/home/appuser/app/ai
+      - ./manage.py:/home/appuser/app/manage.py
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+    env_file:
+      - ./.env
+
+  worker:
+    build: .
+    command: celery -A config worker -l info
+    volumes:
+      - ./config:/home/appuser/app/config
+      - ./users:/home/appuser/app/users
+      - ./chat:/home/appuser/app/chat
+      - ./ai:/home/appuser/app/ai
+      - ./manage.py:/home/appuser/app/manage.py
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+    env_file:
+      - ./.env
 
 volumes:
   postgres_data:

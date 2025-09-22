@@ -152,10 +152,10 @@ class TestUserViews:
         UserProfile.objects.create(user=self.user, nickname=user_data["nickname"])
 
         # Authenticate the client using session authentication
-        self.client.login(email=user_data["email"], password=user_data["password"])
+        self.client.force_authenticate(user=self.user)
 
-        self.password_change_url = reverse("user-password-change", args=[self.user.id])
-        self.profile_url = reverse("user-profile", args=[self.user.id])
+        self.password_change_url = reverse("my-password-change")
+        self.profile_url = reverse("my-user-profile")
 
     def test_check_email(self):
         unauthenticated_client = APIClient()  # New client
@@ -176,7 +176,7 @@ class TestUserViews:
         resp = unauthenticated_client.post(
             self.login_url, {"email": "apitestuser@test.com"}, format="json"
         )
-        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_password_change_success(self):
         if self.password_change_url:
@@ -186,7 +186,7 @@ class TestUserViews:
                 format="json",
             )
             assert resp.status_code == status.HTTP_200_OK
-            assert "성공" in resp.data["detail"]
+            assert resp.data["id"] == self.user.id
 
     def test_password_change_fail_wrong_current(self):
         if self.password_change_url:
@@ -203,8 +203,8 @@ class TestUserViews:
         assert "nickname" in resp.data
 
     def test_logout(self):
-        resp = self.client.post(self.logout_url)
-        assert resp.status_code == status.HTTP_204_NO_CONTENT  # Logout returns 204
+        resp = self.client.delete(self.logout_url)
+        assert resp.status_code == status.HTTP_200_OK  # Logout returns 200 OK
 
 
 @pytest.mark.django_db
