@@ -18,6 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # -----------------------------
 # 보안 설정
 # -----------------------------
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", os.environ.get("SECRET_KEY", "django-insecure-default-key"))
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
 DEBUG = os.environ.get("DEBUG", "0") == "1"
 
@@ -150,14 +151,19 @@ else:
 # JWT 설정
 # -----------------------------
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # 30분으로 단축해 보안성 강화
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),     # 7일로 늘려 현실적인 갱신 정책
+    "ROTATE_REFRESH_TOKENS": True,                   # Refresh 토큰을 재발급하면서 회전
+    "BLACKLIST_AFTER_ROTATION": True,                # 갱신 시 이전 토큰 블랙리스트에 추가
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": JWT_SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),                # Authorization 헤더 타입 지정
 }
 
 # -----------------------------
 # 쿠키 보안
 # -----------------------------
-SECURE_COOKIE = not DEBUG
+SECURE_COOKIE = not os.getenv("DEBUG", "0") == "1"
 SESSION_COOKIE_SECURE = SECURE_COOKIE
 CSRF_COOKIE_SECURE = SECURE_COOKIE
 
