@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     "users",
     "chat",
     "ai",
-    "schedule.apps.ScheduleConfig",
+    "schedule",
 ]
 
 

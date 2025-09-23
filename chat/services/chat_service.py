@@ -7,6 +7,14 @@ from users.models import User
 from ..models import ChatLog, ChatSession, Sender, VoiceLog
 
 
+def create_chat_session(user, title="New Chat"):
+    """
+    새로운 채팅 세션 생성 함수
+    """
+    chat_session = ChatSession.objects.create(user=user, title=title)
+    return chat_session
+
+
 def create_chat_message(user: User, session_id: int, message: str) -> ChatLog:
     """
     Creates a new chat message in a session after validating user permissions.
