@@ -1,5 +1,3 @@
-# notifications/tests/test_user_preferences.py
-
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
@@ -9,13 +7,10 @@ from notifications.models.user_notification_preference import UserNotificationPr
 
 User = get_user_model()
 
-
 class UserNotificationPreferenceAPITest(APITestCase):
-    """UserNotificationPreference CRUD 및 validation 테스트"""
-
     def setUp(self):
         self.user = User.objects.create_user(email="testuser@example.com", password="pass")
-        self.other_user = User.objects.create_user(email="otheruser@example.com", password="pass2")
+        self.other_user = User.objects.create_user(email="other@example.com", password="pass2")
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -26,26 +21,22 @@ class UserNotificationPreferenceAPITest(APITestCase):
         url_list = reverse("usernotificationpreference-list")
         data = {"user": self.user.id, "notification_type": self.type_new.id, "is_enabled": True}
 
-        # CREATE
         response = self.client.post(url_list, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         pref_id = response.data["id"]
 
-        # READ
         url_detail = reverse("usernotificationpreference-detail", args=[pref_id])
         response = self.client.get(url_detail)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # UPDATE
         response = self.client.patch(url_detail, {"is_enabled": False}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data["is_enabled"])
 
-        # DELETE
         response = self.client.delete(url_detail)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-    def test_create_invalid(self):
+    def test_invalid_creation(self):
         url_list = reverse("usernotificationpreference-list")
         invalid_cases = [
             {"user": None, "notification_type": self.type_new.id, "is_enabled": True},
@@ -65,12 +56,11 @@ class UserNotificationPreferenceAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("non_field_errors", response.data)
 
-    def test_invalid_method_list(self):
+    def test_invalid_methods(self):
         url_list = reverse("usernotificationpreference-list")
         response = self.client.put(url_list)
         self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_405_METHOD_NOT_ALLOWED])
 
-    def test_invalid_method_detail(self):
         pref = UserNotificationPreference.objects.create(user=self.user, notification_type=self.type_new, is_enabled=True)
         url_detail = reverse("usernotificationpreference-detail", args=[pref.id])
         response = self.client.post(url_detail)
