@@ -89,7 +89,6 @@ def admin_user(create_user):
         "admin@example.com",
         is_staff=True,
         is_superuser=True,
-        role="admin",
     )
     return user, password
 
@@ -110,7 +109,6 @@ def test_create_user_and_profile(create_user):
     user, _ = create_user("newuser@example.com")
     assert user.email == "newuser@example.com"
     assert user.is_active
-    assert user.role == "user"
     assert UserProfile.objects.filter(user=user).exists()
 
 
@@ -125,7 +123,7 @@ def test_create_superuser_valid_and_invalid():
     admin_password = generate_random_password()
     superuser = User.objects.create_superuser("admin@example.com", admin_password)
     assert superuser.email == "admin@example.com"
-    assert superuser.is_staff and superuser.is_superuser and superuser.role == "admin"
+    assert superuser.is_staff and superuser.is_superuser
     with pytest.raises(ValueError, match="슈퍼유저는 is_staff=True여야 합니다."):
         User.objects.create_superuser(
             "admin2@example.com",
@@ -293,7 +291,8 @@ def test_user_register_view_without_nickname(api_client):
     data = {"email": "nonickname@test.com", "password": generate_random_password()}
     response = api_client.post(url, data, format="json")
     assert response.status_code == status.HTTP_201_CREATED
-    assert UserProfile.objects.filter(user__email=data["email"]).exists()
+    user_profile = UserProfile.objects.get(user__email=data["email"])
+    assert user_profile.nickname is None
 
 
 @pytest.mark.django_db
@@ -390,13 +389,11 @@ def test_jwt_authentication_invalid_password_changed_at(user_with_profile):
 def test_jwt_authentication_user_not_found():
     auth = JWTAuthentication()
 
-    # 임시 사용자를 생성하여 토큰을 만듭니다.
     temp_user = User.objects.create_user(
         "temp_user@example.com", generate_random_password()
     )
     access_token, _, _ = generate_tokens(temp_user)
 
-    # User.objects.get()이 DoesNotExist 예외를 반환하도록 모킹합니다.
     with patch("users.views.User.objects.get") as mock_get:
         mock_get.side_effect = User.DoesNotExist
         request = type(
@@ -555,7 +552,6 @@ def test_user_admin_list_display():
     ma = UserAdmin(User, AdminSite())
     expected_fields = (
         "email",
-        "role",
         "is_staff",
         "is_active",
         "two_factor_enabled",
