@@ -234,7 +234,8 @@ class PasswordChangeView(APIView):
 
             response = Response(
                 {
-                    "detail": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해주세요."
+                                        "detail": "비밀번호가 성공적으로 변경되었습니다. "
+                              "다시 로그인해주세요."
                 },
                 status=status.HTTP_200_OK,
             )

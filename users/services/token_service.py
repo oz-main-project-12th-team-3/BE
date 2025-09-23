@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta
-from django.utils import timezone
+import hashlib
+
 import jwt
 from django.conf import settings
-from rest_framework.exceptions import AuthenticationFailed
 from django.db import transaction
-import hashlib
+from django.utils import timezone
+from rest_framework.exceptions import AuthenticationFailed
 
 from users.models import Token, User
 
@@ -57,9 +57,7 @@ def record_refresh_token(user: User, refresh_token: str):
     token.save()
 
 
-import hashlib
 
-from django.db import transaction
 
 
 def blacklist_token(refresh_token: str):
