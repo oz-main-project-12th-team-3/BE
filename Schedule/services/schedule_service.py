@@ -1,5 +1,6 @@
-from ..models import Schedule
 from users.models import User
+
+from ..models import Schedule
 
 
 def get_schedules_for_user(user: User):

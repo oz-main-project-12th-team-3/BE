@@ -31,7 +31,6 @@ class TestChatAPI:
     def test_unauthenticated_access(self, api_client):
         """인증되지 않은 사용자는 API에 접근할 수 없다."""
         session_url = reverse("chat-session-list-create")
-        message_url = reverse("chat-message-list-create", args=[1])
 
         response = api_client.get(session_url)
         assert response.status_code in [

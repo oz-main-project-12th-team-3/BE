@@ -1,8 +1,10 @@
+from django.db.models import F, OuterRef, Subquery
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
-from ..models import ChatLog, ChatSession, Sender, VoiceLog
 from users.models import User
+
+from ..models import ChatLog, ChatSession, Sender, VoiceLog
 
 
 def create_chat_message(user: User, session_id: int, message: str) -> ChatLog:
@@ -42,16 +44,6 @@ def get_chat_messages_for_session(user: User, session_id: int):
         raise PermissionDenied("You do not have permission to view this chat session.")
 
     return ChatLog.objects.filter(session_id=session_id).order_by("timestamp")
-
-
-def create_chat_session(user: User, title: str) -> ChatSession:
-    """
-    Creates a new chat session for a user.
-    """
-    return ChatSession.objects.create(user=user, title=title)
-
-
-from django.db.models import F, OuterRef, Subquery
 
 
 def get_chat_sessions_for_user(user: User):
