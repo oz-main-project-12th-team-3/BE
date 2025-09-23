@@ -9,7 +9,6 @@ class UserAdmin(BaseUserAdmin):
     model = User
     list_display = (
         "email",
-        "role",
         "is_staff",
         "is_active",
         "two_factor_enabled",
@@ -17,12 +16,11 @@ class UserAdmin(BaseUserAdmin):
         "password_changed_at",
         "account_locked_until",
     )
-    list_filter = ("role", "is_staff", "is_active", "two_factor_enabled")
+    list_filter = ("is_staff", "is_active", "two_factor_enabled")
     ordering = ("email",)
     search_fields = ("email",)
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Personal Info", {"fields": ("role",)}),
         (
             "Permissions",
             {
@@ -62,7 +60,7 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "password", "role", "is_staff", "is_active"),
+                "fields": ("email", "password", "is_staff", "is_active"),
             },
         ),
     )
