@@ -543,7 +543,7 @@ def test_check_email_view_not_exists(api_client):
     assert response.data["available"] is True
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_user_delete_view_success(api_client):
     """
     회원 탈퇴 기능이 정상적으로 동작하는지 테스트
