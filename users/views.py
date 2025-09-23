@@ -275,3 +275,34 @@ class CheckEmailView(APIView):
                 {"available": True, "detail": "사용 가능한 이메일입니다."},
                 status=status.HTTP_200_OK,
             )
+
+
+class UserDeleteView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        password = request.data.get("password")
+        if not password:
+            return Response(
+                {"detail": "비밀번호를 입력해주세요."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+        if not check_password(password, user.password):
+            return Response(
+                {"detail": "비밀번호가 올바르지 않습니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # User 모델과 연결된 모든 관련 데이터가 CASCADE 옵션에 의해 자동으로 삭제됩니다.
+        user.delete()
+
+        response = Response(
+            {"detail": "회원탈퇴가 성공적으로 처리되었습니다."},
+            status=status.HTTP_200_OK,
+        )
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+        return response

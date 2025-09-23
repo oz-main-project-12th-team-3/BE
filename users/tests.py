@@ -27,8 +27,7 @@ from users.views import JWTAuthentication
 
 # --- Helper Functions ---
 def generate_random_password(length=12):
-    """숫자, 대문자, 소문자, 특수문자가 포함된 안전한 랜덤 비밀번호를 생성합니다."""
-    # 보안 경고 해결: 암호학적으로 안전한 secrets 모듈 사용
+    """숫자, 대문자, 소문자, 특수문자가 포함된 안전한 랜덤 비밀번호를 생성."""
     characters = string.ascii_letters + string.digits + string.punctuation
     while True:
         password = "".join(secrets.choice(characters) for _ in range(length))
@@ -542,6 +541,57 @@ def test_check_email_view_not_exists(api_client):
     response = api_client.post(url, data, format="json")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["available"] is True
+
+
+@pytest.mark.django_db
+def test_user_delete_view_success(api_client):
+    """
+    회원 탈퇴 기능이 정상적으로 동작하는지 테스트
+    - 모든 객체 생성 과정을 테스트 함수 내부에 명시
+    - 사용자, 프로필, 토큰이 모두 삭제되는지 확인
+    """
+    # 1. 테스트용 사용자 생성
+    test_email = "delete_test@example.com"
+    test_password = generate_random_password()
+    user = User.objects.create_user(email=test_email, password=test_password)
+
+    # 2. 인증 토큰 생성
+    access_token, refresh_token, _ = generate_tokens(user)
+
+    # 3. API 클라이언트 설정
+    client = api_client
+    client.cookies["access_token"] = access_token
+    client.cookies["refresh_token"] = refresh_token
+    client.force_authenticate(user=user)
+
+    url = reverse("user-delete")
+    data = {"password": test_password}
+
+    # 4. 회원 탈퇴 요청
+    response = client.post(url, data, format="json")
+
+    # 5. 응답 확인
+    assert response.status_code == status.HTTP_200_OK
+
+    # 6. DB에서 사용자, 프로필, 토큰이 삭제되었는지 확인
+    assert not User.objects.filter(id=user.id).exists()
+    assert not UserProfile.objects.filter(user_id=user.id).exists()  # 🔑 변경된 부분
+    assert not Token.objects.filter(user_id=user.id).exists()  # 🔑 변경된 부분
+
+    # 7. 쿠키 삭제 확인
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
+    assert response.cookies["access_token"].value == ""
+    assert response.cookies["refresh_token"].value == ""
+
+
+@pytest.mark.django_db
+def test_user_delete_view_invalid_password(authenticated_client):
+    url = reverse("user-delete")
+    data = {"password": "wrongpassword"}
+    response = authenticated_client.post(url, data, format="json")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert "비밀번호가 올바르지 않습니다." in response.data["detail"]
 
 
 # --- Test Admin ---

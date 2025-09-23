@@ -5,6 +5,7 @@ from .views import (
     LogoutView,
     PasswordChangeView,
     TokenRefreshView,
+    UserDeleteView,
     UserLoginView,
     UserProfileView,
     UserRegisterView,
@@ -21,5 +22,10 @@ urlpatterns = [
         "users/password-change/",
         PasswordChangeView.as_view(),
         name="user-password-change",
+    ),
+    path(
+        "users/delete/",
+        UserDeleteView.as_view(),
+        name="user-delete",
     ),
 ]
