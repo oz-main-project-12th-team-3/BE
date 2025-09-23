@@ -81,7 +81,7 @@ class UserLoginView(APIView):
                 expires=datetime.now(timezone.utc)
                 + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
             )
-                        # Also set access_token for convenience
+            # Also set access_token for convenience
             response.set_cookie(
                 key="access_token",
                 value=access_token,
