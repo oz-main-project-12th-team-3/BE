@@ -61,7 +61,7 @@ def authenticate_user(
     if user.two_factor_enabled:
         if not two_factor_code:
             raise AuthenticationFailed("2단계 인증 코드를 입력해주세요.")
-                # TODO: Replace with a real 2FA validation mechanism.
+            # TODO: Replace with a real 2FA validation mechanism.
         if two_factor_code != "123456":
             raise AuthenticationFailed("2단계 인증 코드가 올바르지 않습니다.")
 

@@ -57,9 +57,6 @@ def record_refresh_token(user: User, refresh_token: str):
     token.save()
 
 
-
-
-
 def blacklist_token(refresh_token: str):
     """
     Blacklists a refresh token by deleting it from the database.
