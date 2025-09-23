@@ -22,8 +22,8 @@ def send_scheduled_notifications():
             send_mail(
                 subject=f"Scheduled Notification: {sched.notification.title}",
                 message=sched.notification.message or "",
-                from_email='default@example.com',
-                recipient_list=[sched.user.email]
+                from_email="default@example.com",
+                recipient_list=[sched.user.email],
             )
             sched.sent_at = now
             sched.status = "sent"
