@@ -206,7 +206,3 @@ def test_check_email_view(api_client, user_with_profile):
     response = api_client.post(url, {"email": "available@test.com"}, format="json")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["available"] is True
-
-@pytest.mark.django_db
-def test_new_ci_cd_trigger_test():
-    assert True
