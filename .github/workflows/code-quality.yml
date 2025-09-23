@@ -126,11 +126,14 @@ jobs:
         if python -c "import django" 2>/dev/null; then
           echo "📱 Detected Django project"
           export DJANGO_SETTINGS_MODULE=config.settings
-          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v
-        else
-          echo "🐍 Running standard Python tests"
-          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v
+          
+          # 모든 앱의 마이그레이션을 실행.
+          echo "⏳ Running Django migrations..."
+          python manage.py migrate
         fi
+
+        # pytest 실행.
+        pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v
       env:
         RUNNING_TESTS: 1
         PYTHONPATH: ${{ github.workspace }}
