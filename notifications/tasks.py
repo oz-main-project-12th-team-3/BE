@@ -1,7 +1,9 @@
 from celery import shared_task
-from django.utils import timezone
 from django.core.mail import send_mail
+from django.utils import timezone
+
 from .models.schedule_notification import ScheduleNotification
+
 
 @shared_task
 def send_scheduled_notifications():
