@@ -13,7 +13,7 @@ def generate_tokens(user: User) -> tuple[str, str]:
     if not user:
         raise ValueError("User cannot be None")
     """
-    Generates access and refresh tokens for a given user, including password change claim.
+    Generates tokens for a user, including password change claim.
     """
     access_token_lifetime = settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"]
 
