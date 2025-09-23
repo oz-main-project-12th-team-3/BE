@@ -1,27 +1,19 @@
-import hashlib
 import secrets
 import string
 from datetime import timedelta
-from unittest.mock import patch
 
 import jwt
 import pytest
 from django.conf import settings
-from django.contrib.admin.sites import AdminSite
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.test import APIClient
 
-from users.admin import TokenAdmin, UserAdmin, UserProfileAdmin
-from users.models import Token, User, UserProfile
-from users.serializers import (
-    PasswordChangeSerializer,
-    UserSerializer,
-)
-from users.services import user_service, token_service
 from users.authentication import JWTAuthentication
+from users.models import UserProfile
+from users.services import token_service, user_service
 
 
 # --- Helper Functions ---

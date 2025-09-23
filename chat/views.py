@@ -1,8 +1,7 @@
 from rest_framework import generics, permissions, status
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from .models import ChatLog, ChatSession, Sender, VoiceLog
+from .models import ChatLog, VoiceLog
 from .serializers import ChatLogSerializer, ChatSessionSerializer, VoiceLogSerializer
 from .services.chat_service import (
     create_chat_message,

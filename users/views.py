@@ -1,24 +1,22 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-import jwt
 from django.conf import settings
 from django.contrib.auth import logout
 from django.core.exceptions import ValidationError
+from django.http import Http404
 from rest_framework import generics, permissions, status
-from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Token, User, UserProfile
+from .authentication import JWTAuthentication
+from .models import User
 from .serializers import (
     PasswordChangeSerializer,
     UserProfileSerializer,
     UserSerializer,
 )
 from .services import token_service, user_service
-from .authentication import JWTAuthentication
-
 
 # --- Views based on HEAD branch architecture ---
 
@@ -224,7 +222,7 @@ class PasswordChangeView(APIView):
         validated_data = serializer.validated_data
 
         try:
-            user = user_service.change_user_password(
+            user_service.change_user_password(
                 actor=request.user,
                 target_user_id=target_user_id,
                 current_password=validated_data["current_password"],

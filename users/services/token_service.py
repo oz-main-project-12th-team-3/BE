@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from django.utils import timezone
-
 import jwt
 from django.conf import settings
 from rest_framework.exceptions import AuthenticationFailed
+from django.db import transaction
+import hashlib
 
 from users.models import Token, User
 
@@ -15,7 +16,6 @@ def generate_tokens(user: User) -> tuple[str, str]:
     Generates access and refresh tokens for a given user, including password change claim.
     """
     access_token_lifetime = settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"]
-    refresh_token_lifetime = settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
 
     # Include password changed timestamp in the payload for validation
     password_changed_at = (

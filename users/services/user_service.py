@@ -1,11 +1,12 @@
-from django.utils import timezone
+from datetime import timedelta
 
 from django.contrib.auth.hashers import check_password
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import Http404
+from django.utils import timezone
 from rest_framework.exceptions import (
     AuthenticationFailed,
-    PermissionDenied,
     PermissionDenied,
 )
 
@@ -71,7 +72,6 @@ def authenticate_user(
     return user
 
 
-from django.core.exceptions import ValidationError
 
 
 def change_user_password(
