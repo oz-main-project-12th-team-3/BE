@@ -34,7 +34,10 @@ class TestChatAPI:
         message_url = reverse("chat-message-list-create", args=[1])
 
         response = api_client.get(session_url)
-        assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
 
     def test_chat_session_create_and_list(self, authenticated_user):
         """사용자는 채팅 세션을 생성하고 자신의 세션 목록을 조회할 수 있다."""

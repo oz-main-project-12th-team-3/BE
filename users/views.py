@@ -22,6 +22,7 @@ from .authentication import JWTAuthentication
 
 # --- Views based on HEAD branch architecture ---
 
+
 class UserRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -65,11 +66,13 @@ class UserLoginView(APIView):
 
             response_data = {
                 "access_token": access_token,
-                "expires_in": int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+                "expires_in": int(
+                    settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()
+                ),
                 "detail": "로그인에 성공했습니다.",
             }
             response = Response(response_data, status=status.HTTP_200_OK)
-            
+
             # Set refresh_token in a secure cookie
             response.set_cookie(
                 key="refresh_token",
@@ -115,7 +118,9 @@ class TokenRefreshView(APIView):
             response = Response(
                 {
                     "access_token": access_token,
-                    "expires_in": int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+                    "expires_in": int(
+                        settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()
+                    ),
                     "detail": "액세스 토큰이 성공적으로 갱신되었습니다.",
                 },
                 status=status.HTTP_200_OK,
@@ -144,7 +149,9 @@ class LogoutView(APIView):
         refresh_token = request.COOKIES.get("refresh_token")
         token_service.blacklist_token(refresh_token)
 
-        response = Response({"detail": "로그아웃에 성공했습니다."}, status=status.HTTP_200_OK)
+        response = Response(
+            {"detail": "로그아웃에 성공했습니다."}, status=status.HTTP_200_OK
+        )
         response.delete_cookie("refresh_token")
         response.delete_cookie("access_token")
 
@@ -182,7 +189,7 @@ class UserProfileView(APIView):
             profile = user_service.update_user_profile(
                 actor=request.user,
                 target_user_id=request.user.id,
-                **serializer.validated_data
+                **serializer.validated_data,
             )
             response_serializer = self.serializer_class(profile)
             return Response(response_serializer.data)
@@ -197,7 +204,10 @@ class UserProfileView(APIView):
     def delete(self, request):
         try:
             user_service.delete_user(actor=request.user, target_user_id=request.user.id)
-            return Response({"message": "유저 프로필 삭제가 완료되었습니다."}, status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                {"message": "유저 프로필 삭제가 완료되었습니다."},
+                status=status.HTTP_204_NO_CONTENT,
+            )
         except PermissionDenied as e:
             return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
@@ -220,18 +230,25 @@ class PasswordChangeView(APIView):
                 current_password=validated_data["current_password"],
                 new_password=validated_data["new_password"],
             )
-            
+
             # Invalidate all tokens by blacklisting them after password change
             token_service.blacklist_token(request.COOKIES.get("refresh_token"))
 
-            response = Response({"detail": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해주세요."}, status=status.HTTP_200_OK)
+            response = Response(
+                {
+                    "detail": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해주세요."
+                },
+                status=status.HTTP_200_OK,
+            )
             response.delete_cookie("refresh_token")
             response.delete_cookie("access_token")
             return response
 
         except (ValidationError, AuthenticationFailed, PermissionDenied) as e:
             if isinstance(e, ValidationError):
-                return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST
+                )
             return Response({"detail": e.detail}, status=e.status_code)
         except Exception:
             return Response(
