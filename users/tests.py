@@ -50,7 +50,9 @@ def create_user_fixture():
         if password is None:
             password = generate_random_password()
         # Use the service layer to create user
-        user = user_service.create_user(email=email, password=password, nickname=email.split('@')[0], **extra_fields)
+        user = user_service.create_user(
+            email=email, password=password, nickname=email.split("@")[0], **extra_fields
+        )
         return user, password
 
     return _create_user
@@ -159,7 +161,7 @@ def test_jwt_authentication_password_changed(user_with_profile):
     # Simulate password change
     user.password_changed_at = timezone.now()
     user.save()
-    
+
     request = type(
         "Request",
         (object,),
@@ -182,10 +184,10 @@ def test_logout_view(authenticated_client):
 @pytest.mark.django_db
 def test_password_change_view(authenticated_client, user_with_tokens):
     user, _, _, old_password = user_with_tokens
-    url = reverse("my-password-change") # Use new URL name
+    url = reverse("my-password-change")  # Use new URL name
     new_password = generate_random_password()
     data = {"current_password": old_password, "new_password": new_password}
-    response = authenticated_client.post(url, data, format="json") # Use POST
+    response = authenticated_client.post(url, data, format="json")  # Use POST
     assert response.status_code == status.HTTP_200_OK
     assert "다시 로그인해주세요" in response.data["detail"]
 

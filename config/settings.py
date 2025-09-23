@@ -154,9 +154,7 @@ if os.environ.get("RUNNING_TESTS"):
     }
 else:
     REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": (
-            "users.authentication.JWTAuthentication",
-        ),
+        "DEFAULT_AUTHENTICATION_CLASSES": ("users.authentication.JWTAuthentication",),
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     }
 

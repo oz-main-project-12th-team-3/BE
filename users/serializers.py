@@ -19,14 +19,21 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "nickname", "role", "is_active", "two_factor_enabled"]
+        fields = [
+            "id",
+            "email",
+            "password",
+            "nickname",
+            "role",
+            "is_active",
+            "two_factor_enabled",
+        ]
 
     def create(self, validated_data):
         nickname = validated_data.pop("nickname")
         user = User.objects.create_user(**validated_data)
         UserProfile.objects.create(user=user, nickname=nickname)
         return user
-
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -47,9 +54,10 @@ class PasswordChangeSerializer(serializers.Serializer):
 
     def validate(self, data):
         if data["current_password"] == data["new_password"]:
-            raise serializers.ValidationError("새 비밀번호는 현재 비밀번호와 달라야 합니다.")
+            raise serializers.ValidationError(
+                "새 비밀번호는 현재 비밀번호와 달라야 합니다."
+            )
         return data
-
 
 
 class TwoFactorAuthSerializer(serializers.Serializer):

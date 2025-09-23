@@ -34,11 +34,15 @@ class JWTAuthentication(BaseAuthentication):
 
             token_pwd_changed_at = payload.get("pwd_changed_at")
             user_pwd_changed_at = (
-                user.password_changed_at.isoformat() if user.password_changed_at else None
+                user.password_changed_at.isoformat()
+                if user.password_changed_at
+                else None
             )
 
             if token_pwd_changed_at != user_pwd_changed_at:
-                raise AuthenticationFailed("비밀번호가 변경되어 토큰이 무효화되었습니다.")
+                raise AuthenticationFailed(
+                    "비밀번호가 변경되어 토큰이 무효화되었습니다."
+                )
 
             return (user, None)
         except jwt.ExpiredSignatureError:

@@ -15,7 +15,9 @@ def create_chat_message(user: User, session_id: int, message: str) -> ChatLog:
         raise PermissionDenied("Chat session not found.")
 
     if session.user != user:
-        raise PermissionDenied("You do not have permission to post to this chat session.")
+        raise PermissionDenied(
+            "You do not have permission to post to this chat session."
+        )
 
     chat_log = ChatLog.objects.create(
         user=user,
@@ -85,7 +87,9 @@ def create_voice_log(user: User, session_id: int, input_audio_url: str) -> Voice
         raise PermissionDenied("Chat session not found.")
 
     if session.user != user:
-        raise PermissionDenied("You do not have permission to post to this chat session.")
+        raise PermissionDenied(
+            "You do not have permission to post to this chat session."
+        )
 
     voice_log = VoiceLog.objects.create(
         user=user,

@@ -82,9 +82,7 @@ class VoiceLogListCreateView(generics.ListCreateAPIView):
         if not session_id:
             return VoiceLog.objects.none()
 
-        return get_voice_logs_for_session(
-            user=self.request.user, session_id=session_id
-        )
+        return get_voice_logs_for_session(user=self.request.user, session_id=session_id)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

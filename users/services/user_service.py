@@ -3,7 +3,11 @@ from django.utils import timezone
 from django.contrib.auth.hashers import check_password
 from django.db import transaction
 from django.http import Http404
-from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, PermissionDenied
+from rest_framework.exceptions import (
+    AuthenticationFailed,
+    PermissionDenied,
+    PermissionDenied,
+)
 
 from ..models import User, UserProfile
 
@@ -21,7 +25,9 @@ def create_user(email: str, password: str, nickname: str, **extra_fields) -> Use
     return user
 
 
-def authenticate_user(email: str, password: str, two_factor_code: str | None = None) -> User:
+def authenticate_user(
+    email: str, password: str, two_factor_code: str | None = None
+) -> User:
     """
     Authenticates a user based on email, password, and optional 2FA code.
     Handles login failure tracking and account lockout.

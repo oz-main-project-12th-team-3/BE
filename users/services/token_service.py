@@ -29,7 +29,9 @@ def generate_tokens(user: User) -> tuple[str, str]:
         "pwd_changed_at": password_changed_at,
     }
     access_token = jwt.encode(
-        access_token_payload, settings.SIMPLE_JWT["SIGNING_KEY"], algorithm=settings.SIMPLE_JWT["ALGORITHM"]
+        access_token_payload,
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
     )
 
     refresh_token_payload = {
@@ -37,7 +39,9 @@ def generate_tokens(user: User) -> tuple[str, str]:
         "iat": timezone.now(),
     }
     refresh_token = jwt.encode(
-        refresh_token_payload, settings.SIMPLE_JWT["SIGNING_KEY"], algorithm=settings.SIMPLE_JWT["ALGORITHM"]
+        refresh_token_payload,
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
     )
 
     return access_token, refresh_token
@@ -57,6 +61,7 @@ import hashlib
 
 from django.db import transaction
 
+
 def blacklist_token(refresh_token: str):
     """
     Blacklists a refresh token by deleting it from the database.
@@ -68,6 +73,7 @@ def blacklist_token(refresh_token: str):
             token.delete()
         except Token.DoesNotExist:
             pass
+
 
 def validate_refresh_token(token_str: str) -> User:
     """
@@ -99,7 +105,9 @@ def validate_refresh_token(token_str: str) -> User:
             return user
 
         except Token.DoesNotExist:
-            raise AuthenticationFailed("유효하지 않거나 블랙리스트에 등록된 리프레시 토큰입니다.")
+            raise AuthenticationFailed(
+                "유효하지 않거나 블랙리스트에 등록된 리프레시 토큰입니다."
+            )
         except jwt.ExpiredSignatureError:
             raise AuthenticationFailed("만료된 리프레시 토큰입니다.")
         except jwt.InvalidTokenError:
