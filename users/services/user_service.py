@@ -72,8 +72,6 @@ def authenticate_user(
     return user
 
 
-
-
 def change_user_password(
     actor: User, target_user_id: int, current_password: str, new_password: str
 ) -> User:
