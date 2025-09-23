@@ -29,6 +29,7 @@ else:
 # -----------------------------
 # 앱 정의
 # -----------------------------
+
 INSTALLED_APPS = [
     "channels",
     "django.contrib.admin",
@@ -43,12 +44,11 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     # local apps
     "users",
-    "chat",
     "ai",
-    "Schedule",
+    "chat",
+    "schedule",
     "notifications",
 ]
-
 # -----------------------------
 # 미들웨어
 # -----------------------------
@@ -74,6 +74,7 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
+                "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
