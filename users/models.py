@@ -4,6 +4,8 @@ import uuid
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -20,7 +22,6 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        extra_fields.setdefault("role", "admin")
         if extra_fields.get("is_staff") is not True:
             raise ValueError("슈퍼유저는 is_staff=True여야 합니다.")
         if extra_fields.get("is_superuser") is not True:
@@ -29,11 +30,7 @@ class CustomUserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    class Meta:
-        app_label = 'users'
-    ROLE_CHOICES = [("admin", "Admin"), ("user", "User")]
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="user")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     two_factor_enabled = models.BooleanField(default=False)
@@ -52,7 +49,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
 
     def is_account_locked(self):
-        return self.account_locked_until and self.account_locked_until > timezone.now()
+        return (
+            self.account_locked_until is not None
+            and self.account_locked_until > timezone.now()
+        )
 
 
 class Token(models.Model):
@@ -102,13 +102,14 @@ class UserProfile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="user_profile"
     )
-    nickname = models.CharField(max_length=100)
+    nickname = models.CharField(max_length=100, null=True, blank=True)
     profile_image_url = models.URLField(null=True, blank=True)
     last_login = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
 
-# @receiver(post_save, sender=User)
-# def create_user_profile(sender, instance, created, **kwargs):
-#     if created and not hasattr(instance, "user_profile"):
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
