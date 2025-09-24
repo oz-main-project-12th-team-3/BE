@@ -1,21 +1,31 @@
 from django.urls import path
 
-from . import views
+from .views import (
+    CheckEmailView,
+    LogoutView,
+    PasswordChangeView,
+    TokenRefreshView,
+    UserDeleteView,
+    UserLoginView,
+    UserProfileView,
+    UserRegisterView,
+)
 
 urlpatterns = [
-    # Authentication endpoints
-    path("auth/signup/", views.UserRegisterView.as_view(), name="user-signup"),
-    path("auth/login/", views.UserLoginView.as_view(), name="user-login"),
-    path("auth/logout/", views.LogoutView.as_view(), name="user-logout"),
-    path("auth/check-email/", views.CheckEmailView.as_view(), name="check-email"),
-    path("auth/token/refresh/", views.TokenRefreshView.as_view(), name="token-refresh"),
-    # Current user ("me") endpoints
-    path("users/me/profile/", views.UserProfileView.as_view(), name="my-user-profile"),
+    path("auth/signup/", UserRegisterView.as_view(), name="user-register"),
+    path("auth/login/", UserLoginView.as_view(), name="user-login"),
+    path("auth/logout/", LogoutView.as_view(), name="user-logout"),
+    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+    path("auth/email-check/", CheckEmailView.as_view(), name="email-check"),
+    path("users/profile/", UserProfileView.as_view(), name="user-profile"),
     path(
-        "users/me/password/",
-        views.PasswordChangeView.as_view(),
-        name="my-password-change",
+        "users/password-change/",
+        PasswordChangeView.as_view(),
+        name="user-password-change",
     ),
-    # Admin/specific user endpoints (example)
-    # path("users/<int:user_id>/", views.UserDetailView.as_view(), name="user-detail"),
+    path(
+        "users/delete/",
+        UserDeleteView.as_view(),
+        name="user-delete",
+    ),
 ]
