@@ -9,12 +9,12 @@ Full list of settings: https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
+from django.conf import settings
 
 # -----------------------------
 # 기본 경로 설정
 # -----------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # -----------------------------
 # 보안 설정
@@ -29,7 +29,6 @@ if os.environ.get("RUNNING_TESTS"):
     ALLOWED_HOSTS = ["testserver"]
 else:
     ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-
 
 # -----------------------------
 # 앱 정의
@@ -51,8 +50,8 @@ INSTALLED_APPS = [
     "chat",
     "ai",
     "schedule.apps.ScheduleConfig",
+    "search.apps.SearchConfig"
 ]
-
 
 # -----------------------------
 # 미들웨어
@@ -68,7 +67,6 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-
 
 # -----------------------------
 # 템플릿 설정
@@ -88,17 +86,15 @@ TEMPLATES = [
     },
 ]
 
-
 # -----------------------------
 # WSGI / ASGI
 # -----------------------------
 WSGI_APPLICATION = "config.wsgi.application"
-
+ASGI_APPLICATION = "config.asgi.application"
 
 # -----------------------------
 # Channels 설정
 # -----------------------------
-ASGI_APPLICATION = "config.asgi.application"
 if os.environ.get("RUNNING_TESTS"):
     CHANNEL_LAYERS = {
         "default": {
@@ -117,9 +113,9 @@ else:
 
 CELERY_BROKER_URL = "redis://redis:6379/0"
 
-
+# -----------------------------
 # Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+# -----------------------------
 if os.environ.get("RUNNING_TESTS"):
     DATABASES = {
         "default": {
@@ -141,7 +137,6 @@ else:
 
 AUTH_USER_MODEL = "users.User"
 
-
 # -----------------------------
 # REST Framework 설정
 # -----------------------------
@@ -158,25 +153,18 @@ else:
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     }
 
-
 # -----------------------------
 # JWT 설정
 # -----------------------------
 SIMPLE_JWT = {
-    # 30분으로 단축해 보안성 강화
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    # 7일로 늘려 현실적인 갱신 정책
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    # Refresh 토큰을 재발급하면서 회전
     "ROTATE_REFRESH_TOKENS": True,
-    # 갱신 시 이전 토큰 블랙리스트에 추가
     "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": JWT_SECRET_KEY,
-    # Authorization 헤더 타입 지정
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
-
 
 # -----------------------------
 # 쿠키 보안
@@ -185,16 +173,11 @@ SECURE_COOKIE = os.getenv("DEBUG", "0") != "1"
 SESSION_COOKIE_SECURE = SECURE_COOKIE
 CSRF_COOKIE_SECURE = SECURE_COOKIE
 
-
 # -----------------------------
 # 패스워드 검증
 # -----------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": (
-            "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-        )
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -212,13 +195,16 @@ USE_TZ = True
 # 정적 파일
 # -----------------------------
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # 추가: collectstatic 시 정적 파일 위치
 
 # -----------------------------
 # 기본 PK 필드
 # -----------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# -----------------------------
 # Logging Configuration
+# -----------------------------
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -235,25 +221,9 @@ LOGGING = {
         },
     },
     "loggers": {
-        "django": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": True,
-        },
-        "users": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
-        "chat": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
-        "ai": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": True},
+        "users": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "chat": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "ai": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
