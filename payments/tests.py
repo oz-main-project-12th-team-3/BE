@@ -1,11 +1,13 @@
+from unittest.mock import patch
+
+import pytest
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
-import pytest
-from unittest.mock import patch
+
+from users.models import User
 
 from .models import Plan
-from users.models import User
 
 
 @pytest.fixture
