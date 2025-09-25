@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -8,7 +10,7 @@ from users.services.user_service import (
     delete_user,
 )
 from users.tests.conftest import generate_random_password
-from datetime import datetime, timedelta, timezone
+
 
 @pytest.mark.django_db
 def test_create_user_and_profile_with_nickname(create_user):

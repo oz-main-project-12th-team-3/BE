@@ -49,7 +49,8 @@ def create_user(db):
         user = User.objects.create_user(email=email, password=password, **user_fields)
 
         if "nickname" in extra_fields:
-            # UserProfile이 이미 create_user에서 생성되었을 수 있으므로 get_or_create 사용
+            # UserProfile이 이미 create_user에서 생성되었을 수 있으므로
+            # get_or_create 사용
             profile, created = UserProfile.objects.get_or_create(user=user)
             profile.nickname = extra_fields["nickname"]
             profile.save()
