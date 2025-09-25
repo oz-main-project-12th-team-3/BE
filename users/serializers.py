@@ -1,12 +1,21 @@
-from django.db import transaction
 from rest_framework import serializers
 
 from .models import Token, User, UserProfile
 
 
+class CheckEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField(
+        required=True,
+        error_messages={
+            "required": "이메일을 입력해주세요.",
+            "invalid": "유효한 이메일 주소를 입력하십시오.",
+        },
+    )
+
+
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
-    nickname = serializers.CharField(write_only=True, required=True)
+    nickname = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
@@ -21,11 +30,9 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        password = validated_data.pop("password")
         nickname = validated_data.pop("nickname")
-        with transaction.atomic():
-            user = User.objects.create_user(password=password, **validated_data)
-            UserProfile.objects.create(user=user, nickname=nickname)
+        user = User.objects.create_user(**validated_data)
+        UserProfile.objects.create(user=user, nickname=nickname)
         return user
 
 
@@ -38,7 +45,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class TokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Token
-        fields = ["refresh_token", "issued_at", "expires_at"]
+        fields = ["issued_at", "expires_at"]
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -48,12 +55,10 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate(self, data):
         if data["current_password"] == data["new_password"]:
             raise serializers.ValidationError(
-                "새 비밀번호는 기존 비밀번호와 달라야 합니다."
+                "새 비밀번호는 현재 비밀번호와 달라야 합니다."
             )
         return data
 
 
 class TwoFactorAuthSerializer(serializers.Serializer):
     code = serializers.CharField(write_only=True, required=True, max_length=6)
-
-    # 여기에 2FA 코드 검증 로직 추가 가능

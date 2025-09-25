@@ -4,10 +4,16 @@ from .models import ChatLog, ChatSession, VoiceLog
 
 
 class ChatSessionSerializer(serializers.ModelSerializer):
+    last_message = serializers.CharField(read_only=True, required=False)
+    # The API spec's 'updated_at' should reflect the last message time
+    updated_at = serializers.DateTimeField(
+        source="last_message_timestamp", read_only=True
+    )
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+
     class Meta:
         model = ChatSession
-        fields = ["id", "user", "title", "created_at"]
-        read_only_fields = ["user"]  # user는 요청 시 자동으로 설정
+        fields = ["id", "user_id", "title", "last_message", "updated_at"]
 
 
 class ChatLogSerializer(serializers.ModelSerializer):
@@ -17,13 +23,6 @@ class ChatLogSerializer(serializers.ModelSerializer):
         model = ChatLog
         fields = ["id", "session", "message", "sender", "timestamp"]
         read_only_fields = ["user", "sender", "timestamp"]
-
-    def validate_session(self, value):
-        if value.user != self.context["request"].user:
-            raise serializers.ValidationError(
-                "You do not have permission to post to this chat session."
-            )
-        return value
 
 
 class VoiceLogSerializer(serializers.ModelSerializer):
@@ -40,10 +39,3 @@ class VoiceLogSerializer(serializers.ModelSerializer):
             "timestamp",
         ]
         read_only_fields = ["user", "output_audio_url", "transcribed_text", "timestamp"]
-
-    def validate_session(self, value):
-        if value.user != self.context["request"].user:
-            raise serializers.ValidationError(
-                "You do not have permission to post to this chat session."
-            )
-        return value

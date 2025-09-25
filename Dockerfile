@@ -1,17 +1,47 @@
-# Python 3.10 버전을 기반으로 이미지를 생성합니다.
-FROM python:3.10
+# Stage 1: Builder
+FROM python:3.10 as builder
 
-# 환경 변수 설정
+# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# 작업 디렉토리를 /app으로 설정합니다.
+# Install build tools globally in the builder
+RUN pip install uv pip-tools
+
+# Compile requirements to a lock file
 WORKDIR /app
+COPY requirements.in .
+RUN pip-compile requirements.in -o requirements.txt
 
-# requirements.txt 파일을 복사하고 패키지를 설치합니다.
-COPY requirements.txt /app/
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
 
-# 현재 디렉토리의 모든 파일을 /app에 복사합니다.
-COPY . /app/
+
+
+# Stage 2: Final image
+FROM python:3.10-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+
+# Create a non-root user
+RUN useradd --create-home appuser
+WORKDIR /home/appuser/app
+
+# Copy the virtual environment from the builder stage
+
+
+# Copy application code
+COPY --from=builder /app/requirements.txt .
+COPY . .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Change ownership of the app directory and switch to the non-root user
+RUN chown -R appuser:appuser /home/appuser/app
+USER appuser
+
+# Expose the port the app runs on
+EXPOSE 8000
+
+# Default command
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
