@@ -3,9 +3,9 @@ from django.contrib.auth.hashers import check_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
-from ..exceptions import PasswordMismatchException
+from ..exceptions import PasswordMismatchException, UserNotFoundException
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 
@@ -131,3 +131,25 @@ class UserService:
         self.user_repo.update_user_password(user, new_password)
         self.token_repo.blacklist_all_user_tokens(user)
         return True
+
+    # 비밀번호 재설정 시 2fa 인증 요구한다면 위의 함수를 하단으로 대체
+    # def reset_password(self, uidb64, token, new_password, two_fa_code=None):
+    #     try:
+    #         uid = force_str(urlsafe_base64_decode(uidb64))
+    #         user = self.user_repo.get_user_by_id(uid)
+    #     except (UserNotFoundException, ValueError, TypeError):
+    #         raise ValueError("유효하지 않은 비밀번호 재설정 링크입니다.")
+    #
+    #     if not default_token_generator.check_token(user, token):
+    #         raise ValueError("유효하지 않은 토큰입니다.")
+    #
+    #     # 2FA 활성화된 사용자면 2FA 코드 검증
+    #     confirmed_device = self.user_repo.get_user_confirmed_2fa_device(user)
+    #     if confirmed_device:
+    #         if not two_fa_code:
+    #             raise ValueError("2FA 인증 코드가 필요합니다.")
+    #         self.verify_2fa(user, two_fa_code)
+    #
+    #     self.user_repo.update_user_password(user, new_password)
+    #     self.token_repo.blacklist_all_user_tokens(user)
+    #     return True
