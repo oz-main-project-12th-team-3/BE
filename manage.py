@@ -4,8 +4,15 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# --- .env 자동 로드 ---
+from pathlib import Path
+from dotenv import load_dotenv
 
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env")  # .env 파일 로드
+
+# PYTHONPATH 추가
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def main():
     """Run administrative tasks."""
