@@ -59,45 +59,41 @@ class UserLoginView(APIView):
 
         user = authenticate(request, username=email, password=password)
         if user:
-            has_2fa = TOTPDevice.objects.filter(user=user, confirmed=True).exists()
-            has_pending_2fa = TOTPDevice.objects.filter(
-                user=user, confirmed=False
-            ).exists()
+            devices = TOTPDevice.objects.filter(user=user)
+            has_2fa_confirmed = False
+            has_2fa_pending = False
 
-            if has_pending_2fa:
-                # 2FA 등록 유도 상태
-                return Response(
-                    {
-                        "detail": "2FA 등록이 필요합니다.",
-                        "2fa_setup_required": True,
-                        "user_id": user.id,
-                    },
-                    status=status.HTTP_200_OK,
-                )
+            for device in devices:
+                if device.confirmed:
+                    has_2fa_confirmed = True
+                else:
+                    has_2fa_pending = True
+                if has_2fa_confirmed and has_2fa_pending:
+                    break
 
-            if has_2fa:
-                # 2FA 인증 필요 상태
-                return Response(
-                    {
-                        "detail": "2FA 인증이 필요합니다.",
-                        "2fa_required": True,
-                        "user_id": user.id,
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
-            # 2FA 비활성 사용자 로그인 성공 처리
-            access_token, refresh_token, access_token_lifetime = generate_tokens(user)
-
-            response = Response(
-                {
-                    "detail": "로그인 성공",
+            if has_2fa_pending:
+                return Response({
+                    "detail": "2FA 등록이 필요합니다.",
+                    "2fa_setup_required": True,
                     "user_id": user.id,
-                    "expires_in": int(access_token_lifetime.total_seconds()),
-                    "2fa_required": False,
-                },
-                status=status.HTTP_200_OK,
-            )
+                }, status=status.HTTP_200_OK)
+
+            if has_2fa_confirmed:
+                return Response({
+                    "detail": "2FA 인증이 필요합니다.",
+                    "2fa_required": True,
+                    "user_id": user.id,
+                }, status=status.HTTP_200_OK)
+
+            # 2FA 미적용 사용자 로그인 성공 처리
+            access_token, refresh_token, access_token_lifetime = generate_tokens(user)
+            response = Response({
+                "detail": "로그인 성공",
+                "user_id": user.id,
+                "expires_in": int(access_token_lifetime.total_seconds()),
+                "2fa_required": False,
+            }, status=status.HTTP_200_OK)
+
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
             response.set_cookie(
                 "access_token",
@@ -113,16 +109,11 @@ class UserLoginView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
+                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
             )
             return response
         else:
-            return Response(
-                {"detail": "이메일 또는 비밀번호가 올바르지 않습니다."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            return Response({"detail": "이메일 또는 비밀번호가 올바르지 않습니다."}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class LogoutView(APIView):
