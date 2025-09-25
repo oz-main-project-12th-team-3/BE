@@ -1,6 +1,6 @@
 from rest_framework import permissions, viewsets
 
-from .serializers import ScheduleSerializer
+from .serializers import scheduleSerializer
 from .services import schedule_service
 
 

@@ -3,7 +3,7 @@ from django.contrib import admin
 
 from .models.notification import Notification
 from .models.notification_type import NotificationType
-from .models.schedule_notification import ScheduleNotification
+from .models.schedule_notification import scheduleNotification
 from .models.user_notification_preference import UserNotificationPreference
 
 
