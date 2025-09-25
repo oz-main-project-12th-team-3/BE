@@ -16,3 +16,7 @@ per-file-ignores = {"__init__.py" = ["F401"]}
 [tool.ruff.lint.mccabe]
 # "C901": `function` is too complex (`11` > `10`)
 max-complexity = 10
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
