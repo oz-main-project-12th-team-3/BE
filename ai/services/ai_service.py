@@ -30,7 +30,7 @@ def get_gemini_response(prompt: str) -> str:
         # Initialize the model
         model = genai.GenerativeModel("gemini-pro")
         # Generate content
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, request_options={"timeout": 30})
         return response.text
     except Exception as e:
         # Handle potential API errors gracefully
