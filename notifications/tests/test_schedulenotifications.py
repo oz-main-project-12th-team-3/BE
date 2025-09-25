@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase
 
 from notifications.models.notification import Notification
 from notifications.models.notification_type import NotificationType
-from notifications.models.schedule_notification import scheduleNotification
+from notifications.models.schedule_notification import ScheduleNotification
 from notifications.tasks import send_scheduled_notifications
 
 User = get_user_model()
