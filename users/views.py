@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.contrib.auth import authenticate
-from django.contrib.auth import login as django_login
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
@@ -58,22 +57,24 @@ class UserLoginView(APIView):
 
         user = authenticate(request, username=email, password=password)
         if user:
-            django_login(request, user)  # Django의 세션 기반 로그인을 사용
-            # 이 시점에서, 2FA가 활성화된 사용자는
-            # `django_otp.middleware.OTPMiddleware`에 의해 OTP 입력 페이지로
-            # 자동으로 리디렉션됩니다.
-            # 2FA가 없는 사용자는 아래 코드가 실행됨
+            # django_login(request, user) # 로그인 유지는 그대로
+
+            # 2FA 활성화 여부 체크
+            from django_otp.plugins.otp_totp.models import TOTPDevice
+
+            has_2fa = TOTPDevice.objects.filter(user=user, confirmed=True).exists()
+
             access_token, refresh_token, access_token_lifetime = generate_tokens(user)
-            # ... 토큰 발급 및 쿠키 설정 코드 그대로
+
             response = Response(
                 {
                     "detail": "로그인 성공",
                     "user_id": user.id,
                     "expires_in": int(access_token_lifetime.total_seconds()),
+                    "2fa_required": has_2fa,  # 2FA 필요 여부
                 },
                 status=status.HTTP_200_OK,
             )
-            # 쿠키 설정
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
             response.set_cookie(
                 "access_token",

@@ -10,7 +10,7 @@ def create_user(email, password, nickname=None):
     """새로운 사용자를 생성하고, 프로필이 있다면 연결합니다."""
     user = User.objects.create_user(password=password, email=email)
     if nickname:
-        UserProfile.objects.create(user=user, nickname=nickname)
+        UserProfile.objects.get_or_create(user=user, defaults={'nickname': nickname})
     return user
 
 
