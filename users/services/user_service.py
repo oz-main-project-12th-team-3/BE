@@ -1,16 +1,19 @@
 from datetime import datetime, timedelta, timezone
 
 from django.contrib.auth.hashers import check_password
+from django.db import transaction
 from rest_framework.exceptions import AuthenticationFailed
 
 from ..models import User, UserProfile
 
 
 def create_user(email, password, nickname=None):
-    """새로운 사용자를 생성하고, 프로필이 있다면 연결합니다."""
-    user = User.objects.create_user(password=password, email=email)
-    if nickname:
-        UserProfile.objects.get_or_create(user=user, defaults={'nickname': nickname})
+    with transaction.atomic():
+        user = User.objects.create_user(password=password, email=email)
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        if nickname:
+            profile.nickname = nickname
+            profile.save()
     return user
 
 
