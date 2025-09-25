@@ -10,7 +10,7 @@ from notifications.tasks import send_scheduled_notifications
 User = get_user_model()
 
 
-class ScheduleNotificationAPITest(APITestCase):
+class TestScheduleNotificationAPITest(APITestCase):
     """ScheduleNotification API 테스트"""
 
     def setUp(self):
