@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 import jwt
 from django.conf import settings
+from django.db import transaction
 from rest_framework.exceptions import AuthenticationFailed
 
 from ..models import Token, User
@@ -56,7 +57,6 @@ def generate_tokens(user, parent_token_id=None):
 
 
 def refresh_user_tokens(refresh_token):
-    """리프레시 토큰을 사용하여 새로운 액세스/리프레시 토큰 쌍을 발급합니다."""
     if not refresh_token:
         raise AuthenticationFailed("Refresh 토큰이 없습니다.")
 
@@ -67,25 +67,31 @@ def refresh_user_tokens(refresh_token):
             algorithms=[settings.SIMPLE_JWT["ALGORITHM"]],
         )
         token_id = payload["token_id"]
-
-        token_obj = Token.objects.get(
-            refresh_token_id=token_id,
-            expires_at__gt=datetime.now(timezone.utc),
-            is_blacklisted=False,
-        )
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, Token.DoesNotExist):
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         raise AuthenticationFailed("유효하지 않거나 만료된 Refresh 토큰입니다.")
 
-    if not token_obj.check_refresh_token(refresh_token):
+    try:
+        with transaction.atomic():
+            token_obj = Token.objects.select_for_update().get(
+                refresh_token_id=token_id,
+                expires_at__gt=datetime.now(timezone.utc),
+                is_blacklisted=False,
+            )
+
+            if not token_obj.check_refresh_token(refresh_token):
+                raise AuthenticationFailed("유효하지 않은 Refresh 토큰입니다.")
+
+            user = token_obj.user
+
+            access_token, new_refresh_token, access_token_lifetime = generate_tokens(
+                user, parent_token_id=token_obj.refresh_token_id
+            )
+
+            token_obj.is_blacklisted = True
+            token_obj.save()
+
+    except Token.DoesNotExist:
         raise AuthenticationFailed("유효하지 않거나 만료된 Refresh 토큰입니다.")
-
-    user = token_obj.user
-    token_obj.is_blacklisted = True
-    token_obj.save()
-
-    access_token, new_refresh_token, access_token_lifetime = generate_tokens(
-        user, parent_token_id=token_obj.refresh_token_id
-    )
 
     return access_token, new_refresh_token, access_token_lifetime, user
 
