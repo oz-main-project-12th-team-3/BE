@@ -65,3 +65,21 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 class TwoFactorAuthSerializer(serializers.Serializer):
     code = serializers.CharField(write_only=True, required=True, max_length=6)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    new_password = serializers.CharField(write_only=True, required=True, min_length=8)
+    new_password_confirm = serializers.CharField(
+        write_only=True, required=True, min_length=8
+    )
+
+    def validate(self, data):
+        if data["new_password"] != data["new_password_confirm"]:
+            raise serializers.ValidationError(
+                "새 비밀번호와 확인용 비밀번호가 일치하지 않습니다."
+            )
+        return data
