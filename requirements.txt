@@ -212,5 +212,8 @@ wcwidth==0.2.13
 zope-interface==8.0
     # via twisted
 django-two-factor-auth
+django-otp
+qrcode[pil]
+Pillow
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

@@ -80,7 +80,6 @@ MIDDLEWARE = [
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
-    "two_factor.utils.TwoFactorAuthBackend",
 ]
 
 
