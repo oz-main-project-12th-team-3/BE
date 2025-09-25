@@ -10,7 +10,7 @@ from .views import (
     UserProfileView,
     UserRegisterView,
 )
-from .views_2fa import TwoFactorSetupView, TwoFactorVerifyView
+from .views_2fa import TwoFactorConfirmView, TwoFactorSetupView, TwoFactorVerifyView
 
 urlpatterns = [
     path("auth/signup/", UserRegisterView.as_view(), name="user-register"),
@@ -30,5 +30,6 @@ urlpatterns = [
         name="user-delete",
     ),
     path("auth/2fa/setup/", TwoFactorSetupView.as_view(), name="2fa-setup"),
+    path("auth/2fa/confirm/", TwoFactorConfirmView.as_view(), name="2fa-confirm"),
     path("auth/2fa/verify/", TwoFactorVerifyView.as_view(), name="2fa-verify"),
 ]
