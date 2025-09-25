@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from users.models import User
+
 from .models import Schedule
 
 
@@ -74,7 +75,9 @@ class TestScheduleAPI:
         user2 = User.objects.create_user(
             email="otheruser@example.com", password="otherpassword"
         )
-        schedule_of_user2 = Schedule.objects.create(user=user2, title="Other's Schedule")
+        schedule_of_user2 = Schedule.objects.create(
+            user=user2, title="Other's Schedule"
+        )
         detail_url = reverse("schedule-detail", args=[schedule_of_user2.id])
 
         # Try to get, update, and delete

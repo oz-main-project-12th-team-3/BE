@@ -1,5 +1,4 @@
 import asyncio
-from unittest.mock import patch
 
 import pytest
 from channels.testing import WebsocketCommunicator
@@ -119,7 +118,11 @@ class TestChatAPI:
         user, client = authenticated_user
         session = ChatSession.objects.create(user=user, title="Test Session")
         log = ChatLog.objects.create(
-            user=user, session=session, message="An important message", sender=Sender.USER, timestamp=timezone.now()
+            user=user,
+            session=session,
+            message="An important message",
+            sender=Sender.USER,
+            timestamp=timezone.now(),
         )
         url = reverse("chat-message-detail", args=[log.id])
 

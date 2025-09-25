@@ -1,5 +1,5 @@
-from unittest.mock import patch
 import uuid
+from unittest.mock import patch
 
 import pytest
 from django.urls import reverse
@@ -7,7 +7,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from users.models import User
-from .models import Plan, PaymentHistory, Subscription
+
+from .models import PaymentHistory, Plan, Subscription
 
 
 @pytest.fixture
@@ -56,12 +57,14 @@ class TestPaymentsAPI:
         mock_create_request.assert_called_once()
 
     @patch("payments.views.confirm_toss_payment")
-    def test_payment_success_confirmation(self, mock_confirm_payment, authenticated_user):
+    def test_payment_success_confirmation(
+        self, mock_confirm_payment, authenticated_user
+    ):
         """결제 성공 콜백 시, 결제를 최종 승인하고 구독을 활성화한다."""
         user, client = authenticated_user
         plan = Plan.objects.create(name="Pro", price=25000, is_active=True)
         order_id = f"order_{uuid.uuid4()}"
-        
+
         pending_payment = PaymentHistory.objects.create(
             user=user,
             plan=plan,
@@ -81,11 +84,16 @@ class TestPaymentsAPI:
         mock_confirm_payment.return_value = mock_toss_response
 
         url = reverse("payment-success")
-        query_params = f"?paymentKey={payment_key}&orderId={order_id}&amount={int(plan.price)}"
+        query_params = (
+            f"?paymentKey={payment_key}&orderId={order_id}&amount={int(plan.price)}"
+        )
         response = client.get(url + query_params)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["message"] == "Payment successful and subscription is now active."
+        assert (
+            response.data["message"]
+            == "Payment successful and subscription is now active."
+        )
 
         mock_confirm_payment.assert_called_once_with(
             payment_key=payment_key, order_id=order_id, amount=int(plan.price)
@@ -95,7 +103,7 @@ class TestPaymentsAPI:
         assert pending_payment.status == PaymentHistory.PaymentStatus.SUCCESS
         assert pending_payment.transaction_id == payment_key
         assert pending_payment.subscription is not None
-        
+
         subscription = Subscription.objects.get(user=user, plan=plan)
         assert subscription.status == Subscription.SubscriptionStatus.ACTIVE
 
@@ -104,7 +112,7 @@ class TestPaymentsAPI:
         user, client = authenticated_user
         plan = Plan.objects.create(name="Pro", price=25000, is_active=True)
         order_id = f"order_{uuid.uuid4()}"
-        
+
         pending_payment = PaymentHistory.objects.create(
             user=user,
             plan=plan,
@@ -115,7 +123,9 @@ class TestPaymentsAPI:
 
         url = reverse("payment-success")
         invalid_amount = int(plan.price) - 100
-        query_params = f"?paymentKey=some_key&orderId={order_id}&amount={invalid_amount}"
+        query_params = (
+            f"?paymentKey=some_key&orderId={order_id}&amount={invalid_amount}"
+        )
         response = client.get(url + query_params)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -126,12 +136,14 @@ class TestPaymentsAPI:
         assert not Subscription.objects.filter(user=user, plan=plan).exists()
 
     @patch("payments.views.confirm_toss_payment")
-    def test_payment_confirmation_fails_on_toss_side(self, mock_confirm_payment, authenticated_user):
+    def test_payment_confirmation_fails_on_toss_side(
+        self, mock_confirm_payment, authenticated_user
+    ):
         """토스 서버에서 최종 승인이 실패하면 결제에 실패한다."""
         user, client = authenticated_user
         plan = Plan.objects.create(name="Pro", price=25000, is_active=True)
         order_id = f"order_{uuid.uuid4()}"
-        
+
         pending_payment = PaymentHistory.objects.create(
             user=user,
             plan=plan,
@@ -145,7 +157,9 @@ class TestPaymentsAPI:
         mock_confirm_payment.return_value = mock_toss_response
 
         url = reverse("payment-success")
-        query_params = f"?paymentKey={payment_key}&orderId={order_id}&amount={int(plan.price)}"
+        query_params = (
+            f"?paymentKey={payment_key}&orderId={order_id}&amount={int(plan.price)}"
+        )
         response = client.get(url + query_params)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
