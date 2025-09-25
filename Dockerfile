@@ -1,52 +1,73 @@
 # 1단계: 빌드 스테이지
 FROM python:3.10-slim AS builder
 
-# 불필요한 pyc 파일 생성을 방지하고 로그를 표준 출력으로 전달
+# Python 출력 설정: pyc 파일 생성 방지 및 버퍼링 비활성화
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# 빌드에 필요한 시스템 의존성 설치
+# Astral uv 공식 이미지에서 uv 바이너리 복사
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# 빌드에 필요한 운영체제 라이브러리 설치
 RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev gcc && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 의존성 명세 복사
-COPY requirements.txt .
+# 1) 의존성 정의 파일만 먼저 복사 (빌드 캐시 최적화 목적)
+COPY requirements.in .
 
-# 가상환경 생성
-RUN python3 -m venv /venv
+# 2) uv 명령어로 requirements.in을 requirements.txt로 컴파일 (pip-tools 의존성 컴파일 대체)
+RUN uv pip compile requirements.in -o requirements.txt
+
+# 3) uv로 가상환경 생성
+RUN uv venv /venv
+
+# 4) 가상환경 경로를 PATH에 추가
 ENV PATH="/venv/bin:$PATH"
 
-# 휠 파일로 패키지 설치 캐시 생성(빨라지고 이미지 재사용 용이)
-RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+# 5) uv pip wheel 명령어로 휠 캐시 생성 (휠을 /wheels 에 저장하여 재사용 효율화)
+# 휠 캐시 대신 직접 가상환경에 설치
+RUN uv pip install --no-cache-dir -r requirements.txt
 
 
-# 2단계: 런타임 스테이지 - 실제 컨테이너 경량 실행환경
+# 6) 애플리케이션 소스 복사 (의존성 설치 이후 복사하여 소스 코드 변경 시 의존성 레이어가 캐시됨을 방지)
+COPY . .
+
+
+# 2단계: 런타임 스테이지
 FROM python:3.10-slim
 
+# Python 출력 설정
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# 런타임에 필요한 최소 의존성 설치
+# 런타임에 필요한 라이브러리 설치
 RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev && rm -rf /var/lib/apt/lists/*
 
-# 일반 사용자 생성 (루트 권한이 아닌 사용자로 앱 실행 권장)
+# uv 바이너리 복사
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# 비루트 사용자 생성 및 작업 디렉터리 설정
 RUN useradd --create-home appuser
 WORKDIR /home/appuser/app
 
-# 런타임 가상환경 생성
-RUN python3 -m venv /home/appuser/.venv
+# uv로 런타임 가상환경 생성
+RUN uv venv /home/appuser/.venv
+
+# 가상환경 경로 PATH에 추가
 ENV PATH="/home/appuser/.venv/bin:$PATH"
 
-# 빌드 스테이지에서 생성된 휠 복사
+# 빌드 스테이지에서 생성한 휠 복사
 COPY --from=builder /wheels /wheels
-COPY requirements.txt .
 
-# 의존성 설치 (휠만 사용, 네트워크 비활성 상태에서도 설치 가능)
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
+# 컴파일된 requirements.txt 복사
+COPY --from=builder /app/requirements.txt .
+
+# uv를 이용해 휠 기반 의존성 설치 (네트워크 없이 설치 가능)
+RUN uv pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
 
 
-# # two_factor 패키지 내부 URLs 문제 패치: two_factor/urls.py 패치 스크립트
+# two_factor 패키지 내 urls.py 파일 문제 패치 스크립트 실행
 RUN python3 - <<EOF
 import re
 file_path = '/home/appuser/.venv/lib/python3.10/site-packages/two_factor/urls.py'
@@ -63,17 +84,14 @@ with open(file_path, 'w') as f:
     f.write(content)
 EOF
 
-# 어플리케이션 코드 복사
-COPY . .
-
-# 앱 경로권한 부여
+# 앱 소스 권한 변경 (비루트 사용자 실행을 위해)
 RUN chown -R appuser:appuser /home/appuser/app
 
-# 비루트 사용자로 실행 권한 변경
+# 비루트 사용자로 컨테이너 실행 전환
 USER appuser
 
 # 컨테이너 외부에 노출할 포트
 EXPOSE 8000
 
-# 애플리케이션 실행 명령 (ASGI 서버인 daphne 실행)
+# ASGI 서버 실행 (daphne)
 CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
