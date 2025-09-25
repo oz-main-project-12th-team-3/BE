@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     "users",
     "chat",
     "ai",
-    "Schedule",
+    "schedule",
 ]
 
 # -----------------------------
