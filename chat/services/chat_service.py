@@ -1,9 +1,11 @@
 from django.db.models import F, OuterRef, Subquery
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
+
 from users.models import User
 
 from ..models import ChatLog, ChatSession, Sender, VoiceLog
+
 
 def create_chat_session(user: User, title: str) -> ChatSession:
     """
@@ -11,6 +13,7 @@ def create_chat_session(user: User, title: str) -> ChatSession:
     """
     session = ChatSession.objects.create(user=user, title=title)
     return session
+
 
 def create_chat_message(user: User, session_id: int, message: str) -> ChatLog:
     """
@@ -35,6 +38,7 @@ def create_chat_message(user: User, session_id: int, message: str) -> ChatLog:
     )
     return chat_log
 
+
 def get_chat_messages_for_session(user: User, session_id: int):
     """
     Retrieves all chat messages for a given session, after validating user permissions.
@@ -48,6 +52,7 @@ def get_chat_messages_for_session(user: User, session_id: int):
         raise PermissionDenied("You do not have permission to view this chat session.")
 
     return ChatLog.objects.filter(session_id=session_id).order_by("timestamp")
+
 
 def get_chat_sessions_for_user(user: User):
     """
@@ -71,6 +76,7 @@ def get_chat_sessions_for_user(user: User):
 
     return sessions
 
+
 def create_voice_log(user: User, session_id: int, input_audio_url: str) -> VoiceLog:
     """
     Creates a new voice log for a session after validating user permissions.
@@ -93,6 +99,7 @@ def create_voice_log(user: User, session_id: int, input_audio_url: str) -> Voice
     )
     # Note: Asynchronous AI processing (STT/TTS) can be triggered from here.
     return voice_log
+
 
 def get_voice_logs_for_session(user: User, session_id: int):
     """

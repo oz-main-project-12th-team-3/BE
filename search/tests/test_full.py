@@ -3,9 +3,11 @@
 import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
-from users.models import User
+
 from search.models import SearchLog
 from search.serializers import searchserializer
+from users.models import User
+
 
 @pytest.mark.django_db
 class TestSearchFull:
@@ -16,9 +18,7 @@ class TestSearchFull:
     @pytest.fixture
     def user(self):
         return User.objects.create_user(
-            username="testuser",
-            email="testuser@example.com",
-            password="password123"
+            username="testuser", email="testuser@example.com", password="password123"
         )
 
     @pytest.fixture
@@ -45,7 +45,7 @@ class TestSearchFull:
             "keyword": "Django",
             "search_type": "tutorial",
             "result_count": 5,
-            "clicked_result_id": 42
+            "clicked_result_id": 42,
         }
         response = auth_client.post(url, data, format="json")
         assert response.status_code == 201
@@ -63,11 +63,7 @@ class TestSearchFull:
 
     def test_create_search_log_unauthenticated(self, api_client):
         url = reverse("search-log-list-create")
-        data = {
-            "keyword": "Anon",
-            "search_type": "test",
-            "result_count": 1
-        }
+        data = {"keyword": "Anon", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
         assert response.status_code == 403
         assert not SearchLog.objects.filter(keyword="Anon").exists()

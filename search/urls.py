@@ -1,5 +1,6 @@
 # search/urls.py
 from django.urls import path
+
 from search.views import SearchLogListCreateView
 
 urlpatterns = [

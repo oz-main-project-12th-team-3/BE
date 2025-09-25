@@ -1,8 +1,9 @@
 # search/tests/test_serializers.py
 import pytest
+
 from search.serializers import SearchLogSerializer
-from search.models import SearchLog
 from users.models import User
+
 
 @pytest.mark.django_db
 class TestSearchLogSerializer:
@@ -15,7 +16,7 @@ class TestSearchLogSerializer:
             "keyword": "Django",
             "search_type": "tutorial",
             "result_count": 5,
-            "clicked_result_id": 42
+            "clicked_result_id": 42,
         }
         serializer = SearchLogSerializer(data=data)
         assert serializer.is_valid(), serializer.errors
@@ -39,7 +40,7 @@ class TestSearchLogSerializer:
             "user": user.id,
             "keyword": "Test",
             "search_type": "example",
-            "result_count": 1
+            "result_count": 1,
         }
         serializer = SearchLogSerializer(data=data)
         assert serializer.is_valid(), serializer.errors

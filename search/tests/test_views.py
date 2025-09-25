@@ -1,15 +1,19 @@
 # search/tests/test_views.py
 import pytest
-from rest_framework.test import APIClient
 from django.urls import reverse
-from users.models import User
+from rest_framework.test import APIClient
+
 from search.models import SearchLog
+from users.models import User
+
 
 @pytest.mark.django_db
 class TestSearchLogViews:
     @pytest.fixture
     def user(self):
-        return User.objects.create_user(username="testuser", email="test@example.com", password="password123")
+        return User.objects.create_user(
+            username="testuser", email="test@example.com", password="password123"
+        )
 
     @pytest.fixture
     def auth_client(self, user):
@@ -45,7 +49,9 @@ class TestSearchLogViews:
         response = client.get(url)
         assert response.status_code == 403
 
+
 def test_views_direct_call():
     request = APIClient().get("/fake-url/")  # reverse 사용 가능
     from rest_framework import views
-    response = views.SearchLogListCreate.as_view()(request)
+
+    views.SearchLogListCreate.as_view()(request)
