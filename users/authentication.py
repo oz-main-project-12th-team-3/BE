@@ -1,9 +1,15 @@
-import jwt
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
-from .models import User
-from .services.token_service import is_valid_access_token
+from .exceptions import TokenAuthenticationFailed
+from .repositories.token_repository import TokenRepository
+from .repositories.user_repository import UserRepository
+from .services.token_service import TokenService
+
+# 의존성 주입
+user_repo = UserRepository()
+token_repo = TokenRepository()
+token_service = TokenService(user_repo, token_repo)
 
 
 class JWTAuthentication(BaseAuthentication):
@@ -23,17 +29,10 @@ class JWTAuthentication(BaseAuthentication):
             return None
 
         try:
-            is_valid, payload = is_valid_access_token(
-                token
-            )  # is_valid_access_token의 반환 값 변경
-            if not is_valid:
-                raise AuthenticationFailed("유효하지 않은 토큰입니다.")
-
-            user = User.objects.get(id=payload["user_id"])
+            payload = token_service.is_valid_access_token(token)
+            user = user_repo.get_user_by_id(payload["user_id"])
             return (user, None)
-        except jwt.ExpiredSignatureError:
-            raise AuthenticationFailed("토큰이 만료되었습니다.")
-        except jwt.InvalidTokenError:
-            raise AuthenticationFailed("유효하지 않은 토큰입니다.")
-        except User.DoesNotExist:
-            raise AuthenticationFailed("사용자가 존재하지 않습니다.")
+        except TokenAuthenticationFailed as e:
+            raise AuthenticationFailed(str(e))
+        except Exception as e:
+            raise AuthenticationFailed(f"인증 오류: {str(e)}")

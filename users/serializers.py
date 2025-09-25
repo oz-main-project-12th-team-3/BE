@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Token, User, UserProfile
+from .models import Token, UserProfile
 
 
 class UserRegisterSerializer(serializers.Serializer):
@@ -8,11 +8,7 @@ class UserRegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     nickname = serializers.CharField(required=False, allow_blank=True)
     enable_2fa = serializers.BooleanField(default=False)
-
-    class Meta:
-        model = User
-        fields = ("email", "password", "password_confirm", "nickname")
-        extra_kwargs = {"password": {"write_only": True}}
+    password_confirm = serializers.CharField(write_only=True)
 
     def validate(self, data):
         if data["password"] != data["password_confirm"]:

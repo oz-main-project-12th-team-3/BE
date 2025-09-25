@@ -1,16 +1,22 @@
 from django.urls import path
 
-from .views import (
+from .views.auth_views import (
     CheckEmailView,
     LogoutView,
-    PasswordChangeView,
     TokenRefreshView,
-    UserDeleteView,
     UserLoginView,
-    UserProfileView,
     UserRegisterView,
 )
-from .views_2fa import TwoFactorConfirmView, TwoFactorSetupView, TwoFactorVerifyView
+from .views.tfa_views import (
+    TwoFactorConfirmView,
+    TwoFactorSetupView,
+    TwoFactorVerifyView,
+)
+from .views.user_views import (
+    PasswordChangeView,
+    UserDeleteView,
+    UserProfileView,
+)
 
 urlpatterns = [
     path("auth/signup/", UserRegisterView.as_view(), name="user-register"),
