@@ -1,5 +1,4 @@
 version: "3.9"
-
 services:
   db:
     image: postgres:16
@@ -39,7 +38,7 @@ services:
 
   worker:
     build: .
-    command: celery -A config worker -l info
+    command: /home/appuser/.venv/bin/celery -A config worker -l info
     volumes:
       - ./config:/home/appuser/app/config
       - ./users:/home/appuser/app/users
