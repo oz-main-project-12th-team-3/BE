@@ -1,0 +1,15 @@
+Django
+djangorestframework
+djoser
+celery
+redis
+psycopg2-binary
+drf-spectacular
+django-filter
+python-json-logger
+daphne
+channels
+channels-redis
+pytest
+pytest-django
+pytest-cov
