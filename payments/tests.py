@@ -2,6 +2,7 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -19,7 +20,7 @@ def api_client():
 @pytest.fixture
 def authenticated_user(api_client):
     user = User.objects.create_user(
-        email="paymentuser@example.com", password="testpassword"
+        email="paymentuser@example.com", password=settings.TEST_USER_PASSWORD
     )
     api_client.force_authenticate(user=user)
     return user, api_client

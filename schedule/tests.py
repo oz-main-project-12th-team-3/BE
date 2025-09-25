@@ -1,4 +1,5 @@
 import pytest
+from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -16,7 +17,7 @@ def api_client():
 @pytest.fixture
 def authenticated_user(api_client):
     user = User.objects.create_user(
-        email="scheduleuser@example.com", password="testpassword"
+        email="scheduleuser@example.com", password=settings.TEST_USER_PASSWORD
     )
     api_client.force_authenticate(user=user)
     return user, api_client
@@ -73,7 +74,7 @@ class TestScheduleAPI:
         """사용자는 다른 사람의 스케줄에 접근할 수 없다."""
         user1, client1 = authenticated_user
         user2 = User.objects.create_user(
-            email="otheruser@example.com", password="otherpassword"
+            email="otheruser@example.com", password=settings.TEST_USER_PASSWORD
         )
         schedule_of_user2 = Schedule.objects.create(
             user=user2, title="Other's Schedule"

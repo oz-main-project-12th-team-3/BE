@@ -1,7 +1,9 @@
 import asyncio
+from unittest.mock import patch
 
 import pytest
 from channels.testing import WebsocketCommunicator
+from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -21,7 +23,7 @@ def api_client():
 @pytest.fixture
 def authenticated_user(api_client):
     user = User.objects.create_user(
-        email="testuser@example.com", password="testpassword"
+        email="testuser@example.com", password=settings.TEST_USER_PASSWORD
     )
     api_client.force_authenticate(user=user)
     return user, api_client
@@ -73,7 +75,7 @@ class TestChatAPI:
         """사용자는 다른 사람의 세션에 접근할 수 없다."""
         user1, client1 = authenticated_user
         user2 = User.objects.create_user(
-            email="otheruser@example.com", password="otherpassword"
+            email="otheruser@example.com", password=settings.TEST_USER_PASSWORD
         )
 
         session_of_user2 = ChatSession.objects.create(
@@ -139,7 +141,7 @@ class TestChatConsumer:
         asyncio.run(self._test_authenticated_user_can_connect())
 
     async def _test_authenticated_user_can_connect(self):
-        user = await User.objects.acreate(email="test@example.com", password="password")
+        user = await User.objects.acreate(email="test@example.com", password=settings.TEST_USER_PASSWORD)
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -157,7 +159,7 @@ class TestChatConsumer:
     async def _test_unauthenticated_user_cannot_connect(self):
         from django.contrib.auth.models import AnonymousUser
 
-        user = await User.objects.acreate(email="test@example.com", password="password")
+        user = await User.objects.acreate(email="test@example.com", password=settings.TEST_USER_PASSWORD)
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(
@@ -174,10 +176,10 @@ class TestChatConsumer:
 
     async def _test_user_cannot_connect_to_others_session(self):
         user1 = await User.objects.acreate(
-            email="user1@example.com", password="password"
+            email="user1@example.com", password=settings.TEST_USER_PASSWORD
         )
         user2 = await User.objects.acreate(
-            email="user2@example.com", password="password"
+            email="user2@example.com", password=settings.TEST_USER_PASSWORD
         )
         session_of_user2 = await ChatSession.objects.acreate(
             user=user2, title="User2 Session"
@@ -196,7 +198,7 @@ class TestChatConsumer:
         asyncio.run(self._test_receive_and_save_message())
 
     async def _test_receive_and_save_message(self):
-        user = await User.objects.acreate(email="test@example.com", password="password")
+        user = await User.objects.acreate(email="test@example.com", password=settings.TEST_USER_PASSWORD)
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
         communicator = WebsocketCommunicator(

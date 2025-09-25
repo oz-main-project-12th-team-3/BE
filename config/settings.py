@@ -121,10 +121,6 @@ CELERY_BROKER_URL = "redis://redis:6379/0"
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
 # Temporarily force SQLite for local development and migrations
 DATABASES = {
     "default": {
@@ -277,3 +273,6 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 # Toss Payments Keys
 TOSS_CLIENT_KEY = os.environ.get("TOSS_CLIENT_KEY")
 TOSS_SECRET_KEY = os.environ.get("TOSS_SECRET_KEY")
+
+# Test User Password
+TEST_USER_PASSWORD = os.environ.get("TEST_USER_PASSWORD", "default_test_password")

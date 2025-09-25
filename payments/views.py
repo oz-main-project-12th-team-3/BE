@@ -135,7 +135,7 @@ class TossPaymentSuccessView(APIView):
             )
 
         toss_confirmation_data = confirm_toss_payment(
-            payment_key=payment_key, order_id=order_id, amount=int(amount)
+            payment_key=payment_key, order_id=order_id, amount=int(payment_history.amount)
         )
 
         if toss_confirmation_data and toss_confirmation_data.get("status") == "DONE":
