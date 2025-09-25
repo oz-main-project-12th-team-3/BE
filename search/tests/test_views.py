@@ -1,8 +1,7 @@
-# search/tests/test_views.py
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APIClient
-from django.contrib.auth import get_user_model
 
 from search.models import SearchLog
 
@@ -50,12 +49,3 @@ class TestSearchLogViews:
         url = reverse("search-log-list-create")
         response = client.get(url)
         assert response.status_code == 403
-
-
-def test_views_direct_call():
-    client = APIClient()
-    request = client.get("/fake-url/")  # reverse 사용 가능
-    from rest_framework import views
-
-    # views.SearchLogListCreate가 존재할 경우 직접 호출 가능
-    # views.SearchLogListCreate.as_view()(request)
