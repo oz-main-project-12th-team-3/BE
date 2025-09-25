@@ -57,12 +57,20 @@ class UserLoginView(APIView):
 
         user = authenticate(request, username=email, password=password)
         if user:
-            # django_login(request, user) # 로그인 유지는 그대로
-
-            # 2FA 활성화 여부 체크
             from django_otp.plugins.otp_totp.models import TOTPDevice
 
             has_2fa = TOTPDevice.objects.filter(user=user, confirmed=True).exists()
+
+            if has_2fa:
+                # 2FA 미완료 상태, 토큰 미발급, 2fa_required 상태 전달
+                return Response(
+                    {
+                        "detail": "2FA 인증이 필요합니다.",
+                        "user_id": user.id,
+                        "2fa_required": True,
+                    },
+                    status=status.HTTP_200_OK,
+                )
 
             access_token, refresh_token, access_token_lifetime = generate_tokens(user)
 
@@ -71,7 +79,7 @@ class UserLoginView(APIView):
                     "detail": "로그인 성공",
                     "user_id": user.id,
                     "expires_in": int(access_token_lifetime.total_seconds()),
-                    "2fa_required": has_2fa,  # 2FA 필요 여부
+                    "2fa_required": False,
                 },
                 status=status.HTTP_200_OK,
             )
