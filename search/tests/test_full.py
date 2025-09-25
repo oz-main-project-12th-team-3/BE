@@ -6,7 +6,9 @@ from rest_framework.test import APIClient
 
 from search.models import SearchLog
 from search.serializers import searchserializer
-from users.models import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 @pytest.mark.django_db
@@ -18,7 +20,7 @@ class TestSearchFull:
     @pytest.fixture
     def user(self):
         return User.objects.create_user(
-            username="testuser", email="testuser@example.com", password="password123"
+            email="testuser@example.com", password="password123"
         )
 
     @pytest.fixture

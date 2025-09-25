@@ -1,15 +1,17 @@
 # search/tests/test_serializers.py
 import pytest
+from django.contrib.auth import get_user_model
 
 from search.serializers import SearchLogSerializer
-from users.models import User
+
+User = get_user_model()
 
 
 @pytest.mark.django_db
 class TestSearchLogSerializer:
     def test_serializer_valid(self):
         user = User.objects.create_user(
-            username="testuser", email="test@example.com", password="password123"
+            email="test@example.com", password="password123"
         )
         data = {
             "user": user.id,
@@ -34,7 +36,7 @@ class TestSearchLogSerializer:
     def test_serializer_called(self):
         # 단순 테스트용 예제
         user = User.objects.create_user(
-            username="anotheruser", email="another@example.com", password="password123"
+            email="another@example.com", password="password123"
         )
         data = {
             "user": user.id,

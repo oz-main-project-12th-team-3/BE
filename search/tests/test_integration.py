@@ -3,9 +3,11 @@
 import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
+from django.contrib.auth import get_user_model
 
 from search.models import SearchLog
-from users.models import User
+
+User = get_user_model()
 
 
 @pytest.mark.django_db
@@ -17,7 +19,7 @@ class TestSearchLogIntegration:
     @pytest.fixture
     def user(self):
         return User.objects.create_user(
-            username="testuser", email="testuser@example.com", password="password123"
+            email="testuser@example.com", password="password123"
         )
 
     @pytest.fixture
