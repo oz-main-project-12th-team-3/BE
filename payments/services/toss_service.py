@@ -41,7 +41,7 @@ def create_toss_payment_request(
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
         response.raise_for_status()  # Raise an exception for bad status codes
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -61,7 +61,7 @@ def confirm_toss_payment(payment_key: str, order_id: str, amount: int):
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
