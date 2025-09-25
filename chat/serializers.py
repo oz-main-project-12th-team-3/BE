@@ -33,16 +33,27 @@ class ChatLogSerializer(serializers.ModelSerializer):
 
 
 class VoiceLogSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
     session = serializers.PrimaryKeyRelatedField(queryset=ChatSession.objects.all())
 
     class Meta:
         model = VoiceLog
         fields = [
             "id",
+            "user_id",
             "session",
             "input_audio_url",
             "output_audio_url",
             "transcribed_text",
             "timestamp",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["user", "output_audio_url", "transcribed_text", "timestamp"]
+        read_only_fields = [
+            "user_id",
+            "output_audio_url",
+            "transcribed_text",
+            "timestamp",
+            "created_at",
+            "updated_at",
+        ]
