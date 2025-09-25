@@ -3,6 +3,10 @@ from datetime import datetime, timedelta, timezone
 from django.contrib.auth.hashers import check_password
 from django.db import transaction
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
 
 from ..models import User, UserProfile
 
@@ -46,14 +50,20 @@ def authenticate_user(email, password):
 
 
 def change_user_password(user, current_password, new_password):
-    """사용자 비밀번호를 변경하고, 모든 기존 토큰을 무효화합니다."""
+    from django.contrib.auth.hashers import check_password
+
     if not check_password(current_password, user.password):
         return False
 
     user.set_password(new_password)
     user.password_changed_at = datetime.now(timezone.utc)
     user.save()
-    user.user_tokens.update(is_blacklisted=True)
+
+    # 기존 토큰 완전 무효화 처리
+    tokens = OutstandingToken.objects.filter(user=user)
+    for token in tokens:
+        BlacklistedToken.objects.get_or_create(token=token)
+
     return True
 
 
