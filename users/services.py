@@ -20,9 +20,9 @@ def generate_tokens(user, parent_token_id=None):
         "user_id": user.id,
         "exp": now + ACCESS_TOKEN_LIFETIME,
         "iat": now,
-        "pwd_changed_at": user.password_changed_at.isoformat()
-        if user.password_changed_at
-        else None,
+        "pwd_changed_at": (
+            user.password_changed_at.isoformat() if user.password_changed_at else None
+        ),
     }
     access_token = jwt.encode(
         access_token_payload,

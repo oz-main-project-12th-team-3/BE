@@ -9,7 +9,6 @@ Full list of settings: https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
-from django.conf import settings
 
 # -----------------------------
 # 기본 경로 설정
@@ -50,7 +49,7 @@ INSTALLED_APPS = [
     "chat",
     "ai",
     "schedule.apps.ScheduleConfig",
-    "search.apps.SearchConfig"
+    "search.apps.SearchConfig",
 ]
 
 # -----------------------------
@@ -97,17 +96,13 @@ ASGI_APPLICATION = "config.asgi.application"
 # -----------------------------
 if os.environ.get("RUNNING_TESTS"):
     CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-        },
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
 else:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [("redis", 6379)],
-            },
+            "CONFIG": {"hosts": [("redis", 6379)]},
         },
     }
 
@@ -177,10 +172,15 @@ CSRF_COOKIE_SECURE = SECURE_COOKIE
 # 패스워드 검증
 # -----------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        )
+    },
+    {"NAME": ("django.contrib.auth.password_validation." "MinimumLengthValidator")},
+    {"NAME": ("django.contrib.auth.password_validation." "CommonPasswordValidator")},
+    {"NAME": ("django.contrib.auth.password_validation." "NumericPasswordValidator")},
 ]
 
 # -----------------------------
@@ -195,7 +195,7 @@ USE_TZ = True
 # 정적 파일
 # -----------------------------
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"  # 추가: collectstatic 시 정적 파일 위치
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # -----------------------------
 # 기본 PK 필드
@@ -215,10 +215,7 @@ LOGGING = {
         },
     },
     "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "json",
-        },
+        "console": {"class": "logging.StreamHandler", "formatter": "json"},
     },
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": True},

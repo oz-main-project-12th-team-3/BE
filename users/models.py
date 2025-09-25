@@ -30,7 +30,8 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     class Meta:
-        app_label = 'users'
+        app_label = "users"
+
     ROLE_CHOICES = [("admin", "Admin"), ("user", "User")]
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="user")

@@ -3,8 +3,10 @@
 import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
-from users.models import User
+
 from search.models import SearchLog
+from users.models import User
+
 
 @pytest.mark.django_db
 class TestSearchLogIntegration:
@@ -15,9 +17,7 @@ class TestSearchLogIntegration:
     @pytest.fixture
     def user(self):
         return User.objects.create_user(
-            username="testuser",
-            email="testuser@example.com",
-            password="password123"
+            username="testuser", email="testuser@example.com", password="password123"
         )
 
     @pytest.fixture
@@ -34,7 +34,7 @@ class TestSearchLogIntegration:
             "keyword": "Django",
             "search_type": "tutorial",
             "result_count": 5,
-            "clicked_result_id": 42
+            "clicked_result_id": 42,
         }
         response = auth_client.post(url, data, format="json")
         assert response.status_code == 201
@@ -69,11 +69,7 @@ class TestSearchLogIntegration:
         인증되지 않은 사용자는 POST 불가
         """
         url = reverse("search-log-list-create")
-        data = {
-            "keyword": "Anonymous",
-            "search_type": "test",
-            "result_count": 1
-        }
+        data = {"keyword": "Anonymous", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
         assert response.status_code == 403
         assert not SearchLog.objects.filter(keyword="Anonymous").exists()
