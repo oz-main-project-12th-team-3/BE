@@ -1,0 +1,121 @@
+from django.conf import settings
+from rest_framework import permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from ..authentication import JWTAuthentication
+from ..exceptions import UserNotFoundException
+from ..repositories.token_repository import TokenRepository
+from ..repositories.user_repository import UserRepository
+from ..serializers import TwoFactorAuthSerializer
+from ..services.token_service import TokenService
+from ..services.user_service import UserService
+
+# 의존성 주입
+user_repo = UserRepository()
+token_repo = TokenRepository()
+user_service = UserService(user_repo, token_repo)
+token_service = TokenService(user_repo, token_repo)
+
+
+class TwoFactorSetupView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        device = user_service.setup_2fa(user)
+
+        otp_uri = device.config_url
+        qr_code_base64 = None  # 프론트에서 otp_uri로 QR 코드 생성 권장
+
+        if device.confirmed:
+            return Response(
+                {
+                    "detail": "2FA 기기가 이미 등록되어 있습니다.",
+                    "device_id": device.id,
+                    "otp_uri": otp_uri,
+                    "qr_code_base64": qr_code_base64,
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {
+                    "detail": "2FA 기기가 등록되었습니다.",
+                    "device_id": device.id,
+                    "otp_uri": otp_uri,
+                    "qr_code_base64": qr_code_base64,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+
+class TwoFactorConfirmView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        code = request.data.get("code")
+
+        if user_service.confirm_2fa(user, code):
+            return Response({"detail": "2FA 등록이 완료되었습니다."})
+        return Response(
+            {"detail": "잘못된 인증 코드"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class TwoFactorVerifyView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = TwoFactorAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = request.data.get("email")
+        code = serializer.validated_data["code"]
+
+        try:
+            user = user_service.verify_2fa(email, code)
+
+            access_token, refresh_token, access_token_lifetime = (
+                token_service.generate_tokens(user)
+            )
+            response = Response(
+                {
+                    "detail": "2FA 인증 성공",
+                    "user_id": user.id,
+                    "expires_in": int(access_token_lifetime.total_seconds()),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+            secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+            response.set_cookie(
+                "access_token",
+                access_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(access_token_lifetime.total_seconds()),
+            )
+            response.set_cookie(
+                "refresh_token",
+                refresh_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
+            )
+            return response
+
+        except (UserNotFoundException, ValueError) as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(
+                {"detail": f"2FA 인증 중 오류: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

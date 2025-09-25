@@ -1,84 +1,94 @@
-from datetime import datetime, timedelta, timezone
-
 from django.contrib.auth.hashers import check_password
-from django.db import transaction
-from django_otp.plugins.otp_totp.models import TOTPDevice
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.token_blacklist.models import (
-    BlacklistedToken,
-    OutstandingToken,
-)
 
-from ..models import User, UserProfile
+from ..exceptions import PasswordMismatchException
+from ..repositories.token_repository import TokenRepository
+from ..repositories.user_repository import UserRepository
 
 
-def create_user(email, password, nickname=None, enable_2fa=False):
-    with transaction.atomic():
-        user = User.objects.create_user(password=password, email=email)
-        profile, created = UserProfile.objects.get_or_create(user=user)
-        if nickname:
-            profile.nickname = nickname
-            profile.save()
-        if enable_2fa:
-            # 2FA 기기 생성 (confirmed=False 상태)
-            TOTPDevice.objects.create(user=user, name="default", confirmed=False)
-    return user
+class UserService:
+    def __init__(self, user_repo: UserRepository, token_repo: TokenRepository):
+        self.user_repo = user_repo
+        self.token_repo = token_repo
 
+    def create_user(self, email, password, nickname, enable_2fa):
+        """사용자를 생성하는 비즈니스 로직을 처리합니다."""
+        if self.user_repo.check_email_exists(email):
+            raise ValueError("이미 사용중인 이메일입니다.")
 
-def authenticate_user(email, password):
-    """사용자 이메일과 비밀번호를 검증하고, 로그인 실패 횟수를 처리합니다."""
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        raise AuthenticationFailed("사용자를 찾을 수 없습니다.")
+        user = self.user_repo.create_user(email, password, nickname, enable_2fa)
+        return user
 
-    if not user.is_active:
-        raise AuthenticationFailed("비활성 사용자입니다.")
+    def authenticate_user(self, email, password):
+        """사용자 이메일과 비밀번호를 검증합니다."""
+        user = self.user_repo.get_user_by_email(email)
+        if not user.is_active:
+            raise ValueError("비활성 사용자입니다.")
 
-    if user.is_account_locked():
-        raise AuthenticationFailed("계정이 잠겼습니다. 잠시 후 다시 시도해주세요.")
+        if user.is_account_locked():
+            raise ValueError("계정이 잠겼습니다. 잠시 후 다시 시도해주세요.")
 
-    if not check_password(password, user.password):
-        user.login_fail_count += 1
-        if user.login_fail_count >= 5:
-            user.account_locked_until = datetime.now(timezone.utc) + timedelta(
-                minutes=30
-            )
-        user.save(update_fields=["login_fail_count", "account_locked_until"])
-        raise AuthenticationFailed("비밀번호가 올바르지 않습니다.")
+        if not check_password(password, user.password):
+            self.user_repo.update_login_fail_count(user, is_success=False)
+            raise PasswordMismatchException("비밀번호가 올바르지 않습니다.")
 
-    user.login_fail_count = 0
-    user.save(update_fields=["login_fail_count"])
+        self.user_repo.update_login_fail_count(user, is_success=True)
+        return user
 
-    return user
+    def check_email_exists(self, email):
+        """이메일 중복 여부를 확인합니다."""
+        return self.user_repo.check_email_exists(email)
 
+    def change_user_password(self, user, current_password, new_password):
+        """사용자 비밀번호 변경 로직을 처리합니다."""
+        if not check_password(current_password, user.password):
+            raise PasswordMismatchException("현재 비밀번호가 올바르지 않습니다.")
 
-def change_user_password(user, current_password, new_password):
-    from django.contrib.auth.hashers import check_password
+        self.user_repo.update_user_password(user, new_password)
+        self.token_repo.blacklist_all_user_tokens(user)
+        return True
 
-    if not check_password(current_password, user.password):
+    def delete_user(self, user, password):
+        """사용자를 탈퇴시킵니다."""
+        if not check_password(password, user.password):
+            raise PasswordMismatchException("비밀번호가 올바르지 않습니다.")
+
+        self.user_repo.delete_user(user)
+        return True
+
+    def get_user_profile(self, user):
+        """사용자 프로필을 조회합니다."""
+        return self.user_repo.get_user_profile(user)
+
+    def get_2fa_setup_status(self, user):
+        """2FA 설정 상태를 확인합니다."""
+        confirmed_device = self.user_repo.get_user_confirmed_2fa_device(user)
+        pending_device = self.user_repo.get_user_unconfirmed_2fa_device(user)
+        return confirmed_device, pending_device
+
+    def setup_2fa(self, user):
+        """새로운 2FA 기기를 설정합니다."""
+        device = self.user_repo.get_user_confirmed_2fa_device(user)
+        if not device:
+            device = self.user_repo.create_2fa_device(user)
+        return device
+
+    def confirm_2fa(self, user, code):
+        """2FA 등록을 확정합니다."""
+        device = self.user_repo.get_user_unconfirmed_2fa_device(user)
+        if device and device.verify_token(code):
+            device.confirmed = True
+            device.save()
+            return True
         return False
 
-    user.set_password(new_password)
-    user.password_changed_at = datetime.now(timezone.utc)
-    user.save()
+    def verify_2fa(self, email, code):
+        """2FA 인증 코드를 검증합니다."""
+        user = self.user_repo.get_user_by_email(email)
+        device = self.user_repo.get_user_confirmed_2fa_device(user)
+        if not device:
+            raise ValueError("등록된 2FA 기기가 없습니다.")
 
-    # 기존 토큰 완전 무효화 처리
-    tokens = OutstandingToken.objects.filter(user=user)
-    for token in tokens:
-        BlacklistedToken.objects.get_or_create(token=token)
-
-    return True
-
-
-def delete_user(user, password):
-    """사용자를 탈퇴시키고, 관련 데이터를 모두 삭제합니다."""
-    if not check_password(password, user.password):
-        return False
-    user.delete()
-    return True
-
-
-def check_email_exists(email):
-    """이메일이 이미 존재하는지 확인합니다."""
-    return User.objects.filter(email=email).exists()
+        if device.verify_token(code):
+            return user
+        else:
+            raise ValueError("잘못된 인증 코드입니다.")
