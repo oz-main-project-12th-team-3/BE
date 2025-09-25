@@ -1,12 +1,10 @@
-# search/tests/test_full.py
-
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APIClient
 
 from search.models import SearchLog
 from search.serializers import searchserializer
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -56,7 +54,6 @@ class TestSearchFull:
         assert log.result_count == 5
 
     def test_list_search_logs_authenticated(self, auth_client, user):
-        # 테스트용 로그 생성
         SearchLog.objects.create(user=user, keyword="DRF", result_count=10)
         url = reverse("search-log-list-create")
         response = auth_client.get(url)
@@ -75,9 +72,6 @@ class TestSearchFull:
         response = api_client.get(url)
         assert response.status_code == 403
 
-    # -------------------------
-    # Views 직접 테스트 (단순 List API)
-    # -------------------------
     def test_search_list_view_direct(self, auth_client):
         url = reverse("search-list")
         response = auth_client.get(url)
