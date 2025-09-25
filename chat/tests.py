@@ -1,8 +1,10 @@
 import asyncio
+from unittest.mock import patch
 
 import pytest
 from channels.testing import WebsocketCommunicator
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -89,6 +91,43 @@ class TestChatAPI:
 
         response = client1.get(f"{message_url}?session_id={session_of_user2.id}")
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_update_chat_session(self, authenticated_user):
+        """사용자는 자신의 채팅 세션 제목을 수정할 수 있다."""
+        user, client = authenticated_user
+        session = ChatSession.objects.create(user=user, title="Original Title")
+        url = reverse("chat-session-detail", args=[session.id])
+
+        response = client.patch(url, {"title": "Updated Title"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+
+        session.refresh_from_db()
+        assert session.title == "Updated Title"
+
+    def test_delete_chat_session(self, authenticated_user):
+        """사용자는 자신의 채팅 세션을 삭제할 수 있다."""
+        user, client = authenticated_user
+        session = ChatSession.objects.create(user=user, title="To Be Deleted")
+        url = reverse("chat-session-detail", args=[session.id])
+
+        response = client.delete(url)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not ChatSession.objects.filter(id=session.id).exists()
+
+    def test_update_chat_log(self, authenticated_user):
+        """사용자는 자신의 채팅 로그의 is_important 플래그를 수정할 수 있다."""
+        user, client = authenticated_user
+        session = ChatSession.objects.create(user=user, title="Test Session")
+        log = ChatLog.objects.create(
+            user=user, session=session, message="An important message", sender=Sender.USER, timestamp=timezone.now()
+        )
+        url = reverse("chat-message-detail", args=[log.id])
+
+        response = client.patch(url, {"is_important": True}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+
+        log.refresh_from_db()
+        assert log.is_important is True
 
 
 @pytest.mark.django_db(transaction=True)

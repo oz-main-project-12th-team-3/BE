@@ -1,0 +1,40 @@
+# Git files
+.git
+.gitignore
+
+# Docker files
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE and local configuration
+.idea/
+.vscode/
+*.swp
+
+# Environment variables
+.env
+.env.*
+
+# Test and coverage files
+.pytest_cache/
+htmlcov/
+.coverage
+*.db
+*.sqlite3
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Requirements
+requirements.in

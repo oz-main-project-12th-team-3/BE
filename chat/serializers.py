@@ -29,7 +29,7 @@ class ChatLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatLog
         # Define all fields that should be in the input or output.
-        fields = ["id", "user", "session", "message", "sender", "timestamp"]
+        fields = ["id", "user", "session", "message", "sender", "timestamp", "is_important"]
 
 
 class VoiceLogSerializer(serializers.ModelSerializer):

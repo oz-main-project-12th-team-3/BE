@@ -1,7 +1,8 @@
 from rest_framework import permissions, status, viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from .models import ChatLog, VoiceLog
+from .models import ChatLog, ChatSession, VoiceLog
 from .serializers import ChatLogSerializer, ChatSessionSerializer, VoiceLogSerializer
 from .services.chat_service import (
     create_chat_message,
@@ -9,10 +10,8 @@ from .services.chat_service import (
     create_voice_log,
     delete_chat_log,
     delete_chat_session,
-    get_chat_messages_for_session,
     get_chat_sessions_for_user,
     get_voice_logs_for_session,
-    update_chat_log,
     update_chat_session,
 )
 
@@ -60,13 +59,31 @@ class ChatLogViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        session_id = self.request.query_params.get("session_id")
-        if not session_id:
-            return ChatLog.objects.none()
+        return ChatLog.objects.filter(user=self.request.user)
 
-        return get_chat_messages_for_session(
-            user=self.request.user, session_id=session_id
-        )
+    def list(self, request, *args, **kwargs):
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            return Response(
+                {"error": "session_id query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            session = ChatSession.objects.get(id=session_id)
+            if session.user != request.user:
+                raise PermissionDenied(
+                    "You do not have permission to view this chat session."
+                )
+        except ChatSession.DoesNotExist:
+            return Response(
+                {"error": "Session not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        queryset = self.get_queryset().filter(session_id=session_id)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -81,11 +98,7 @@ class ChatLogViewSet(viewsets.ModelViewSet):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     def perform_update(self, serializer):
-        update_chat_log(
-            user=self.request.user,
-            log_id=self.kwargs["pk"],
-            data=serializer.validated_data,
-        )
+        serializer.save()
 
     def perform_destroy(self, instance):
         delete_chat_log(user=self.request.user, log_id=self.kwargs["pk"])

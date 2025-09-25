@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import uuid
 
 import pytest
 from django.urls import reverse
@@ -6,8 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from users.models import User
-
-from .models import Plan
+from .models import Plan, PaymentHistory, Subscription
 
 
 @pytest.fixture
@@ -44,7 +44,6 @@ class TestPaymentsAPI:
         user, client = authenticated_user
         plan = Plan.objects.create(name="Pro", price=25000, is_active=True)
 
-        # Mock the service function
         mock_toss_response = {"checkoutPage": "https://example.com/checkout"}
         mock_create_request.return_value = mock_toss_response
 
@@ -55,3 +54,103 @@ class TestPaymentsAPI:
         assert response.status_code == status.HTTP_200_OK
         assert response.data == mock_toss_response
         mock_create_request.assert_called_once()
+
+    @patch("payments.views.confirm_toss_payment")
+    def test_payment_success_confirmation(self, mock_confirm_payment, authenticated_user):
+        """결제 성공 콜백 시, 결제를 최종 승인하고 구독을 활성화한다."""
+        user, client = authenticated_user
+        plan = Plan.objects.create(name="Pro", price=25000, is_active=True)
+        order_id = f"order_{uuid.uuid4()}"
+        
+        pending_payment = PaymentHistory.objects.create(
+            user=user,
+            plan=plan,
+            order_id=order_id,
+            amount=plan.price,
+            status=PaymentHistory.PaymentStatus.PENDING,
+        )
+
+        payment_key = "test_payment_key_123"
+        mock_toss_response = {
+            "status": "DONE",
+            "paymentKey": payment_key,
+            "method": "카드",
+            "orderId": order_id,
+            "amount": plan.price,
+        }
+        mock_confirm_payment.return_value = mock_toss_response
+
+        url = reverse("payment-success")
+        query_params = f"?paymentKey={payment_key}&orderId={order_id}&amount={int(plan.price)}"
+        response = client.get(url + query_params)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["message"] == "Payment successful and subscription is now active."
+
+        mock_confirm_payment.assert_called_once_with(
+            payment_key=payment_key, order_id=order_id, amount=int(plan.price)
+        )
+
+        pending_payment.refresh_from_db()
+        assert pending_payment.status == PaymentHistory.PaymentStatus.SUCCESS
+        assert pending_payment.transaction_id == payment_key
+        assert pending_payment.subscription is not None
+        
+        subscription = Subscription.objects.get(user=user, plan=plan)
+        assert subscription.status == Subscription.SubscriptionStatus.ACTIVE
+
+    def test_payment_success_invalid_amount(self, authenticated_user):
+        """콜백으로 받은 금액이 일치하지 않으면 결제에 실패한다."""
+        user, client = authenticated_user
+        plan = Plan.objects.create(name="Pro", price=25000, is_active=True)
+        order_id = f"order_{uuid.uuid4()}"
+        
+        pending_payment = PaymentHistory.objects.create(
+            user=user,
+            plan=plan,
+            order_id=order_id,
+            amount=plan.price,
+            status=PaymentHistory.PaymentStatus.PENDING,
+        )
+
+        url = reverse("payment-success")
+        invalid_amount = int(plan.price) - 100
+        query_params = f"?paymentKey=some_key&orderId={order_id}&amount={invalid_amount}"
+        response = client.get(url + query_params)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["error"] == "Invalid amount."
+
+        pending_payment.refresh_from_db()
+        assert pending_payment.status == PaymentHistory.PaymentStatus.FAILED
+        assert not Subscription.objects.filter(user=user, plan=plan).exists()
+
+    @patch("payments.views.confirm_toss_payment")
+    def test_payment_confirmation_fails_on_toss_side(self, mock_confirm_payment, authenticated_user):
+        """토스 서버에서 최종 승인이 실패하면 결제에 실패한다."""
+        user, client = authenticated_user
+        plan = Plan.objects.create(name="Pro", price=25000, is_active=True)
+        order_id = f"order_{uuid.uuid4()}"
+        
+        pending_payment = PaymentHistory.objects.create(
+            user=user,
+            plan=plan,
+            order_id=order_id,
+            amount=plan.price,
+            status=PaymentHistory.PaymentStatus.PENDING,
+        )
+
+        payment_key = "test_payment_key_456"
+        mock_toss_response = {"status": "FAILED", "message": "카드사 승인 실패"}
+        mock_confirm_payment.return_value = mock_toss_response
+
+        url = reverse("payment-success")
+        query_params = f"?paymentKey={payment_key}&orderId={order_id}&amount={int(plan.price)}"
+        response = client.get(url + query_params)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["error"] == "Payment confirmation failed."
+
+        pending_payment.refresh_from_db()
+        assert pending_payment.status == PaymentHistory.PaymentStatus.FAILED
+        assert not Subscription.objects.filter(user=user, plan=plan).exists()
