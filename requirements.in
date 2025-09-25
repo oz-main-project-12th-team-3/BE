@@ -13,3 +13,7 @@ channels-redis
 pytest
 pytest-django
 pytest-cov
+# For setting environment variables in pytest
+pytest-env
+# For Gemini API
+google-generativeai

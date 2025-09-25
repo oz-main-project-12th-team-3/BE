@@ -17,12 +17,19 @@ class ChatSessionSerializer(serializers.ModelSerializer):
 
 
 class ChatLogSerializer(serializers.ModelSerializer):
+    # For write operations, the client only needs to provide the session ID.
     session = serializers.PrimaryKeyRelatedField(queryset=ChatSession.objects.all())
+
+    # Explicitly define read-only fields for the response.
+    # This ensures they are always present in the output.
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    sender = serializers.CharField(read_only=True)
+    timestamp = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = ChatLog
-        fields = ["id", "session", "message", "sender", "timestamp"]
-        read_only_fields = ["user", "sender", "timestamp"]
+        # Define all fields that should be in the input or output.
+        fields = ["id", "user", "session", "message", "sender", "timestamp"]
 
 
 class VoiceLogSerializer(serializers.ModelSerializer):

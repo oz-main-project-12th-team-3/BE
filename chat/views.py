@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, status
+from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 
 from .models import ChatLog, VoiceLog
@@ -7,13 +7,17 @@ from .services.chat_service import (
     create_chat_message,
     create_chat_session,
     create_voice_log,
+    delete_chat_log,
+    delete_chat_session,
     get_chat_messages_for_session,
     get_chat_sessions_for_user,
     get_voice_logs_for_session,
+    update_chat_log,
+    update_chat_session,
 )
 
 
-class ChatSessionListCreateView(generics.ListCreateAPIView):
+class ChatSessionViewSet(viewsets.ModelViewSet):
     serializer_class = ChatSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -33,18 +37,25 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        validated_data = serializer.validated_data
-
-        chat_session = create_chat_session(
+        instance = create_chat_session(
             user=request.user,
-            title=validated_data.get("title", "New Chat"),  # Provide a default title
+            title=serializer.validated_data.get("title", "New Chat"),
         )
-
-        response_serializer = self.get_serializer(chat_session)
+        response_serializer = self.get_serializer(instance)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+    def perform_update(self, serializer):
+        update_chat_session(
+            user=self.request.user,
+            session_id=self.kwargs["pk"],
+            data=serializer.validated_data,
+        )
 
-class ChatMessageListCreateView(generics.ListCreateAPIView):
+    def perform_destroy(self, instance):
+        delete_chat_session(user=self.request.user, session_id=self.kwargs["pk"])
+
+
+class ChatLogViewSet(viewsets.ModelViewSet):
     serializer_class = ChatLogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -61,18 +72,26 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
-
-        chat_log = create_chat_message(
+        instance = create_chat_message(
             user=request.user,
             session_id=validated_data["session"].id,
             message=validated_data["message"],
         )
-
-        response_serializer = self.get_serializer(chat_log)
+        response_serializer = self.get_serializer(instance)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+    def perform_update(self, serializer):
+        update_chat_log(
+            user=self.request.user,
+            log_id=self.kwargs["pk"],
+            data=serializer.validated_data,
+        )
 
-class VoiceLogListCreateView(generics.ListCreateAPIView):
+    def perform_destroy(self, instance):
+        delete_chat_log(user=self.request.user, log_id=self.kwargs["pk"])
+
+
+class VoiceLogViewSet(viewsets.ModelViewSet):
     serializer_class = VoiceLogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -87,12 +106,10 @@ class VoiceLogListCreateView(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
-
-        voice_log = create_voice_log(
+        instance = create_voice_log(
             user=request.user,
             session_id=validated_data["session"].id,
             input_audio_url=validated_data["input_audio_url"],
         )
-
-        response_serializer = self.get_serializer(voice_log)
+        response_serializer = self.get_serializer(instance)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)

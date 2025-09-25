@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED 1
 # Install build tools globally in the builder
 RUN pip install uv pip-tools
 
-# Compile requirements to a lock file
+# Compile requirements to a lock file 체크 필요
 WORKDIR /app
 COPY requirements.in .
 RUN pip-compile requirements.in -o requirements.txt
@@ -31,10 +31,12 @@ WORKDIR /home/appuser/app
 # Copy the virtual environment from the builder stage
 
 
-# Copy application code
+# Copy dependency list and install dependencies
 COPY --from=builder /app/requirements.txt .
-COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
 
 # Change ownership of the app directory and switch to the non-root user
 RUN chown -R appuser:appuser /home/appuser/app

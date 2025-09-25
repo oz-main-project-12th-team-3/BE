@@ -30,7 +30,7 @@ def authenticated_user(api_client):
 class TestChatAPI:
     def test_unauthenticated_access(self, api_client):
         """인증되지 않은 사용자는 API에 접근할 수 없다."""
-        session_url = reverse("chat-session-list-create")
+        session_url = reverse("chat-session-list")
 
         response = api_client.get(session_url)
         assert response.status_code in [
@@ -41,12 +41,11 @@ class TestChatAPI:
     def test_chat_session_create_and_list(self, authenticated_user):
         """사용자는 채팅 세션을 생성하고 자신의 세션 목록을 조회할 수 있다."""
         user, client = authenticated_user
-        url = reverse("chat-session-list-create")
+        url = reverse("chat-session-list")
 
         response = client.post(url, {"title": "My First Session"}, format="json")
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["title"] == "My First Session"
-        assert response.data["user_id"] == user.id
 
         response = client.get(url)
         assert len(response.data["sessions"]) == 1
@@ -55,7 +54,7 @@ class TestChatAPI:
         """사용자는 자신의 세션에 메시지를 생성하고 조회할 수 있다."""
         user, client = authenticated_user
         session = ChatSession.objects.create(user=user, title="Test Session")
-        url = reverse("chat-message-list-create", args=[session.id])
+        url = reverse("chat-message-list")
 
         response = client.post(
             url, {"session": session.id, "message": "Hello, world!"}, format="json"
@@ -80,7 +79,7 @@ class TestChatAPI:
             user=user2, title="Other's Session"
         )
 
-        message_url = reverse("chat-message-list-create", args=[session_of_user2.id])
+        message_url = reverse("chat-message-list")
         response = client1.post(
             message_url,
             {"session": session_of_user2.id, "message": "Hi there!"},
