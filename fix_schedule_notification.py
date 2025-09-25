@@ -36,7 +36,7 @@ def send_scheduled_notifications():
         schedule.status = "sent"
         schedule.sent_at = now
         schedule.save()
-"""
+""",
 }
 
 for file_path, content in replacement_map.items():
