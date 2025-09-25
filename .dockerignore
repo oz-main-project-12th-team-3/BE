@@ -38,3 +38,4 @@ Thumbs.db
 
 # Requirements
 requirements.in
+\n# Ruff cache\n.ruff_cache/
