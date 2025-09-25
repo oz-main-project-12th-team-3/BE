@@ -279,3 +279,14 @@ LOGGING = {
         },
     },
 }
+
+# SMTP 서버 설정
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend" # 개발 시 이메일 콘솔 출력
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" # 배포 시 사용
+EMAIL_HOST = "smtp.gmail.com"  # 구글 SMTP 예시
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")  # 실제 이메일 아이디 (환경변수로 관리 권장)
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")  # 비밀번호(또는 앱 비밀번호)
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # 발신 이메일 주소 기본값
+
