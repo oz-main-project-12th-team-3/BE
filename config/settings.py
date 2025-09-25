@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "chat",
     "ai",
     "schedule.apps.ScheduleConfig",
+    "payments",
 ]
 
 
@@ -120,24 +121,37 @@ CELERY_BROKER_URL = "redis://redis:6379/0"
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-if os.environ.get("RUNNING_TESTS"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "test_db.sqlite3",
-        }
+
+# Database
+# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+
+# Temporarily force SQLite for local development and migrations
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "test_db.sqlite3",
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "mydatabase"),
-            "USER": os.environ.get("DB_USER", "myuser"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "mypassword"),
-            "HOST": os.environ.get("DB_HOST", "db"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
-        }
-    }
+}
+
+# Original configuration commented out for easy reversal later
+# if os.environ.get("RUNNING_TESTS"):
+#     DATABASES = {
+#         "default": {
+#             "ENGINE": "django.db.backends.sqlite3",
+#             "NAME": BASE_DIR / "test_db.sqlite3",
+#         }
+#     }
+# else:
+#     DATABASES = {
+#         "default": {
+#             "ENGINE": "django.db.backends.postgresql",
+#             "NAME": os.environ.get("DB_NAME", "mydatabase"),
+#             "USER": os.environ.get("DB_USER", "myuser"),
+#             "PASSWORD": os.environ.get("DB_PASSWORD", "mypassword"),
+#             "HOST": os.environ.get("DB_HOST", "db"),
+#             "PORT": os.environ.get("DB_PORT", "5432"),
+#         }
+#     }
 
 AUTH_USER_MODEL = "users.User"
 
@@ -260,3 +274,6 @@ LOGGING = {
 
 # Gemini API Key
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# Toss Payments Keys
+TOSS_CLIENT_KEY = os.environ.get("TOSS_CLIENT_KEY")
+TOSS_SECRET_KEY = os.environ.get("TOSS_SECRET_KEY")

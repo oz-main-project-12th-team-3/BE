@@ -1,4 +1,3 @@
-import os
 import google.generativeai as genai
 from django.conf import settings
 
@@ -15,17 +14,21 @@ except (AttributeError, ValueError) as e:
     print(f"WARNING: Gemini API not configured. {e}")
     IS_GEMINI_CONFIGURED = False
 
+
 def get_gemini_response(prompt: str) -> str:
     """
     Gets a response from the Gemini Pro model for a given prompt.
     Returns a string with the AI's response or an error message.
     """
     if not IS_GEMINI_CONFIGURED:
-        return "AI service is not configured. Please set the GEMINI_API_KEY in your environment."
+        return (
+            "AI service is not configured. "
+            "Please set the GEMINI_API_KEY in your environment."
+        )
 
     try:
         # Initialize the model
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel("gemini-pro")
         # Generate content
         response = model.generate_content(prompt)
         return response.text

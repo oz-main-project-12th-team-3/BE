@@ -12,6 +12,7 @@ urlpatterns = [
                 path("chat/", include("chat.urls")),
                 path("schedule/", include("schedule.urls")),
                 path("ai/", include("ai.urls")),
+                path("payments/", include("payments.urls")),
             ]
         ),
     ),

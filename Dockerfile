@@ -33,7 +33,7 @@ WORKDIR /home/appuser/app
 
 # Copy dependency list and install dependencies
 COPY --from=builder /app/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
