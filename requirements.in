@@ -13,3 +13,4 @@ channels-redis
 pytest
 pytest-django
 pytest-cov
+django-two-factor-auth

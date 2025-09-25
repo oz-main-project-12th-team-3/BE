@@ -46,11 +46,16 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    # 2FA 관련 앱 추가
+    "django_otp",
+    "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
+    "two_factor",
     # local apps
     "users",
     "chat",
     "ai",
-    "schedule.apps.ScheduleConfig",
+    "schedule",
 ]
 
 
@@ -62,10 +67,22 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    # 2FA 미들웨어 추가
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django_otp.middleware.OTPMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "two_factor.utils.TwoFactorAuthBackend",
+]
+
 
 ROOT_URLCONF = "config.urls"
 
@@ -87,6 +104,16 @@ TEMPLATES = [
         },
     },
 ]
+
+
+# -----------------------------
+# 2FA 관련 설정
+# -----------------------------
+TWO_FACTOR_FORMS = {
+    "setup": "two_factor.forms.TOTPDeviceForm",
+}
+LOGIN_URL = "two_factor:login"
+LOGIN_REDIRECT_URL = "/"
 
 
 # -----------------------------
