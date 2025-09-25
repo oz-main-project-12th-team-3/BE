@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from ..models.schedule_notification import ScheduleNotification
+from ..models.schedule_notification import scheduleNotification
 from .notification_serializer import NotificationSerializer
 
 
