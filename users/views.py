@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.contrib.auth import authenticate
+from django.contrib.auth import login as django_login
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
@@ -15,7 +17,6 @@ from .serializers import (
 )
 from .services.token_service import generate_tokens, refresh_user_tokens
 from .services.user_service import (
-    authenticate_user,
     change_user_password,
     check_email_exists,
     create_user,
@@ -55,45 +56,49 @@ class UserLoginView(APIView):
         email = serializer.validated_data.get("email")
         password = serializer.validated_data.get("password")
 
-        try:
-            user = authenticate_user(email, password)
+        user = authenticate(request, username=email, password=password)
+        if user:
+            django_login(request, user)  # Django의 세션 기반 로그인을 사용
+            # 이 시점에서, 2FA가 활성화된 사용자는
+            # `django_otp.middleware.OTPMiddleware`에 의해 OTP 입력 페이지로
+            # 자동으로 리디렉션됩니다.
+            # 2FA가 없는 사용자는 아래 코드가 실행됨
             access_token, refresh_token, access_token_lifetime = generate_tokens(user)
-        except AuthenticationFailed as e:
-            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-        except Exception:
-            return Response(
-                {"detail": "로그인 처리 중 오류가 발생했습니다."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            # ... 토큰 발급 및 쿠키 설정 코드 그대로
+            response = Response(
+                {
+                    "detail": "로그인 성공",
+                    "user_id": user.id,
+                    "expires_in": int(access_token_lifetime.total_seconds()),
+                },
+                status=status.HTTP_200_OK,
             )
-
-        response = Response(
-            {
-                "detail": "로그인 성공",
-                "user_id": user.id,
-                "expires_in": int(access_token_lifetime.total_seconds()),
-            },
-            status=status.HTTP_200_OK,
-        )
-
-        secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
-        response.set_cookie(
-            "access_token",
-            access_token,
-            httponly=True,
-            secure=secure_cookie,
-            samesite="Strict",
-            max_age=int(access_token_lifetime.total_seconds()),
-        )
-        response.set_cookie(
-            "refresh_token",
-            refresh_token,
-            httponly=True,
-            secure=secure_cookie,
-            samesite="Strict",
-            max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
-        )
-
-        return response
+            # 쿠키 설정
+            secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+            response.set_cookie(
+                "access_token",
+                access_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(access_token_lifetime.total_seconds()),
+            )
+            response.set_cookie(
+                "refresh_token",
+                refresh_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
+            )
+            return response
+        else:
+            return Response(
+                {"detail": "이메일 또는 비밀번호가 올바르지 않습니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
 
 class LogoutView(APIView):

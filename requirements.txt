@@ -211,6 +211,6 @@ wcwidth==0.2.13
     # via prompt-toolkit
 zope-interface==8.0
     # via twisted
-
+django-two-factor-auth
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

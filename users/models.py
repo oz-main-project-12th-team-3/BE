@@ -33,7 +33,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    two_factor_enabled = models.BooleanField(default=False)
     login_fail_count = models.IntegerField(default=0)
     password_changed_at = models.DateTimeField(null=True, blank=True)
     account_locked_until = models.DateTimeField(null=True, blank=True)

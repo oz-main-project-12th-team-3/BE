@@ -11,12 +11,11 @@ class UserAdmin(BaseUserAdmin):
         "email",
         "is_staff",
         "is_active",
-        "two_factor_enabled",
         "login_fail_count",
         "password_changed_at",
         "account_locked_until",
     )
-    list_filter = ("is_staff", "is_active", "two_factor_enabled")
+    list_filter = ("is_staff", "is_active")
     ordering = ("email",)
     search_fields = ("email",)
     fieldsets = (
@@ -37,7 +36,6 @@ class UserAdmin(BaseUserAdmin):
             "Account Status",
             {
                 "fields": (
-                    "two_factor_enabled",
                     "login_fail_count",
                     "account_locked_until",
                 )
