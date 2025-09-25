@@ -53,6 +53,11 @@ def confirm_toss_payment(payment_key: str, order_id: str, amount: int):
     """
     Confirms a payment with Toss Payments API.
     """
+    # Sanitize payment_key to prevent path traversal
+    if not payment_key or any(c in payment_key for c in ("/", "\\", ".")):
+        print(f"Invalid payment_key received: {payment_key}")
+        return None
+
     url = f"{TOSS_API_URL}/payments/{payment_key}"
     headers = _get_toss_auth_headers()
     payload = {
