@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from django.contrib.auth.hashers import check_password
 from django.db import transaction
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
@@ -11,13 +12,16 @@ from rest_framework_simplejwt.token_blacklist.models import (
 from ..models import User, UserProfile
 
 
-def create_user(email, password, nickname=None):
+def create_user(email, password, nickname=None, enable_2fa=False):
     with transaction.atomic():
         user = User.objects.create_user(password=password, email=email)
         profile, created = UserProfile.objects.get_or_create(user=user)
         if nickname:
             profile.nickname = nickname
             profile.save()
+        if enable_2fa:
+            # 2FA 기기 생성 (confirmed=False 상태)
+            TOTPDevice.objects.create(user=user, name="default", confirmed=False)
     return user
 
 

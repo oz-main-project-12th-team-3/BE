@@ -54,6 +54,23 @@ class TwoFactorSetupView(APIView):
         )
 
 
+class TwoFactorConfirmView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        code = request.data.get("code")
+
+        device = TOTPDevice.objects.filter(user=user, confirmed=False).first()
+        if device and device.verify_token(code):
+            device.confirmed = True
+            device.save()
+            return Response({"detail": "2FA 등록이 완료되었습니다."})
+        return Response(
+            {"detail": "잘못된 인증 코드"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+
 class TwoFactorVerifyView(APIView):
     permission_classes = [permissions.AllowAny]  # 인증 전이므로 허용
 

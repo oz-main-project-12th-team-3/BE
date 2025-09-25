@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
@@ -25,23 +26,24 @@ from .services.user_service import (
 
 class UserRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
-    serializer_class = UserRegisterSerializer  # Change this line
+    serializer_class = UserRegisterSerializer
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         email = serializer.validated_data.get("email")
         password = serializer.validated_data.get("password")
         nickname = serializer.validated_data.get("nickname")
+        enable_2fa = serializer.validated_data.get("enable_2fa", False)
 
-        user = create_user(email, password, nickname)
+        user = create_user(email, password, nickname, enable_2fa)
 
         response_data = {
             "detail": "회원가입이 성공적으로 완료되었습니다.",
             "user_id": user.id,
             "email": user.email,
+            "2fa_setup_required": enable_2fa,
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -57,21 +59,34 @@ class UserLoginView(APIView):
 
         user = authenticate(request, username=email, password=password)
         if user:
-            from django_otp.plugins.otp_totp.models import TOTPDevice
-
             has_2fa = TOTPDevice.objects.filter(user=user, confirmed=True).exists()
+            has_pending_2fa = TOTPDevice.objects.filter(
+                user=user, confirmed=False
+            ).exists()
 
-            if has_2fa:
-                # 2FA 미완료 상태, 토큰 미발급, 2fa_required 상태 전달
+            if has_pending_2fa:
+                # 2FA 등록 유도 상태
                 return Response(
                     {
-                        "detail": "2FA 인증이 필요합니다.",
+                        "detail": "2FA 등록이 필요합니다.",
+                        "2fa_setup_required": True,
                         "user_id": user.id,
-                        "2fa_required": True,
                     },
                     status=status.HTTP_200_OK,
                 )
 
+            if has_2fa:
+                # 2FA 인증 필요 상태
+                return Response(
+                    {
+                        "detail": "2FA 인증이 필요합니다.",
+                        "2fa_required": True,
+                        "user_id": user.id,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            # 2FA 비활성 사용자 로그인 성공 처리
             access_token, refresh_token, access_token_lifetime = generate_tokens(user)
 
             response = Response(

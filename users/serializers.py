@@ -3,9 +3,11 @@ from rest_framework import serializers
 from .models import Token, User, UserProfile
 
 
-class UserRegisterSerializer(serializers.ModelSerializer):
-    password_confirm = serializers.CharField(write_only=True)
+class UserRegisterSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
     nickname = serializers.CharField(required=False, allow_blank=True)
+    enable_2fa = serializers.BooleanField(default=False)
 
     class Meta:
         model = User
