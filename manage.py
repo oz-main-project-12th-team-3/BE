@@ -15,6 +15,7 @@ load_dotenv(dotenv_path=BASE_DIR / ".env")  # .env 파일 로드
 # PYTHONPATH 추가
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+
 def main():
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
