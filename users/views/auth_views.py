@@ -1,5 +1,6 @@
 from django.conf import settings
 from rest_framework import permissions, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,6 +14,8 @@ from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import (
     CheckEmailSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     UserLoginSerializer,
     UserRegisterSerializer,
 )
@@ -215,3 +218,37 @@ class CheckEmailView(APIView):
         return Response(
             {"available": is_available, "detail": message}, status=status.HTTP_200_OK
         )
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        domain = request.get_host()
+        protocol = "https" if request.is_secure() else "http"
+        user_service.send_password_reset_email(email, domain, protocol)
+        return Response(
+            {"detail": "비밀번호 재설정 메일이 발송되었습니다."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, uidb64, token):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            user_service.reset_password(uidb64, token, new_password)
+            return Response(
+                {"detail": "비밀번호가 성공적으로 재설정되었습니다."},
+                status=status.HTTP_200_OK,
+            )
+        except ValueError as e:
+            raise ValidationError({"detail": str(e)})

@@ -1,4 +1,9 @@
+from django.conf import settings
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 
 from ..exceptions import PasswordMismatchException
 from ..repositories.token_repository import TokenRepository
@@ -92,3 +97,37 @@ class UserService:
             return user
         else:
             raise ValueError("잘못된 인증 코드입니다.")
+
+    def send_password_reset_email(self, email, domain, protocol="https"):
+        """비밀번호 재설정 이메일을 생성하여 발송합니다."""
+        try:
+            user = self.user_repo.get_user_by_email(email)
+        except UserNotFoundException:
+            # 보안을 위해 사용자 존재 여부와 관계없이 이메일을 발송한 것처럼 처리
+            return
+
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(str(user.pk).encode()).decode()
+
+        reset_link = f"{protocol}://{domain}/password-reset-confirm/{uid}/{token}/"
+        subject = f"{settings.PROJECT_NAME} 비밀번호 재설정"
+        message = f"다음 링크를 클릭하여 비밀번호를 재설정하세요:\n{reset_link}"
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [email]
+
+        send_mail(subject, message, from_email, recipient_list)
+
+    def reset_password(self, uidb64, token, new_password):
+        """토큰과 uid를 이용해 비밀번호를 변경합니다."""
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = self.user_repo.get_user_by_id(uid)
+        except (UserNotFoundException, ValueError, TypeError):
+            raise ValueError("유효하지 않은 비밀번호 재설정 링크입니다.")
+
+        if not default_token_generator.check_token(user, token):
+            raise ValueError("유효하지 않은 토큰입니다.")
+
+        self.user_repo.update_user_password(user, new_password)
+        self.token_repo.blacklist_all_user_tokens(user)
+        return True

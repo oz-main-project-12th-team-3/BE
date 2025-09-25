@@ -6,6 +6,8 @@ from .views.auth_views import (
     TokenRefreshView,
     UserLoginView,
     UserRegisterView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
 )
 from .views.tfa_views import (
     TwoFactorConfirmView,
@@ -38,4 +40,14 @@ urlpatterns = [
     path("auth/2fa/setup/", TwoFactorSetupView.as_view(), name="2fa-setup"),
     path("auth/2fa/confirm/", TwoFactorConfirmView.as_view(), name="2fa-confirm"),
     path("auth/2fa/verify/", TwoFactorVerifyView.as_view(), name="2fa-verify"),
+    path(
+        "auth/password-reset/",
+        PasswordResetRequestView.as_view(),
+        name="password_reset_request",
+    ),
+    path(
+        "auth/password-reset-confirm/<str:uidb64>/<str:token>/",
+        PasswordResetConfirmView.as_view(),
+        name="password_reset_confirm",
+    ),
 ]
