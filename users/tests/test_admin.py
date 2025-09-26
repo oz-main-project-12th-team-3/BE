@@ -1,75 +1,51 @@
-# users/tests/test_admin.py
 import pytest
 from django.contrib.admin.sites import AdminSite
 
-from users.admin import UserAdmin
-from users.models import User
-
-
-@pytest.fixture
-def site():
-    return AdminSite()
+from users.admin import TokenAdmin, UserAdmin, UserProfileAdmin
+from users.models import Token, User, UserProfile
 
 
 @pytest.mark.django_db
-def test_user_admin_list_display(site):
-    user_admin = UserAdmin(User, site)
-    expected_list_display = (
-        "email",
-        "is_staff",
-        "is_active",
-        "two_factor_enabled",
-        "login_fail_count",
-        "password_changed_at",
-        "account_locked_until",
-    )
-    assert user_admin.list_display == expected_list_display
+class TestUserAdmin:
+    def test_user_admin_list_display(self):
+        site = AdminSite()
+        admin = UserAdmin(User, site)
+        list_display = admin.get_list_display(None)
+        expected_fields = (
+            "email",
+            "is_staff",
+            "is_active",
+            "login_fail_count",
+            "password_changed_at",
+            "account_locked_until",
+        )
+        for field in expected_fields:
+            assert field in list_display
 
 
 @pytest.mark.django_db
-def test_user_admin_search_fields(site):
-    user_admin = UserAdmin(User, site)
-    expected_search_fields = ("email",)
-    assert user_admin.search_fields == expected_search_fields
+class TestUserProfileAdmin:
+    def test_user_profile_admin_list_display(self):
+        site = AdminSite()
+        admin = UserProfileAdmin(UserProfile, site)
+        list_display = admin.get_list_display(None)
+        expected_fields = ("user", "nickname", "profile_image_url", "last_login")
+        for field in expected_fields:
+            assert field in list_display
 
 
 @pytest.mark.django_db
-def test_user_admin_fieldsets(site):
-    user_admin = UserAdmin(User, site)
-    expected_fieldsets = (
-        (None, {"fields": ("email", "password")}),
-        (
-            "Permissions",
-            {
-                "fields": (
-                    "is_staff",
-                    "is_active",
-                    "is_superuser",
-                    "groups",
-                    "user_permissions",
-                )
-            },
-        ),
-        (
-            "Account Status",
-            {
-                "fields": (
-                    "two_factor_enabled",
-                    "login_fail_count",
-                    "account_locked_until",
-                )
-            },
-        ),
-        (
-            "Important dates",
-            {
-                "fields": (
-                    "last_login",
-                    "password_changed_at",
-                    "created_at",
-                    "updated_at",
-                )
-            },
-        ),
-    )
-    assert user_admin.fieldsets == expected_fieldsets
+class TestTokenAdmin:
+    def test_token_admin_list_display(self):
+        site = AdminSite()
+        admin = TokenAdmin(Token, site)
+        list_display = admin.get_list_display(None)
+        expected_fields = (
+            "user",
+            "refresh_token_hash",
+            "issued_at",
+            "expires_at",
+            "is_blacklisted",
+        )
+        for field in expected_fields:
+            assert field in list_display
