@@ -18,3 +18,5 @@ django-two-factor-auth
 django-otp
 qrcode[pil]
 Pillow
+django-extensions
+python-dotenv
