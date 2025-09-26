@@ -1,4 +1,5 @@
 from django.urls import path
+
 from .views import SearchLogListCreateView
 
 app_name = "search"  # 네임스페이스 선언
