@@ -6,11 +6,14 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('notifications', '0002_alter_notification_link_alter_notification_sender_and_more'),
+        (
+            "notifications",
+            "0002_alter_notification_link_alter_notification_sender_and_more",
+        ),
     ]
 
     operations = [
         migrations.DeleteModel(
-            name='UserNotificationPreference',
+            name="UserNotificationPreference",
         ),
     ]
