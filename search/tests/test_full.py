@@ -1,6 +1,8 @@
+# search/tests/test_full.py
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from rest_framework import status
 from rest_framework.test import APIClient
 
 from search.models import SearchLog
@@ -40,8 +42,8 @@ class TestSearchFull:
         serializer = SearchLogSerializer(data=data)
         assert serializer.is_valid(), serializer.errors
         instance = serializer.save()
-        assert instance is not None
         assert instance.keyword == "Django"
+        assert instance.result_count == 5
 
     # -------------------------
     # View & URL 테스트
@@ -55,7 +57,7 @@ class TestSearchFull:
             "clicked_result_id": 42,
         }
         response = auth_client.post(url, data, format="json")
-        assert response.status_code == 201
+        assert response.status_code == status.HTTP_201_CREATED
         log = SearchLog.objects.filter(user=user, keyword="Django").first()
         assert log is not None
         assert log.result_count == 5
@@ -64,22 +66,22 @@ class TestSearchFull:
         SearchLog.objects.create(user=user, keyword="DRF", result_count=10)
         url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         assert any(item["keyword"] == "DRF" for item in response.data)
 
     def test_create_search_log_unauthenticated(self, api_client):
         url = reverse("search:search-log-list-create")
         data = {"keyword": "Anon", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
         assert not SearchLog.objects.filter(keyword="Anon").exists()
 
     def test_list_search_logs_unauthenticated(self, api_client):
         url = reverse("search:search-log-list-create")
         response = api_client.get(url)
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_search_list_view_direct(self, auth_client):
         url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK

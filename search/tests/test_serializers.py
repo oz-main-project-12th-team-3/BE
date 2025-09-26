@@ -27,14 +27,16 @@ class TestSearchLogSerializer:
         assert obj.result_count == 5
 
     def test_serializer_invalid(self):
-        # keyword 필드 빠진 경우
-        data = {"search_type": "tutorial"}
+        user = User.objects.create_user(
+            email="invalid@example.com", password="password123"
+        )
+        # keyword 필드 누락
+        data = {"user": user.id, "search_type": "tutorial"}
         serializer = SearchLogSerializer(data=data)
         assert not serializer.is_valid()
         assert "keyword" in serializer.errors
 
-    def test_serializer_called(self):
-        # 단순 테스트용 예제
+    def test_serializer_save_called(self):
         user = User.objects.create_user(
             email="another@example.com", password="password123"
         )
@@ -48,3 +50,4 @@ class TestSearchLogSerializer:
         assert serializer.is_valid(), serializer.errors
         obj = serializer.save()
         assert obj.keyword == "Test"
+        assert obj.result_count == 1
