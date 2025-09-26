@@ -18,6 +18,7 @@ def send_mail(schedule):
     # 테스트용으로는 그냥 pass 해도 됨
     pass
 
+
 def send_scheduled_notifications():
     """
     예약된 알림을 조회하고 발송 처리
