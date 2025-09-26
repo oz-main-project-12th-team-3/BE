@@ -1,7 +1,8 @@
-# search/urls.py
 from django.urls import path
 
 from .views import SearchLogListCreateView
+
+app_name = "search"
 
 urlpatterns = [
     path(
