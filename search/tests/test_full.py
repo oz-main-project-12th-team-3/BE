@@ -47,7 +47,7 @@ class TestSearchFull:
     # View & URL 테스트
     # -------------------------
     def test_create_search_log_authenticated(self, auth_client, user):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         data = {
             "keyword": "Django",
             "search_type": "tutorial",
@@ -62,24 +62,24 @@ class TestSearchFull:
 
     def test_list_search_logs_authenticated(self, auth_client, user):
         SearchLog.objects.create(user=user, keyword="DRF", result_count=10)
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
         assert response.status_code == 200
         assert any(item["keyword"] == "DRF" for item in response.data)
 
     def test_create_search_log_unauthenticated(self, api_client):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         data = {"keyword": "Anon", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
         assert response.status_code == 403
         assert not SearchLog.objects.filter(keyword="Anon").exists()
 
     def test_list_search_logs_unauthenticated(self, api_client):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         response = api_client.get(url)
         assert response.status_code == 403
 
     def test_search_list_view_direct(self, auth_client):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
         assert response.status_code == 200
