@@ -41,6 +41,8 @@ class TestSearchFull:
         instance = serializer.save(user=user)  # user 할당
         assert instance is not None
         assert instance.keyword == "Django"
+        assert instance.result_count == 5
+        assert instance.clicked_result_id == 42
 
     # -------------------------
     # View & URL 테스트
@@ -55,11 +57,13 @@ class TestSearchFull:
         }
         response = auth_client.post(url, data, format="json")
         assert response.status_code == 201
-        log = SearchLog.objects.filter(
-            user=auth_client.handler._force_user, keyword="Django"
-        ).first()
+
+        # auth_client에 할당된 user로 필터링
+        user = auth_client.handler._force_user
+        log = SearchLog.objects.filter(user=user, keyword="Django").first()
         assert log is not None
         assert log.result_count == 5
+        assert log.clicked_result_id == 42
 
     def test_list_search_logs_authenticated(self, auth_client, user):
         SearchLog.objects.create(user=user, keyword="DRF", result_count=10)

@@ -34,6 +34,7 @@ class TestSearchLogIntegration:
             "result_count": 5,
             "clicked_result_id": 42,
         }
+        # user 제거, 로그인 사용자가 자동으로 할당
         response = auth_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
 
