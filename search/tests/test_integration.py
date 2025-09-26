@@ -1,4 +1,3 @@
-# search/tests/test_integration.py
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -27,9 +26,6 @@ class TestSearchLogIntegration:
         api_client.force_authenticate(user=user)
         return api_client
 
-    # -------------------------
-    # Create & retrieve tests
-    # -------------------------
     def test_create_search_log(self, auth_client, user):
         url = reverse("search:search-log-list-create")
         data = {
@@ -51,14 +47,13 @@ class TestSearchLogIntegration:
         SearchLog.objects.create(
             user=user, keyword="DRF", result_count=10, search_type="guide"
         )
+
         url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
         assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) >= 1
         assert any(item["keyword"] == "DRF" for item in response.data)
 
-    # -------------------------
-    # Unauthenticated access tests
-    # -------------------------
     def test_unauthenticated_access(self, api_client):
         url = reverse("search:search-log-list-create")
         response = api_client.get(url)

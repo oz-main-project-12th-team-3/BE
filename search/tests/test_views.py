@@ -1,4 +1,3 @@
-# search/tests/test_views.py
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -29,7 +28,6 @@ class TestSearchLogViews:
         data = {"keyword": "Django", "search_type": "tutorial", "result_count": 5}
         response = auth_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
-
         log = SearchLog.objects.get(user=user, keyword="Django")
         assert log.result_count == 5
 
