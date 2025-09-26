@@ -22,7 +22,6 @@ from ..serializers import (
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
-# 의존성 주입
 user_repo = UserRepository()
 token_repo = TokenRepository()
 user_service = UserService(user_repo, token_repo)
@@ -62,32 +61,21 @@ class UserLoginView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get("email")
         password = serializer.validated_data.get("password")
+        code = request.data.get("2fa_code")  # 추가 필드
 
         try:
-            user = user_service.authenticate_user(email, password)
+            user, verified = user_service.login_with_optional_2fa(email, password, code)
 
-            confirmed_device, pending_device = user_service.get_2fa_setup_status(user)
-            if pending_device:
+            if not verified:
                 return Response(
                     {
-                        "detail": "2FA 등록이 필요합니다.",
-                        "2fa_setup_required": True,
-                        "user_id": user.id,
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
-            if confirmed_device:
-                return Response(
-                    {
-                        "detail": "2FA 인증이 필요합니다.",
+                        "detail": "2FA 인증 코드가 필요합니다.",
                         "2fa_required": True,
                         "user_id": user.id,
                     },
                     status=status.HTTP_200_OK,
                 )
 
-            # 2FA 미적용 사용자 로그인 성공 처리
             access_token, refresh_token, access_token_lifetime = (
                 token_service.generate_tokens(user)
             )
