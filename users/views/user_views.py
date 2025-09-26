@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -69,15 +70,38 @@ class PasswordChangeView(APIView):
         new_password = serializer.validated_data["new_password"]
 
         try:
-            user_service.change_user_password(user, current_password, new_password)
-            return Response(
+            access_token, refresh_token, access_token_lifetime = (
+                user_service.change_user_password(user, current_password, new_password)
+            )
+            response = Response(
                 {
-                    "detail": (
-                        "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해주세요."
-                    )
+                    "detail": "비밀번호가 성공적으로 변경되었습니다.",
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "expires_in": int(access_token_lifetime.total_seconds()),
                 },
                 status=status.HTTP_200_OK,
             )
+            secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+            response.set_cookie(
+                "access_token",
+                access_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(access_token_lifetime.total_seconds()),
+            )
+            response.set_cookie(
+                "refresh_token",
+                refresh_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
+            )
+            return response
         except PasswordMismatchException as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
