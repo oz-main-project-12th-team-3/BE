@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "schedule",
     "search",
     "notifications",
+    "django_extensions",
 ]
 
 # -----------------------------
