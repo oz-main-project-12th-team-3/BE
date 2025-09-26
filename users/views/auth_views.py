@@ -64,7 +64,9 @@ class UserLoginView(APIView):
         code = request.data.get("tfa_code")  # 2FA 코드 선택적
 
         try:
-            user, verified, is_temp_token, *tokens = user_service.login_with_optional_2fa(email, password, code)
+            user, verified, is_temp_token, *tokens = (
+                user_service.login_with_optional_2fa(email, password, code)
+            )
 
             response_data = {
                 "detail": None,
@@ -81,36 +83,44 @@ class UserLoginView(APIView):
 
             if is_temp_token:
                 temp_access_token, temp_refresh_token = tokens
-                response_data.update({
-                    "detail": "2FA 설정이 필요합니다.",
-                    "tfa_required": True,
-                    "tfa_step": "setup",
-                    "temporary_access_token": temp_access_token,
-                    "temporary_refresh_token": temp_refresh_token,
-                })
+                response_data.update(
+                    {
+                        "detail": "2FA 설정이 필요합니다.",
+                        "tfa_required": True,
+                        "tfa_step": "setup",
+                        "temporary_access_token": temp_access_token,
+                        "temporary_refresh_token": temp_refresh_token,
+                    }
+                )
                 return Response(response_data, status=status.HTTP_200_OK)
 
             if not verified:
-                response_data.update({
-                    "detail": "2FA 인증 코드가 필요합니다.",
-                    "tfa_required": True,
-                    "tfa_step": "verify",
-                    "user_id": user.id,
-                })
+                response_data.update(
+                    {
+                        "detail": "2FA 인증 코드가 필요합니다.",
+                        "tfa_required": True,
+                        "tfa_step": "verify",
+                        "user_id": user.id,
+                    }
+                )
                 return Response(response_data, status=status.HTTP_200_OK)
 
-            access_token, refresh_token, access_token_lifetime = token_service.generate_tokens(user)
+            access_token, refresh_token, access_token_lifetime = (
+                token_service.generate_tokens(user)
+            )
 
-            response_data.update({
-                "detail": "로그인 성공",
-                "user_id": user.id,
-                "email": user.email,
-                "expires_in": int(access_token_lifetime.total_seconds()),
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "tfa_required": False,
-                "tfa_step": "none",
-            })
+            response_data.update(
+                {
+                    "detail": "로그인 성공",
+                    "user_id": user.id,
+                    "email": user.email,
+                    "expires_in": int(access_token_lifetime.total_seconds()),
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "tfa_required": False,
+                    "tfa_step": "none",
+                }
+            )
 
             response = Response(response_data, status=status.HTTP_200_OK)
 
@@ -129,7 +139,9 @@ class UserLoginView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
             )
             return response
 
@@ -166,7 +178,9 @@ class TokenRefreshView(APIView):
         )
 
         try:
-            access_token, new_refresh_token, access_token_lifetime, user = token_service.refresh_user_tokens(refresh_token)
+            access_token, new_refresh_token, access_token_lifetime, user = (
+                token_service.refresh_user_tokens(refresh_token)
+            )
 
             response = Response(
                 {
@@ -192,7 +206,9 @@ class TokenRefreshView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
             )
             return response
 

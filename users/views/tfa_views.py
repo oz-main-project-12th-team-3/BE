@@ -14,8 +14,8 @@ from ..services.user_service import UserService
 # 의존성 주입
 user_repo = UserRepository()
 token_repo = TokenRepository()
-user_service = UserService(user_repo, token_repo, token_service)
 token_service = TokenService(user_repo, token_repo)
+user_service = UserService(user_repo, token_repo, token_service)
 
 
 class TwoFactorSetupView(APIView):
