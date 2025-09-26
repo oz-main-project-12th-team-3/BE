@@ -116,6 +116,12 @@ jobs:
           echo "⚠️ mypy not installed, skipping type checking"
         fi
 
+     # ✅ 중요한 부분: 마이그레이션 실행
+      - name: Run migrations
+        run: |
+          python manage.py makemigrations
+          python manage.py migrate
+
     - name: 🧪 Run Tests with Coverage
       id: run-tests-with-coverage
       if: ${{ !inputs.skip-tests }}
