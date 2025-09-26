@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import jwt
 from django.conf import settings
@@ -59,6 +59,52 @@ class TokenService:
         )
 
         return access_token, refresh_token, ACCESS_TOKEN_LIFETIME
+
+    def generate_temporary_tokens(self, user):
+        """2FA 미완료 사용자용 임시 토큰 발급 (짧은 유효기간)"""
+        now = datetime.now(timezone.utc)
+        token_id = uuid.uuid4()
+
+        temp_access_lifetime = timedelta(minutes=5)  # 5분 임시 토큰 유효시간
+
+        access_token_payload = {
+            "user_id": user.id,
+            "exp": now + temp_access_lifetime,
+            "iat": now,
+            "pwd_changed_at": user.password_changed_at.isoformat()
+            if user.password_changed_at
+            else None,
+            "is_temporary": True,  # 임시 토큰 표시
+        }
+        access_token = jwt.encode(
+            access_token_payload,
+            settings.SIMPLE_JWT["SIGNING_KEY"],
+            algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+        )
+
+        refresh_token_payload = {
+            "token_id": str(token_id),
+            "user_id": user.id,
+            "exp": now + REFRESH_TOKEN_LIFETIME,
+            "iat": now,
+            "is_temporary": True,  # 임시 토큰 표시
+        }
+        refresh_token = jwt.encode(
+            refresh_token_payload,
+            settings.SIMPLE_JWT["SIGNING_KEY"],
+            algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+        )
+
+        self.token_repo.create_token(
+            user,
+            token_id,
+            refresh_token,
+            now,
+            now + REFRESH_TOKEN_LIFETIME,
+            parent_token_id=None,  # 임시 토큰은 부모 없음
+        )
+
+        return access_token, refresh_token, temp_access_lifetime
 
     def refresh_user_tokens(self, refresh_token):
         """리프레시 토큰을 사용하여 새로운 액세스/리프레시 토큰을 발급합니다."""
@@ -126,6 +172,11 @@ class TokenService:
             raise TokenAuthenticationFailed(
                 "비밀번호가 변경되어 토큰이 무효화되었습니다."
             )
+
+        # 임시 토큰인 경우 추가 로직 가능
+        if payload.get("is_temporary"):
+            # 임시 토큰은 일부 제한된 권한만 허용하는 로직 등 추가 가능
+            pass
 
         return payload
 

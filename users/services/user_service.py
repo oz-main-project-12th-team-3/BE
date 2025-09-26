@@ -63,20 +63,9 @@ class UserService:
     def check_email_exists(self, email):
         return self.user_repo.check_email_exists(email)
 
-    def change_user_password(self, user, current_password, new_password):
-        if not check_password(current_password, user.password):
-            raise PasswordMismatchException("현재 비밀번호가 올바르지 않습니다.")
+    def change_user_password(self, user, new_password):
         self.user_repo.update_user_password(user, new_password)
-
-        # 자동 로그아웃을 위한 토큰 무효화(블랙리스트 처리)
         self.token_repo.blacklist_all_user_tokens(user)
-
-        # 토큰 재발급 없이 여기서 바로 로그아웃되도록 함/ 따라서 주석처리
-        # # 재발급 토큰 생성
-        # access_token, refresh_token, access_token_lifetime = (
-        #     self.token_service.generate_tokens(user)
-        # )
-        # return access_token, refresh_token, access_token_lifetime
         return None
 
     def delete_user(self, user, password):
