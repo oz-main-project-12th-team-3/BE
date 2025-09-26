@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     "chat",
     "ai",
     "schedule",
+    "search",
+    "notifications",
+    "django_extensions",
 ]
 
 
@@ -115,12 +118,11 @@ LOGIN_REDIRECT_URL = "/"
 # WSGI / ASGI
 # -----------------------------
 WSGI_APPLICATION = "config.wsgi.application"
-
+ASGI_APPLICATION = "config.asgi.application"
 
 # -----------------------------
 # Channels 설정
 # -----------------------------
-ASGI_APPLICATION = "config.asgi.application"
 if os.environ.get("RUNNING_TESTS"):
     CHANNEL_LAYERS = {
         "default": {
@@ -131,22 +133,18 @@ else:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [("redis", 6379)],
-            },
+            "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
         },
     }
 
-CELERY_BROKER_URL = "redis://redis:6379/0"
-
-
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+# -----------------------------
+# 데이터베이스
+# -----------------------------
 if os.environ.get("RUNNING_TESTS"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "test_db.sqlite3",
+            "NAME": "test_db.sqlite3",
         }
     }
 else:
@@ -176,7 +174,9 @@ if os.environ.get("RUNNING_TESTS"):
     }
 else:
     REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": ("users.authentication.JWTAuthentication",),
+        "DEFAULT_AUTHENTICATION_CLASSES": (
+            "rest_framework_simplejwt.authentication.JWTAuthentication",
+        ),
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     }
 

@@ -114,7 +114,7 @@ jobs:
           mypy . --ignore-missing-imports --show-error-codes || true
         else
           echo "⚠️ mypy not installed, skipping type checking"
-        fi
+         fi
 
 
     - name: 🧪 Run Tests with Coverage
