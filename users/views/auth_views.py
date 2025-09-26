@@ -24,8 +24,8 @@ from ..services.user_service import UserService
 
 user_repo = UserRepository()
 token_repo = TokenRepository()
-user_service = UserService(user_repo, token_repo)
 token_service = TokenService(user_repo, token_repo)
+user_service = UserService(user_repo, token_repo, token_service)
 
 
 class UserRegisterView(APIView):
@@ -61,33 +61,58 @@ class UserLoginView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get("email")
         password = serializer.validated_data.get("password")
-        code = request.data.get("2fa_code")  # 2FA 코드 선택적
+        code = request.data.get("tfa_code")  # 2FA 코드 선택적
 
         try:
-            user, verified = user_service.login_with_optional_2fa(email, password, code)
+            user, verified, is_temp_token, *tokens = user_service.login_with_optional_2fa(email, password, code)
+
+            response_data = {
+                "detail": None,
+                "user_id": None,
+                "email": None,
+                "expires_in": None,
+                "access_token": None,
+                "refresh_token": None,
+                "tfa_required": False,
+                "tfa_step": "none",
+                "temporary_access_token": None,
+                "temporary_refresh_token": None,
+            }
+
+            if is_temp_token:
+                temp_access_token, temp_refresh_token = tokens
+                response_data.update({
+                    "detail": "2FA 설정이 필요합니다.",
+                    "tfa_required": True,
+                    "tfa_step": "setup",
+                    "temporary_access_token": temp_access_token,
+                    "temporary_refresh_token": temp_refresh_token,
+                })
+                return Response(response_data, status=status.HTTP_200_OK)
 
             if not verified:
-                return Response(
-                    {
-                        "detail": "2FA 인증 코드가 필요합니다.",
-                        "2fa_required": True,
-                        "user_id": user.id,
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
-            access_token, refresh_token, access_token_lifetime = (
-                token_service.generate_tokens(user)
-            )
-            response = Response(
-                {
-                    "detail": "로그인 성공",
+                response_data.update({
+                    "detail": "2FA 인증 코드가 필요합니다.",
+                    "tfa_required": True,
+                    "tfa_step": "verify",
                     "user_id": user.id,
-                    "expires_in": int(access_token_lifetime.total_seconds()),
-                    "2fa_required": False,
-                },
-                status=status.HTTP_200_OK,
-            )
+                })
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            access_token, refresh_token, access_token_lifetime = token_service.generate_tokens(user)
+
+            response_data.update({
+                "detail": "로그인 성공",
+                "user_id": user.id,
+                "email": user.email,
+                "expires_in": int(access_token_lifetime.total_seconds()),
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "tfa_required": False,
+                "tfa_step": "none",
+            })
+
+            response = Response(response_data, status=status.HTTP_200_OK)
 
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
             response.set_cookie(
@@ -104,9 +129,7 @@ class UserLoginView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
+                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
             )
             return response
 
@@ -143,13 +166,12 @@ class TokenRefreshView(APIView):
         )
 
         try:
-            access_token, new_refresh_token, access_token_lifetime, user = (
-                token_service.refresh_user_tokens(refresh_token)
-            )
+            access_token, new_refresh_token, access_token_lifetime, user = token_service.refresh_user_tokens(refresh_token)
 
             response = Response(
                 {
                     "detail": "토큰이 성공적으로 갱신되었습니다.",
+                    "access_token": access_token,
                     "user_id": user.id,
                     "expires_in": int(access_token_lifetime.total_seconds()),
                 },
@@ -170,9 +192,7 @@ class TokenRefreshView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
+                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
             )
             return response
 

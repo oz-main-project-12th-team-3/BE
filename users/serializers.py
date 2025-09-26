@@ -8,15 +8,17 @@ class UserRegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     nickname = serializers.CharField(required=False, allow_blank=True)
     enable_2fa = serializers.BooleanField(default=False)
-    password_confirm = serializers.CharField(write_only=True)
+    # 프론트에서 구현
+    # password_confirm = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        if data["password"] != data["password_confirm"]:
-            raise serializers.ValidationError(
-                {"password_confirm": "Passwords do not match."}
-            )
-
-        data.pop("password_confirm")
+        # 윗 사항에 따라 주석처리/ 비밀번호 일치 검증
+        # if data["password"] != data["password_confirm"]:
+        #     raise serializers.ValidationError(
+        #         {"password_confirm": "Passwords do not match."}
+        #     )
+        #
+        # data.pop("password_confirm")
 
         if "nickname" not in data:
             data["nickname"] = None
@@ -56,15 +58,16 @@ class TokenSerializer(serializers.ModelSerializer):
 
 
 class PasswordChangeSerializer(serializers.Serializer):
-    current_password = serializers.CharField(write_only=True, required=True)
+    # 새로운 비밀번호만 필요
+    # current_password = serializers.CharField(write_only=True, required=True)
     new_password = serializers.CharField(write_only=True, required=True, min_length=8)
-
-    def validate(self, data):
-        if data["current_password"] == data["new_password"]:
-            raise serializers.ValidationError(
-                "새 비밀번호는 기존 비밀번호와 달라야 합니다."
-            )
-        return data
+    # 윗 사항에 따라 주석 처리 / 비밀번호 검증
+    # def validate(self, data):
+    #     if data["current_password"] == data["new_password"]:
+    #         raise serializers.ValidationError(
+    #             "새 비밀번호는 기존 비밀번호와 달라야 합니다."
+    #         )
+    #     return data
 
 
 class TwoFactorAuthSerializer(serializers.Serializer):
