@@ -27,7 +27,7 @@ class TestSearchLogIntegration:
         return api_client
 
     def test_create_search_log(self, auth_client, user):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         data = {
             "keyword": "Django",
             "search_type": "tutorial",
@@ -48,19 +48,19 @@ class TestSearchLogIntegration:
             user=user, keyword="DRF", result_count=10, search_type="guide"
         )
 
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) >= 1
         assert any(item["keyword"] == "DRF" for item in response.data)
 
     def test_unauthenticated_access(self, api_client):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_create_search_log_anonymous(self, api_client):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")
         data = {"keyword": "Anonymous", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_403_FORBIDDEN
