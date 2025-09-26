@@ -6,12 +6,11 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 from ..exceptions import PasswordMismatchException, UserNotFoundException
-from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 
 
 class UserService:
-    def __init__(self, user_repo: UserRepository, token_repo: TokenRepository):
+    def __init__(self, user_repo: UserRepository, token_repo):
         self.user_repo = user_repo
         self.token_repo = token_repo
 
@@ -33,22 +32,16 @@ class UserService:
         return user
 
     def login_with_optional_2fa(self, email, password, code=None):
-        """로그인 시 2FA 등록/인증까지 통합"""
         user = self.authenticate_user(email, password)
 
         confirmed_device = self.user_repo.get_user_confirmed_2fa_device(user)
         pending_device = self.user_repo.get_user_unconfirmed_2fa_device(user)
 
-        # 2FA가 전혀 없는 유저 → 새 기기 생성
+        # 2FA 기기 없으면 바로 로그인 허용
         if not confirmed_device and not pending_device:
-            device = self.user_repo.create_2fa_device(user)
-            if code and device.verify_token(code):
-                device.confirmed = True
-                device.save()
-                return user, True
-            return user, False
+            return user, True
 
-        # 미확정 기기가 있는 경우 confirm 처리
+        # 미확정 2FA 기기 있을 때
         if pending_device:
             if code and pending_device.verify_token(code):
                 pending_device.confirmed = True
@@ -56,7 +49,7 @@ class UserService:
                 return user, True
             return user, False
 
-        # 기기 이미 등록된 경우 verify
+        # 확정된 2FA 기기 있을 때
         if confirmed_device:
             if code and confirmed_device.verify_token(code):
                 return user, True
@@ -72,7 +65,12 @@ class UserService:
             raise PasswordMismatchException("현재 비밀번호가 올바르지 않습니다.")
         self.user_repo.update_user_password(user, new_password)
         self.token_repo.blacklist_all_user_tokens(user)
-        return True
+
+        # 변경 후 즉시 새 토큰 발급
+        access_token, refresh_token, access_token_lifetime = (
+            self.token_service.generate_tokens(user)
+        )
+        return access_token, refresh_token, access_token_lifetime
 
     def delete_user(self, user, password):
         if not check_password(password, user.password):

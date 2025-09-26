@@ -61,7 +61,7 @@ class UserLoginView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get("email")
         password = serializer.validated_data.get("password")
-        code = request.data.get("2fa_code")  # 추가 필드
+        code = request.data.get("2fa_code")  # 2FA 코드 선택적
 
         try:
             user, verified = user_service.login_with_optional_2fa(email, password, code)
@@ -240,32 +240,3 @@ class PasswordResetConfirmView(APIView):
             )
         except ValueError as e:
             raise ValidationError({"detail": str(e)})
-
-    # 비밀번호 재설정 시 2fa 인증 요구한다면 위의 함수를 하단으로 대체.
-    # def post(self, request, uidb64, token):
-    #     serializer = PasswordResetConfirmSerializer(data=request.data)
-    #     serializer.is_valid(raise_exception=True)
-    #
-    #     new_password = serializer.validated_data["new_password"]
-    #     two_fa_code = request.data.get("two_fa_code")  # 추가 필드로 2FA 코드 받음
-    #
-    #     try:
-    #         uid = force_str(urlsafe_base64_decode(uidb64))
-    #         user = user_service.user_repo.get_user_by_id(uid)
-    #
-    #         # 2FA 적용 사용자면 코드 검증 필수
-    #         if user_service.get_2fa_setup_status(user)[0]:
-    #             if not two_fa_code:
-    #                 return Response(
-    #                     {"detail": "2FA 인증 코드가 필요합니다."},
-    #                     status=status.HTTP_400_BAD_REQUEST,
-    #                 )
-    #             user_service.verify_2fa_for_user(user, two_fa_code)
-    #
-    #         user_service.reset_password(uidb64, token, new_password)
-    #         return Response(
-    #             {"detail": "비밀번호가 성공적으로 재설정되었습니다."},
-    #             status=status.HTTP_200_OK,
-    #         )
-    #     except ValueError as e:
-    #         raise ValidationError({"detail": str(e)})
