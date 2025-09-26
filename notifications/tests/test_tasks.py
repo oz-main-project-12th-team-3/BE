@@ -80,9 +80,10 @@ class SendScheduledNotificationsTaskTest(TestCase):
         sent_schedule.refresh_from_db()
         self.assertEqual(sent_schedule.status, "sent")
 
-    def test_celery_delay_called(self):
+    # Celery 의존 제거
+    def test_send_scheduled_notifications_called(self):
         with mock.patch(
-            "notifications.tasks.send_scheduled_notifications.delay"
+            "notifications.tasks.send_scheduled_notifications"
         ) as mocked_task:
-            send_scheduled_notifications.delay()
+            send_scheduled_notifications()
             mocked_task.assert_called_once()
