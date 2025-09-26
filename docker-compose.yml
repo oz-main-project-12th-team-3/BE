@@ -1,4 +1,5 @@
-version: "3.9"
+version: '3.9'
+
 services:
   db:
     image: postgres:16
@@ -25,6 +26,7 @@ services:
       - ./chat:/home/appuser/app/chat
       - ./ai:/home/appuser/app/ai
       - ./schedule:/home/appuser/app/schedule
+      - ./notifications:/home/appuser/app/notifications   # <- 추가
       - ./manage.py:/home/appuser/app/manage.py
     ports:
       - "8000:8000"
@@ -38,13 +40,14 @@ services:
 
   worker:
     build: .
-    command: /home/appuser/.venv/bin/celery -A config worker -l info
+    command: celery -A config worker -l info
     volumes:
       - ./config:/home/appuser/app/config
       - ./users:/home/appuser/app/users
       - ./chat:/home/appuser/app/chat
       - ./ai:/home/appuser/app/ai
       - ./schedule:/home/appuser/app/schedule
+      - ./notifications:/home/appuser/app/notifications   # <- 추가
       - ./manage.py:/home/appuser/app/manage.py
     depends_on:
       - db
