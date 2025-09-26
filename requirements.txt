@@ -154,6 +154,7 @@ pytest-cov==7.0.0
     # via -r requirements.in
 pytest-django==4.11.1
     # via -r requirements.in
+pytest-mock
 python-dateutil==2.9.0.post0
     # via celery
 python-json-logger==3.3.0
