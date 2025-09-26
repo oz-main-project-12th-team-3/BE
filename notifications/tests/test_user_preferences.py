@@ -8,17 +8,13 @@ from notifications.models.notification_type import NotificationType
 User = get_user_model()
 
 
-class UserNotificationPreferenceAPITest(APITestCase):
-    """UserNotificationPreference CRUD 및 validation 테스트"""
+class NotificationTypeAPITest(APITestCase):
+    """NotificationType CRUD 및 validation 테스트"""
 
     def setUp(self):
         self.user = User.objects.create_user(
             email="testuser@example.com",
             password="pass",
-        )
-        self.other_user = User.objects.create_user(
-            email="other@example.com",
-            password="pass2",
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -32,32 +28,24 @@ class UserNotificationPreferenceAPITest(APITestCase):
             description="다른 알림",
         )
 
-    def test_crud_user_notification_preference(self):
-        url_list = reverse("usernotificationpreference-list")
+    def test_crud_notification_type(self):
+        url_list = reverse("notificationtype-list")
         data = {
-            "user": self.user.id,
-            "notification_type": self.type_new.id,
-            "is_enabled": True,
+            "code": "UPDATE_ALERT",
+            "description": "업데이트 알림",
         }
-
+        # 생성
         response = self.client.post(url_list, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_duplicate_creation(self):
-        url_list = reverse("usernotificationpreference-list")
-        data = {
-            "user": self.user.id,
-            "notification_type": self.type_new.id,
-            "is_enabled": True,
-        }
-        self.client.post(url_list, data, format="json")
-        response = self.client.post(url_list, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_invalid_method_list(self):
-        url_list = reverse("usernotificationpreference-list")
-        response = self.client.put(url_list)
-        self.assertIn(
-            response.status_code,
-            [status.HTTP_400_BAD_REQUEST, status.HTTP_405_METHOD_NOT_ALLOWED],
+        # 수정
+        pk = response.data["id"]
+        url_detail = reverse("notificationtype-detail", kwargs={"pk": pk})
+        response = self.client.patch(
+            url_detail, {"description": "수정 알림"}, format="json"
         )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # 삭제
+        response = self.client.delete(url_detail)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
