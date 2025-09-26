@@ -16,7 +16,7 @@ from ..services.user_service import UserService
 # 의존성 주입
 user_repo = UserRepository()
 token_repo = TokenRepository()
-user_service = UserService(user_repo, token_repo)
+user_service = UserService(user_repo, token_repo, token_service)
 
 
 class UserProfileView(APIView):
@@ -66,42 +66,24 @@ class PasswordChangeView(APIView):
         serializer = PasswordChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = request.user
-        current_password = serializer.validated_data["current_password"]
         new_password = serializer.validated_data["new_password"]
 
         try:
-            access_token, refresh_token, access_token_lifetime = (
-                user_service.change_user_password(user, current_password, new_password)
-            )
+            # change_user_password는 이제 토큰 재발급 하지 않음 (None 반환)
+            _ = user_service.change_user_password(user, current_password, new_password)
+
+            # 기존 토큰 블랙리스트 처리로 인해 모든 토큰 무효화됨 -> 자동 로그아웃 상태
             response = Response(
                 {
-                    "detail": "비밀번호가 성공적으로 변경되었습니다.",
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "expires_in": int(access_token_lifetime.total_seconds()),
+                    "detail": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해 주세요."
                 },
                 status=status.HTTP_200_OK,
             )
-            secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
-            response.set_cookie(
-                "access_token",
-                access_token,
-                httponly=True,
-                secure=secure_cookie,
-                samesite="Strict",
-                max_age=int(access_token_lifetime.total_seconds()),
-            )
-            response.set_cookie(
-                "refresh_token",
-                refresh_token,
-                httponly=True,
-                secure=secure_cookie,
-                samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
-            )
+            # 클라이언트가 기존 쿠키를 지울 수 있도록 쿠키 삭제
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
             return response
+
         except PasswordMismatchException as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 

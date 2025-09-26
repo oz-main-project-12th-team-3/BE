@@ -14,7 +14,7 @@ from ..services.user_service import UserService
 # 의존성 주입
 user_repo = UserRepository()
 token_repo = TokenRepository()
-user_service = UserService(user_repo, token_repo)
+user_service = UserService(user_repo, token_repo, token_service)
 token_service = TokenService(user_repo, token_repo)
 
 
@@ -87,6 +87,7 @@ class TwoFactorVerifyView(APIView):
                     "detail": "2FA 인증 성공",
                     "user_id": user.id,
                     "expires_in": int(access_token_lifetime.total_seconds()),
+                    "access_token": access_token,
                 },
                 status=status.HTTP_200_OK,
             )

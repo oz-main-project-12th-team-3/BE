@@ -4,15 +4,16 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from datetime import timedelta
 
 from ..exceptions import PasswordMismatchException, UserNotFoundException
 from ..repositories.user_repository import UserRepository
 
-
 class UserService:
-    def __init__(self, user_repo: UserRepository, token_repo):
+    def __init__(self, user_repo: UserRepository, token_repo, token_service):
         self.user_repo = user_repo
         self.token_repo = token_repo
+        self.token_service = token_service
 
     def create_user(self, email, password, nickname, enable_2fa):
         if self.user_repo.check_email_exists(email):
@@ -37,25 +38,27 @@ class UserService:
         confirmed_device = self.user_repo.get_user_confirmed_2fa_device(user)
         pending_device = self.user_repo.get_user_unconfirmed_2fa_device(user)
 
-        # 2FA 기기 없으면 바로 로그인 허용
+        # 2FA 활성화 안됨 - 바로 로그인 성공 및 정식 토큰 발급
         if not confirmed_device and not pending_device:
-            return user, True
+            return user, True, False, None, None
 
-        # 미확정 2FA 기기 있을 때
+        # 미확정 2FA 기기 - 임시 토큰 발급 후 2FA 검증 대기 상태
         if pending_device:
+            temp_access_token, temp_refresh_token, _ = self.token_service.generate_temporary_tokens(user)
             if code and pending_device.verify_token(code):
                 pending_device.confirmed = True
                 pending_device.save()
-                return user, True
-            return user, False
+                return user, True, False, None, None  # 2FA 완료 후 정식 토큰 발급 가능
 
-        # 확정된 2FA 기기 있을 때
+            return user, False, True, temp_access_token, temp_refresh_token  # 2FA 인증 미완료 & 임시 토큰 전달
+
+        # 확정된 기기 있을 때 2FA 코드 검사
         if confirmed_device:
             if code and confirmed_device.verify_token(code):
-                return user, True
-            return user, False
+                return user, True, False, None, None
+            return user, False, False, None, None
 
-        return user, True
+        return user, True, False, None, None
 
     def check_email_exists(self, email):
         return self.user_repo.check_email_exists(email)
@@ -64,13 +67,17 @@ class UserService:
         if not check_password(current_password, user.password):
             raise PasswordMismatchException("현재 비밀번호가 올바르지 않습니다.")
         self.user_repo.update_user_password(user, new_password)
+
+        # 자동 로그아웃을 위한 토큰 무효화(블랙리스트 처리)
         self.token_repo.blacklist_all_user_tokens(user)
 
-        # 변경 후 즉시 새 토큰 발급
-        access_token, refresh_token, access_token_lifetime = (
-            self.token_service.generate_tokens(user)
-        )
-        return access_token, refresh_token, access_token_lifetime
+        # 토큰 재발급 없이 여기서 바로 로그아웃되도록 함/ 따라서 주석처리
+        # # 재발급 토큰 생성
+        # access_token, refresh_token, access_token_lifetime = (
+        #     self.token_service.generate_tokens(user)
+        # )
+        # return access_token, refresh_token, access_token_lifetime
+        return None
 
     def delete_user(self, user, password):
         if not check_password(password, user.password):
