@@ -71,7 +71,7 @@ class TestSearchFull:
         url = reverse("search-log-list-create")
         response = api_client.get(url)
         assert response.status_code == 403
-git
+
     def test_search_list_view_direct(self, auth_client):
         url = reverse("search-list")
         response = auth_client.get(url)
