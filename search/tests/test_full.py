@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from search.models import SearchLog
-from search.serializers import searchserializer
+from search.serializers import SearchLogSerializer  # ← 수정
 
 User = get_user_model()
 
@@ -30,17 +30,26 @@ class TestSearchFull:
     # Serializer 테스트
     # -------------------------
     def test_serializer_valid_and_save(self, user):
-        data = {"field1": "value1"}  # serializer 요구 필드에 맞게 수정
-        serializer = searchserializer(data=data)
+        data = {
+            "user": user.id,
+            "keyword": "Django",
+            "search_type": "tutorial",
+            "result_count": 5,
+            "clicked_result_id": 42,
+        }
+        serializer = SearchLogSerializer(
+            data=data
+        )  # ← searchserializer → SearchLogSerializer
         assert serializer.is_valid(), serializer.errors
         instance = serializer.save()
         assert instance is not None
+        assert instance.keyword == "Django"
 
     # -------------------------
     # View & URL 테스트
     # -------------------------
     def test_create_search_log_authenticated(self, auth_client, user):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")  # ← namespace 포함
         data = {
             "keyword": "Django",
             "search_type": "tutorial",
@@ -55,24 +64,26 @@ class TestSearchFull:
 
     def test_list_search_logs_authenticated(self, auth_client, user):
         SearchLog.objects.create(user=user, keyword="DRF", result_count=10)
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")  # ← namespace 포함
         response = auth_client.get(url)
         assert response.status_code == 200
         assert any(item["keyword"] == "DRF" for item in response.data)
 
     def test_create_search_log_unauthenticated(self, api_client):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")  # ← namespace 포함
         data = {"keyword": "Anon", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
         assert response.status_code == 403
         assert not SearchLog.objects.filter(keyword="Anon").exists()
 
     def test_list_search_logs_unauthenticated(self, api_client):
-        url = reverse("search-log-list-create")
+        url = reverse("search:search-log-list-create")  # ← namespace 포함
         response = api_client.get(url)
         assert response.status_code == 403
 
     def test_search_list_view_direct(self, auth_client):
-        url = reverse("search-list")
+        url = reverse(
+            "search:search-log-list-create"
+        )  # ← 'search-list' → 실제 URL 이름
         response = auth_client.get(url)
         assert response.status_code == 200
