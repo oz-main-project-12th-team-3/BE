@@ -23,12 +23,16 @@ class TestSearchLogViews:
         client.force_authenticate(user=user)
         return client
 
-    def test_create_search_log_authenticated(self, auth_client, user):
+    def test_create_search_log_authenticated(self, auth_client):
         url = reverse("search:search-log-list-create")
         data = {"keyword": "Django", "search_type": "tutorial", "result_count": 5}
         response = auth_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
-        log = SearchLog.objects.get(user=user, keyword="Django")
+
+        log = SearchLog.objects.filter(
+            user=auth_client.handler._force_user, keyword="Django"
+        ).first()
+        assert log is not None
         assert log.result_count == 5
 
     def test_create_search_log_unauthenticated(self):
