@@ -193,3 +193,16 @@ STATIC_URL = "static/"
 # 기본 PK 필드
 # -----------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# -----------------------------
+# JWT 설정
+# -----------------------------
+SIMPLE_JWT = {
+    "SIGNING_KEY": os.environ.get(
+        "SIGNING_KEY", "test-signing-key"
+    ),  # .env에서 불러오기, 없으면 테스트용 기본값
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ALGORITHM": "HS256",
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
