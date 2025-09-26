@@ -15,7 +15,6 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-
 from django.contrib import admin
 from django.urls import include, path
 
@@ -26,6 +25,3 @@ urlpatterns = [
     path("api/", include("schedule.urls")),
     path("search/", include(("search.urls", "search"), namespace="search")),
 ]
-
-
-
