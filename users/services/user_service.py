@@ -4,10 +4,10 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from datetime import timedelta
 
 from ..exceptions import PasswordMismatchException, UserNotFoundException
 from ..repositories.user_repository import UserRepository
+
 
 class UserService:
     def __init__(self, user_repo: UserRepository, token_repo, token_service):
@@ -44,13 +44,21 @@ class UserService:
 
         # 미확정 2FA 기기 - 임시 토큰 발급 후 2FA 검증 대기 상태
         if pending_device:
-            temp_access_token, temp_refresh_token, _ = self.token_service.generate_temporary_tokens(user)
+            temp_access_token, temp_refresh_token, _ = (
+                self.token_service.generate_temporary_tokens(user)
+            )
             if code and pending_device.verify_token(code):
                 pending_device.confirmed = True
                 pending_device.save()
                 return user, True, False, None, None  # 2FA 완료 후 정식 토큰 발급 가능
 
-            return user, False, True, temp_access_token, temp_refresh_token  # 2FA 인증 미완료 & 임시 토큰 전달
+            return (
+                user,
+                False,
+                True,
+                temp_access_token,
+                temp_refresh_token,
+            )  # 2FA 인증 미완료 & 임시 토큰 전달
 
         # 확정된 기기 있을 때 2FA 코드 검사
         if confirmed_device:

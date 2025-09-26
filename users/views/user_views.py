@@ -1,4 +1,3 @@
-from django.conf import settings
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,11 +10,13 @@ from ..serializers import (
     PasswordChangeSerializer,
     UserProfileSerializer,
 )
+from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
 # 의존성 주입
 user_repo = UserRepository()
 token_repo = TokenRepository()
+token_service = TokenService(user_repo, token_repo)
 user_service = UserService(user_repo, token_repo, token_service)
 
 
@@ -72,7 +73,8 @@ class PasswordChangeView(APIView):
             _ = user_service.change_user_password(user, new_password)
             response = Response(
                 {
-                    "detail": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해 주세요."
+                    "detail": "비밀번호가 성공적으로 변경되었습니다. "
+                    "다시 로그인해 주세요."
                 },
                 status=status.HTTP_200_OK,
             )
