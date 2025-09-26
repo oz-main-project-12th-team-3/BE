@@ -3,16 +3,10 @@ from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # API V1 Routes
-    path(
-        "api/v1/",
-        include(
-            [
-                path("users/", include("users.urls")),
-                path("chat/", include("chat.urls")),
-                path("schedule/", include("schedule.urls")),
-                # path("ai/", include("ai.urls")), # 주석 처리, ai 앱 url 아직 없음
-            ]
-        ),
-    ),
+    path("two_factor/", include("two_factor.urls")),
+    path("api/", include("users.urls")),
+    path("api/", include("chat.urls")),
+    path("api/", include("schedule.urls")),
+    path("api/", include("search.urls")),
+    path("api/", include("notifications.urls")),  # ← search 앱 URL 포함
 ]
