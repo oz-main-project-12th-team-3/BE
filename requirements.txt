@@ -216,5 +216,7 @@ django-two-factor-auth
 django-otp
 qrcode[pil]
 Pillow
+django-extensions
+python-dotenv
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
