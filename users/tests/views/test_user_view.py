@@ -1,148 +1,156 @@
-import uuid
+import secrets
+
 import pytest
-from unittest.mock import MagicMock
 from django.urls import reverse
+from rest_framework.test import APIClient
+
 from users.exceptions import PasswordMismatchException
+from users.models import User, UserProfile
 
 
-class FlexiMock(MagicMock):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+@pytest.fixture
+def api_client():
+    return APIClient()
 
-        def safe_getitem(instance, key):
-            # 문자열 key만 허용, 안전하게 getattr 호출
-            if not isinstance(key, str):
-                raise KeyError(f"Unusable key type: {type(key)} expected str")
-            return getattr(instance, key)
 
-        self.__getitem__ = safe_getitem
+@pytest.fixture
+def password():
+    # secrets.token_urlsafe를 사용하여 랜덤 비밀번호 생성
+    return secrets.token_urlsafe(12)
+
+
+@pytest.fixture
+def user(db, password):
+    user = User.objects.create_user(email="uprofile@example.com")
+    user.set_password(password)
+    user.save()
+    # UserProfile이 자동으로 생성되었다고 가정합니다.
+    UserProfile.objects.get_or_create(user=user)
+    return user
 
 
 @pytest.mark.django_db
-class TestUser:
+def test_userprofile_get_patch_delete_success(api_client, user, password):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-profile")
 
-    def test_profile_get(self, authenticated_client, mocker):
-        mock_profile = FlexiMock()
-        mock_profile.nickname = "테스터"
+    # 1. GET
+    res = api_client.get(url)
+    assert res.status_code == 200
+    data = res.json()
+    assert "nickname" in data
 
-        mocker.patch(
-            "users.repositories.user_repository.UserRepository.get_user_profile",
-            return_value=mock_profile,
-        )
+    # 2. PATCH
+    res = api_client.patch(url, {"nickname": "Hello"}, format="json")
+    assert res.status_code == 200
+    assert res.json()["nickname"] == "Hello"
 
-        url = reverse("user-profile")
-        response = authenticated_client.get(url)
-        assert response.status_code == 200
+    # 3. DELETE (프로필 삭제, User는 남을 수 있음)
+    res = api_client.delete(url)
+    assert res.status_code == 200
+    assert res.json()["detail"].startswith("프로필이 삭제되었습니다.")
 
-    def test_profile_get_not_found(self, authenticated_client, mocker):
-        mocker.patch(
-            "users.repositories.user_repository.UserRepository.get_user_profile",
-            return_value=None,
-        )
 
-        url = reverse("user-profile")
-        response = authenticated_client.get(url)
-        assert response.status_code == 404
+@pytest.mark.django_db
+def test_userprofile_not_found(api_client, user):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-profile")
 
-    def test_profile_patch(self, authenticated_client, mocker):
-        mock_profile = FlexiMock()
-        mock_profile.nickname = "oldnick"
+    UserProfile.objects.filter(user=user).delete()
 
-        mocker.patch(
-            "users.repositories.user_repository.UserRepository.get_user_profile",
-            return_value=mock_profile,
-        )
-        mocker.patch("users.serializers.UserProfileSerializer.save", return_value=None)
+    res = api_client.get(url)
+    assert res.status_code == 404
+    assert "찾을 수 없습니다" in res.json().get("detail", "")
 
-        url = reverse("user-profile")
-        response = authenticated_client.patch(url, {"nickname": "newnick"})
-        assert response.status_code == 200
+    res2 = api_client.patch(url, {"nickname": "x"}, format="json")
+    assert res2.status_code == 404
 
-    def test_profile_patch_not_found(self, authenticated_client, mocker):
-        mocker.patch(
-            "users.repositories.user_repository.UserRepository.get_user_profile",
-            return_value=None,
-        )
+    res3 = api_client.delete(url)
+    assert res3.status_code == 404
 
-        url = reverse("user-profile")
-        response = authenticated_client.patch(url, {"nickname": "newnick"})
-        assert response.status_code == 404
 
-    def test_password_change(self, authenticated_client, create_user, mocker):
-        user, pwd = create_user(f"user_{uuid.uuid4().hex}@example.com")
+@pytest.mark.django_db
+def test_password_change_success(api_client, user, password):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-password-change")
 
-        mocker.patch(
-            "users.repositories.user_repository.UserRepository.get_user_profile",
-            return_value=user.user_profile,
-        )
-        mocker.patch(
-            "users.services.user_service.UserService.change_user_password",
-            return_value=True,
-        )
+    # 💡 보강: 현재 비밀번호와 새로운 비밀번호를 모두 전달합니다.
+    new_pw = secrets.token_urlsafe(10)
+    res = api_client.patch(
+        url, {"current_password": password, "new_password": new_pw}, format="json"
+    )
+    assert res.status_code == 200
+    assert "비밀번호가 성공적으로 변경" in res.json().get("detail", "")
 
-        authenticated_client.force_authenticate(user)
-        url = reverse("user-password-change")
-        response = authenticated_client.patch(
-            url,
-            {
-                "current_password": pwd,
-                "new_password": "NewPass123!",
-                "new_password_confirm": "NewPass123!",
-            },
-        )
-        assert response.status_code == 200
+    # DB에서 실제 변경되었는지 확인 (통합 테스트의 장점 활용)
+    user.refresh_from_db()
+    assert user.check_password(new_pw) is True
 
-    def test_password_change_invalid(self, authenticated_client, create_user, mocker):
-        user, _ = create_user(f"user_{uuid.uuid4().hex}@example.com")
+    # 토큰 무효화 검증
+    assert res.cookies.get("access_token").value == ""
+    assert res.cookies.get("refresh_token").value == ""
 
-        mocker.patch(
-            "users.services.user_service.UserService.change_user_password",
-            side_effect=PasswordMismatchException(),
-        )
 
-        authenticated_client.force_authenticate(user)
-        url = reverse("user-password-change")
-        response = authenticated_client.patch(
-            url,
-            {
-                "current_password": "wrongpass",
-                "new_password": "NewPass123!",
-                "new_password_confirm": "NewPass123!",
-            },
-        )
-        assert response.status_code == 401
+@pytest.mark.django_db
+def test_password_change_passwordmismatch(api_client, user, mocker):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-password-change")
 
-    def test_user_delete(self, authenticated_client, create_user, mocker):
-        user, pwd = create_user(f"user_{uuid.uuid4().hex}@example.com")
+    # 💡 Mocking을 사용하여 UserService 내부의 비밀번호 검증 실패를 시뮬레이션
+    mocker.patch(
+        "users.services.user_service.UserService.change_user_password",
+        side_effect=PasswordMismatchException("비밀번호가 올바르지 않습니다."),
+    )
 
-        mocker.patch(
-            "users.repositories.user_repository.UserRepository.get_user_profile",
-            return_value=user.user_profile,
-        )
-        mocker.patch(
-            "users.services.user_service.UserService.delete_user",
-            return_value=True,
-        )
+    # 현재 비밀번호를 틀린 값으로 전달하여 시나리오를 완성합니다.
+    res = api_client.patch(
+        url,
+        {"current_password": "wrong_password", "new_password": "longenoughpassword"},
+        format="json",
+    )
 
-        authenticated_client.force_authenticate(user)
-        url = reverse("user-delete")
-        response = authenticated_client.post(url, {"password": pwd})
-        assert response.status_code == 200
+    assert res.status_code == 401
+    detail = res.json().get("detail")
+    assert detail and "비밀번호" in detail
 
-    def test_user_delete_missing_password(self, authenticated_client):
-        url = reverse("user-delete")
-        response = authenticated_client.post(url, {})
-        assert response.status_code == 400
 
-    def test_user_delete_invalid_password(self, authenticated_client, create_user, mocker):
-        user, _ = create_user(f"user_{uuid.uuid4().hex}@example.com")
+@pytest.mark.django_db
+def test_user_delete_success(api_client, user, password):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-delete")
 
-        mocker.patch(
-            "users.services.user_service.UserService.delete_user",
-            side_effect=PasswordMismatchException(),
-        )
+    # 💡 보강: 삭제 시 현재 비밀번호를 전달합니다.
+    res = api_client.post(url, {"password": password}, format="json")
+    assert res.status_code == 200
+    assert "회원탈퇴" in res.json().get("detail", "")
 
-        authenticated_client.force_authenticate(user)
-        url = reverse("user-delete")
-        response = authenticated_client.post(url, {"password": "wrongpass"})
-        assert response.status_code == 401
+    # DB에서 사용자가 실제로 삭제되었는지 확인
+    assert not User.objects.filter(id=user.id).exists()
+
+    # 토큰 무효화 검증
+    assert res.cookies.get("access_token").value == ""
+    assert res.cookies.get("refresh_token").value == ""
+
+
+@pytest.mark.django_db
+def test_user_delete_no_password(api_client, user):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-delete")
+    res = api_client.post(url, {}, format="json")
+    assert res.status_code == 400
+    assert "비밀번호를 입력" in res.json().get("detail", "")
+
+
+@pytest.mark.django_db
+def test_user_delete_password_mismatch(api_client, user, password, mocker):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-delete")
+
+    # 💡 Mocking을 사용하여 UserService 내부의 비밀번호 검증 실패를 시뮬레이션
+    mocker.patch(
+        "users.services.user_service.UserService.delete_user",
+        side_effect=PasswordMismatchException("notmatch"),
+    )
+    res = api_client.post(url, {"password": "wrong"}, format="json")
+    assert res.status_code == 401
+    assert "notmatch" in res.json().get("detail", "")

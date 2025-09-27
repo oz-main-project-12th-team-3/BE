@@ -11,23 +11,31 @@ from ..serializers import TwoFactorAuthSerializer
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
-# 의존성 주입
-user_repo = UserRepository()
-token_repo = TokenRepository()
-token_service = TokenService(user_repo, token_repo)
-user_service = UserService(user_repo, token_repo, token_service)
-
 
 class TwoFactorSetupView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """서비스 객체를 생성하여 반환합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request):
+        user_service = self._get_user_service()
         user = request.user
-        device = user_service.setup_2fa(user)
+        try:
+            device = user_service.setup_2fa(user)
+        except Exception as e:
+            return Response(
+                {"detail": f"2FA 설정 중 오류: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         otp_uri = device.config_url
-        qr_code_base64 = None  # 프론트에서 otp_uri로 QR 코드 생성 권장
+        qr_code_base64 = None
 
         if device.confirmed:
             return Response(
@@ -55,7 +63,15 @@ class TwoFactorConfirmView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """서비스 객체를 생성하여 반환합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request):
+        user_service = self._get_user_service()
         user = request.user
         code = request.data.get("code")
 
@@ -69,7 +85,17 @@ class TwoFactorConfirmView(APIView):
 class TwoFactorVerifyView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _get_services(self):
+        """서비스 및 레포지토리 객체들을 생성하여 반환합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        user_service = UserService(user_repo, token_repo, token_service)
+        return user_service, token_service
+
     def post(self, request):
+        user_service, token_service = self._get_services()
+
         serializer = TwoFactorAuthSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -92,6 +118,7 @@ class TwoFactorVerifyView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+            # 쿠키 설정 로직
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
             response.set_cookie(
                 "access_token",
@@ -114,6 +141,7 @@ class TwoFactorVerifyView(APIView):
             return response
 
         except (UserNotFoundException, ValueError) as e:
+            # 2FA 장치 없음 오류도 ValueError로 처리되어 detail에 담깁니다.
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response(
