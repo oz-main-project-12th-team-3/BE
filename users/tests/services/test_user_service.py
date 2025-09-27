@@ -2,7 +2,6 @@ import secrets
 from datetime import timedelta
 
 import pytest
-from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.utils import timezone
@@ -29,12 +28,6 @@ def user(db, password):
     return user
 
 
-@pytest.fixture(autouse=True)
-def patch_project_name(monkeypatch):
-    monkeypatch.setattr("django.conf.settings", "PROJECT_NAME", "TestProject")
-    monkeypatch.setattr("django.conf.settings", "DEFAULT_FROM_EMAIL", "from@example.com")
-
-
 @pytest.fixture
 def service(db):
     user_repo = UserRepository()
@@ -44,7 +37,11 @@ def service(db):
 
 
 @pytest.mark.django_db
-def test_create_user(service):
+def test_create_user(service, settings):
+    # settings fixture로 직접 PROJECT_NAME 세팅
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+
     password = secrets.token_urlsafe(12)
     email = f"{secrets.token_urlsafe(8)}@example.com"
     user = service.create_user(email, password, "nick", enable_2fa=False)
@@ -55,7 +52,10 @@ def test_create_user(service):
 
 
 @pytest.mark.django_db
-def test_authenticate_user(service, user, password):
+def test_authenticate_user(service, user, password, settings):
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+
     retrieved_user = service.authenticate_user(user.email, password)
     assert retrieved_user == user
 
@@ -77,7 +77,10 @@ def test_authenticate_user(service, user, password):
 
 
 @pytest.mark.django_db
-def test_login_flow(service, user, mocker):
+def test_login_flow(service, user, mocker, settings):
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+
     mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=None)
     mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None)
 
@@ -91,12 +94,10 @@ def test_login_flow(service, user, mocker):
     mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=unconfirmed_mock)
     mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=None)
 
-    # 비밀번호 오류 발생 모킹
     mocker.patch.object(service, "authenticate_user", side_effect=PasswordMismatchException("비밀번호가 올바르지 않습니다."))
     with pytest.raises(PasswordMismatchException):
         service.login_with_optional_2fa(user.email, "wrongpassword")
 
-    # 정상 인증으로 모킹 복구
     mocker.patch.object(service, "authenticate_user", return_value=user)
     unconfirmed_mock.verify_token.return_value = True
 
@@ -117,7 +118,10 @@ def test_login_flow(service, user, mocker):
 
 
 @pytest.mark.django_db
-def test_send_password_reset_email_and_reset(service, user):
+def test_send_password_reset_email_and_reset(service, user, settings):
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+
     service.send_password_reset_email(user.email, "example.com")
     assert len(mail.outbox) == 1
     assert "비밀번호 재설정" in mail.outbox[0].subject
@@ -141,7 +145,10 @@ def test_send_password_reset_email_and_reset(service, user):
 
 
 @pytest.mark.django_db
-def test_change_user_password_blacklists_tokens(service, user):
+def test_change_user_password_blacklists_tokens(service, user, settings):
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+
     new_pw = secrets.token_urlsafe(12)
     service.change_user_password(user, new_pw)
     user.refresh_from_db()
@@ -149,7 +156,10 @@ def test_change_user_password_blacklists_tokens(service, user):
 
 
 @pytest.mark.django_db
-def test_delete_user_password_mismatch_and_success(service, user, password):
+def test_delete_user_password_mismatch_and_success(service, user, password, settings):
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+
     with pytest.raises(PasswordMismatchException):
         service.delete_user(user, "wrongpassword")
 
