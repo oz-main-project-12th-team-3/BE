@@ -1,7 +1,9 @@
 import uuid
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 from django.urls import reverse
+
 from users.exceptions import PasswordMismatchException
 
 
@@ -20,7 +22,6 @@ class FlexiMock(MagicMock):
 
 @pytest.mark.django_db
 class TestUser:
-
     def test_profile_get(self, authenticated_client, mocker):
         mock_profile = FlexiMock()
         mock_profile.nickname = "테스터"
@@ -134,7 +135,9 @@ class TestUser:
         response = authenticated_client.post(url, {})
         assert response.status_code == 400
 
-    def test_user_delete_invalid_password(self, authenticated_client, create_user, mocker):
+    def test_user_delete_invalid_password(
+        self, authenticated_client, create_user, mocker
+    ):
         user, _ = create_user(f"user_{uuid.uuid4().hex}@example.com")
 
         mocker.patch(
