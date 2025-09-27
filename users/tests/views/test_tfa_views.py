@@ -20,7 +20,7 @@ class TestTwoFactor:
         if response.status_code == 201:
             assert "2FA 기기가 등록되었습니다." in response.data.get("detail", "")
         else:
-            # 200 응답은 이미 장치가 있음을 의미해야 하지만, setup_2fa_cleanup에 의해 201이 일반적임.
+            # 200 응답은 이미 장치가 있음을 의미,/ setup_2fa_cleanup에 의해 201이 일반적
             assert "2FA 기기가 이미 등록되어 있습니다." in response.data.get(
                 "detail", ""
             )
@@ -30,7 +30,7 @@ class TestTwoFactor:
         url = reverse("2fa-confirm")
         response = authenticated_client.post(url, {"code": "123456"})
         assert response.status_code == 400
-        # 장치 자체가 없거나, 코드가 유효하지 않아 실패함. 뷰가 어떤 에러를 반환하는지에 따라 검증
+        # 장치 자체의 부재 or 코드가 유효하지 않아 실패. 뷰의 반환 에러로 검증
         assert "잘못된 인증 코드" in response.data.get("detail", "")
 
     def test_verify_unconfirmed(self, api_client, create_2fa_device, create_user):

@@ -1,15 +1,15 @@
-
 import pytest
 from django.urls import reverse
 
-from users.tests.conftest import FlexiMock
 from users.exceptions import PasswordMismatchException
+from users.tests.conftest import FlexiMock
 
 
 @pytest.mark.django_db
 class TestUser:
     def test_profile_get(self, authenticated_client, mocker):
-        user = authenticated_client.user
+        # user 변수가 사용되지 않아 제거 (F841 해결)
+        # user = authenticated_client.user
 
         mock_profile = FlexiMock()
         mock_profile.nickname = "테스터"
@@ -63,7 +63,6 @@ class TestUser:
         pwd = authenticated_client.password
 
         mocker.patch(
-            # authenticated_client가 이미 인증된 상태이므로 user_profile은 user.user_profile에서 접근 가능함
             "users.repositories.user_repository.UserRepository.get_user_profile",
             return_value=user.user_profile,
         )
@@ -84,8 +83,6 @@ class TestUser:
         assert response.status_code == 200
 
     def test_password_change_invalid(self, authenticated_client, mocker):
-        user = authenticated_client.user
-
         mocker.patch(
             "users.services.user_service.UserService.change_user_password",
             side_effect=PasswordMismatchException(),
@@ -125,8 +122,6 @@ class TestUser:
         assert response.status_code == 400
 
     def test_user_delete_invalid_password(self, authenticated_client, mocker):
-        user = authenticated_client.user
-
         mocker.patch(
             "users.services.user_service.UserService.delete_user",
             side_effect=PasswordMismatchException(),

@@ -24,6 +24,7 @@ class FlexiMock(MagicMock):
     """
     MagicMock을 상속받아 딕셔너리처럼 .get()과 [] 접근을 지원하는 Mock 객체.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, spec_set=dict, **kwargs)
         # .get('key', default) 구문 지원
@@ -35,12 +36,13 @@ class FlexiMock(MagicMock):
 def _is_strong_password(pwd: str) -> bool:
     """비밀번호가 모든 필수 요소를 포함하는지 확인합니다."""
     return (
-            len(pwd) >= 8
-            and any(c.islower() for c in pwd)
-            and any(c.isupper() for c in pwd)
-            and any(c.isdigit() for c in pwd)
-            and any(c in "!@#$%^&*()" for c in pwd)
+        len(pwd) >= 8
+        and any(c.islower() for c in pwd)
+        and any(c.isupper() for c in pwd)
+        and any(c.isdigit() for c in pwd)
+        and any(c in "!@#$%^&*()" for c in pwd)
     )
+
 
 @pytest.fixture
 def generate_password():
@@ -79,14 +81,15 @@ def create_user(db, generate_password):
     return _create
 
 
-# 토큰 테스트를 위해 password_changed_at이 설정된 유효한 사용자 객체를 생성하는 픽스처 추가
 @pytest.fixture
 def create_active_user(create_user):
     """password_changed_at이 현재 시간으로 설정된 활성 사용자 객체를 생성합니다."""
+
     def _create(email_prefix):
         user, password = create_user(f"{email_prefix}@{uuid.uuid4().hex}.com")
         # create_user 픽스처는 이미 password_changed_at을 설정하므로 추가 로직 불필요
         return user, password
+
     return _create
 
 
@@ -119,7 +122,7 @@ def authenticated_client(api_client, create_user, token_service_fixture):
     client.force_authenticate(user)
 
     client.user = user
-    client.password = pwd # 비밀번호 변경/삭제 테스트를 위해 비밀번호도 저장
+    client.password = pwd  # 비밀번호 변경/삭제 테스트를 위해 비밀번호도 저장
     return client
 
 
@@ -143,7 +146,9 @@ def create_2fa_device():
 
 @pytest.fixture
 def create_test_token(db):
-    def _create(user, expires_in_days=1, is_blacklisted=False, refresh_token_plain=None):
+    def _create(
+        user, expires_in_days=1, is_blacklisted=False, refresh_token_plain=None
+    ):
         issued_at = timezone.now()
         expires_at = issued_at + timedelta(days=expires_in_days)
 
