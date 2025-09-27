@@ -156,6 +156,7 @@ def test_check_email_view(api_client, user):
 
 @pytest.mark.django_db
 def test_password_reset_request_and_confirm(api_client, user, monkeypatch):
+    # PROJECT_NAME 누락 문제 해결용 monkeypatch
     monkeypatch.setattr(settings, "PROJECT_NAME", "TestProject")
 
     req_url = reverse("password-reset-request")
