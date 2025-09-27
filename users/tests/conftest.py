@@ -2,6 +2,7 @@ import secrets
 import string
 import uuid
 from datetime import timedelta
+from unittest.mock import MagicMock
 
 import pytest
 from django.utils import timezone
@@ -19,7 +20,18 @@ from users.repositories import token_repository, user_repository
 from users.services import token_service, user_service
 
 
-# 인지 복잡도를 낮추기 위해 별도의 헬퍼 함수 정의
+class FlexiMock(MagicMock):
+    """
+    MagicMock을 상속받아 딕셔너리처럼 .get()과 [] 접근을 지원하는 Mock 객체.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, spec_set=dict, **kwargs)
+        # .get('key', default) 구문 지원
+        self.get = lambda x, default=None: getattr(self, x, default)
+        # ['key'] 구문 지원
+        self.__getitem__.side_effect = lambda key: getattr(self, key)
+
+
 def _is_strong_password(pwd: str) -> bool:
     """비밀번호가 모든 필수 요소를 포함하는지 확인합니다."""
     return (
@@ -105,6 +117,9 @@ def authenticated_client(api_client, create_user, token_service_fixture):
     client.cookies["access_token"] = access_token
     client.cookies["refresh_token"] = refresh_token
     client.force_authenticate(user)
+
+    client.user = user
+    client.password = pwd # 비밀번호 변경/삭제 테스트를 위해 비밀번호도 저장
     return client
 
 
