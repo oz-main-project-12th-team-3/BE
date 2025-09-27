@@ -21,7 +21,10 @@ def password():
 
 @pytest.fixture
 def user(db, password):
-    return User.objects.create_user(email="uprofile@example.com", password=password)
+    user = User.objects.create_user(email="uprofile@example.com")
+    user.set_password(password)
+    user.save()
+    return user
 
 
 @pytest.mark.django_db
@@ -87,8 +90,8 @@ def test_password_change_passwordmismatch(api_client, user, mocker):
     assert res.status_code == 400
 
     detail = res.json().get("detail", "")
-    assert detail != ""  # detail이 빈 문자열이 아님을 확인
-    assert "bad" in detail
+    # 빈 문자열인 경우 실패하므로 방어적 체크
+    assert detail and "bad" in detail
 
 
 @pytest.mark.django_db

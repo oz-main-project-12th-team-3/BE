@@ -23,7 +23,6 @@ def password():
 
 @pytest.fixture
 def user(db, password):
-    # 패스워드 초기화 위해 인스턴스 생성 후 set_password 사용
     user = User.objects.create_user(email="testing@example.com")
     user.set_password(password)
     user.save()
@@ -60,7 +59,6 @@ def test_authenticate_user(service, user, password):
         service.authenticate_user(user.email, password)
 
     user.is_active = True
-    # datetime과 int 더하는 오류 해결 위해 timedelta 사용
     user.account_locked_until = timezone.now() + timedelta(minutes=10)
     user.save()
     with pytest.raises(ValueError):
@@ -75,63 +73,44 @@ def test_authenticate_user(service, user, password):
 @pytest.mark.django_db
 def test_login_flow(service, user, mocker):
     # 2FA 설정 안 된 경우
-    mocker.patch.object(
-        service.user_repo, "get_user_confirmed_2fa_device", return_value=None
-    )
-    mocker.patch.object(
-        service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None
-    )
+    mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=None)
+    mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None)
 
     result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10))
     assert result[0] == user and result[1] is True and result[2] is False
 
-    # Unconfirmed 2FA 기기 있을 때, 코드 틀림
+    # Unconfirmed 2FA 있을 때, 토큰 발급 코드 틀림
     unconfirmed_mock = mocker.Mock()
     unconfirmed_mock.verify_token.return_value = False
-    mocker.patch.object(
-        service.user_repo,
-        "get_user_unconfirmed_2fa_device",
-        return_value=unconfirmed_mock,
-    )
-    mocker.patch.object(
-        service.user_repo, "get_user_confirmed_2fa_device", return_value=None
-    )
+    mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=unconfirmed_mock)
+    mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=None)
 
     result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10))
     assert result[2] is True
 
     # 코드 맞음 (unconfirmed)
     unconfirmed_mock.verify_token.return_value = True
-    result = service.login_with_optional_2fa(
-        user.email, secrets.token_urlsafe(10), code="123456"
-    )
+    result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10), code="123456")
     assert result[1] is True
 
-    # Confirmed 2FA 기기 있을 때, 코드 맞음
+    # Confirmed 2FA 있을 때, 코드 맞음
     confirmed_mock = mocker.Mock()
     confirmed_mock.verify_token.return_value = True
-    mocker.patch.object(
-        service.user_repo, "get_user_confirmed_2fa_device", return_value=confirmed_mock
-    )
-    mocker.patch.object(
-        service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None
-    )
+    mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=confirmed_mock)
+    mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None)
 
-    result = service.login_with_optional_2fa(
-        user.email, secrets.token_urlsafe(10), code="123456"
-    )
+    result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10), code="123456")
     assert result[1] is True
 
-    # Confirmed 2FA 기기 있을 때, 코드 틀림
+    # Confirmed 2FA 있을 때, 코드 틀림
     confirmed_mock.verify_token.return_value = False
-    result = service.login_with_optional_2fa(
-        user.email, secrets.token_urlsafe(10), code="wrong"
-    )
+    result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10), code="wrong")
     assert result[1] is False
 
 
 @pytest.mark.django_db
 def test_send_password_reset_email_and_reset(service, user, monkeypatch):
+    # monkeypatch로 누락된 설정 추가
     monkeypatch.setattr(settings, "PROJECT_NAME", "TestProject")
     monkeypatch.setattr(settings, "DEFAULT_FROM_EMAIL", "from@example.com")
 
@@ -141,12 +120,8 @@ def test_send_password_reset_email_and_reset(service, user, monkeypatch):
     assert "비밀번호 재설정" in mail.outbox[0].subject
 
     # 유저 없으면 None 반환
-    service.user_repo.get_user_by_email = lambda e: (_ for _ in ()).throw(
-        UserNotFoundException("not found")
-    )
-    assert (
-        service.send_password_reset_email("noexist@example.com", "example.com") is None
-    )
+    service.user_repo.get_user_by_email = lambda e: (_ for _ in ()).throw(UserNotFoundException("not found"))
+    assert service.send_password_reset_email("noexist@example.com", "example.com") is None
 
     # 정상 재설정 완료
     uid = urlsafe_base64_encode(str(user.pk).encode())
@@ -168,10 +143,8 @@ def test_send_password_reset_email_and_reset(service, user, monkeypatch):
 
 @pytest.mark.django_db
 def test_authenticate_user_various_cases(service, user, password):
-    # 정상 로그인
     assert service.authenticate_user(user.email, password) == user
 
-    # 비활성 유저
     user.is_active = False
     user.save()
     with pytest.raises(ValueError):
@@ -179,7 +152,6 @@ def test_authenticate_user_various_cases(service, user, password):
     user.is_active = True
     user.save()
 
-    # 계정 잠김 상태
     user.account_locked_until = timezone.now() + timedelta(minutes=10)
     user.save()
     with pytest.raises(ValueError):
@@ -187,7 +159,6 @@ def test_authenticate_user_various_cases(service, user, password):
     user.account_locked_until = None
     user.save()
 
-    # 비밀번호 불일치
     with pytest.raises(PasswordMismatchException):
         service.authenticate_user(user.email, "wrongpassword")
 
@@ -198,16 +169,13 @@ def test_change_user_password_blacklists_tokens(service, user):
     service.change_user_password(user, new_pw)
     user.refresh_from_db()
     assert user.check_password(new_pw)
-    # 토큰 블랙리스트 호출 여부 (기본 mock 불가 시 별도 모킹 필요)
 
 
 @pytest.mark.django_db
 def test_delete_user_password_mismatch_and_success(service, user, password):
-    # 비밀번호 틀림 예외
     with pytest.raises(PasswordMismatchException):
         service.delete_user(user, "wrongpassword")
 
-    # 정상 탈퇴
     result = service.delete_user(user, password)
     assert result is True
     with pytest.raises(User.DoesNotExist):

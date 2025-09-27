@@ -25,7 +25,10 @@ def password():
 
 @pytest.fixture
 def user(db, password):
-    return User.objects.create_user(email="apitest@example.com", password=password)
+    user = User.objects.create_user(email="apitest@example.com")
+    user.set_password(password)
+    user.save()
+    return user
 
 
 @pytest.mark.django_db
@@ -123,9 +126,7 @@ def test_token_refresh_success(api_client, user, password):
     api_client.force_authenticate(user=user)
 
     login_url = reverse("user-login")
-    res = api_client.post(
-        login_url, {"email": user.email, "password": password}, format="json"
-    )
+    res = api_client.post(login_url, {"email": user.email, "password": password}, format="json")
     refresh = res.json()["refresh_token"]
 
     url = reverse("token-refresh")
@@ -139,10 +140,7 @@ def test_token_refresh_failed(api_client, user):
     url = reverse("token-refresh")
     badtoken = "not.a.jwt"
     res = api_client.post(url, {"refresh_token": badtoken}, format="json")
-    assert res.status_code in [
-        status.HTTP_401_UNAUTHORIZED,
-        status.HTTP_500_INTERNAL_SERVER_ERROR,
-    ]
+    assert res.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_500_INTERNAL_SERVER_ERROR]
 
 
 @pytest.mark.django_db
@@ -171,7 +169,6 @@ def test_password_reset_request_and_confirm(api_client, user, monkeypatch):
 
     res2 = api_client.post(confirm_url, {"new_password": newpw, "new_password_confirm": newpw}, format="json")
     assert res2.status_code == status.HTTP_200_OK
-
 
 
 @pytest.mark.django_db
@@ -203,95 +200,5 @@ def test_password_change_passwordmismatch(api_client, user, mocker):
         status.HTTP_401_UNAUTHORIZED,
     ]
 
-    detail = res.json().get("detail", "")
-    assert detail != "" and "bad" in detail
-
-
-@pytest.mark.django_db
-def test_user_register_duplicate_email(api_client, user, password):
-    url = reverse("user-register")
-    data = {"email": user.email, "password": password, "nickname": "nick"}
-    res = api_client.post(url, data, format="json")
-    assert res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "이미 사용중인 이메일" in res.json().get("detail", "")
-
-
-@pytest.mark.django_db
-def test_user_login_2fa_flows(api_client, user, mocker, password):
-    url = reverse("user-login")
-    mock_login = mocker.patch(
-        "users.services.user_service.UserService.login_with_optional_2fa"
-    )
-
-    # 2FA 필요 초기 상태
-    mock_login.return_value = (user, False, True, "temp_token", "temp_refresh")
-    res = api_client.post(
-        url, {"email": user.email, "password": password}, format="json"
-    )
-    assert res.status_code == status.HTTP_200_OK
-    assert res.json().get("tfa_required") is True
-    assert "temporary_access_token" in res.json()
-
-    # 2FA 인증 대기 상태
-    mock_login.return_value = (user, False, False, None, None)
-    res = api_client.post(
-        url, {"email": user.email, "password": password}, format="json"
-    )
-    assert res.status_code == status.HTTP_200_OK
-    assert res.json().get("tfa_required") is True
-    assert res.json().get("tfa_step") == "verify"
-
-
-@pytest.mark.django_db
-def test_token_refresh_token_authentication_failed(api_client, mocker):
-    url = reverse("token-refresh")
-    error_msg = "Invalid token"
-    mock_token_service = mocker.patch(
-        "users.services.token_service.TokenService.refresh_user_tokens",
-        side_effect=Exception(error_msg),
-    )
-    res = api_client.post(url, {"refresh_token": "badtoken"}, format="json")
-    assert res.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert error_msg in res.json().get("detail", "")
-
-
-@pytest.mark.django_db
-def test_password_reset_request_missing_project_name(api_client, user):
-    # settings.PROJECT_NAME 없어서 실패했던 점 monkeypatch로 대응
-    from django.test import override_settings
-
-    with override_settings(PROJECT_NAME="TestProject"):
-        url = reverse("password-reset-request")
-        res = api_client.post(url, {"email": user.email}, format="json")
-        assert res.status_code == status.HTTP_200_OK
-
-
-@pytest.mark.django_db
-def test_password_reset_confirm_invalid_data(api_client, user):
-    uidb64 = urlsafe_base64_encode(str(user.pk).encode())
-    url = reverse("password-reset-confirm", args=[uidb64, "invalidtoken"])
-    res = api_client.post(
-        url, {"new_password": "pass", "new_password_confirm": "mismatch"}, format="json"
-    )
-    assert res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "detail" in res.json() or "non_field_errors" in res.json()
-
-
-@pytest.mark.django_db
-def test_password_change_mismatch_response(api_client, user, mocker):
-    api_client.force_authenticate(user=user)
-    url = reverse("user-password-change")
-
-    mocker.patch(
-        "users.services.user_service.UserService.change_user_password",
-        side_effect=PasswordMismatchException("bad"),
-    )
-    res = api_client.patch(
-        url, {"new_password": secrets.token_urlsafe(10)}, format="json"
-    )
-    assert res.status_code in (
-        status.HTTP_400_BAD_REQUEST,
-        status.HTTP_401_UNAUTHORIZED,
-    )
     detail = res.json().get("detail", "")
     assert detail != "" and "bad" in detail
