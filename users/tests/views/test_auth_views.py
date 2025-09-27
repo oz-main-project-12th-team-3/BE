@@ -1,6 +1,6 @@
 import secrets
-import django.conf
 
+import django.conf
 import pytest
 from django.contrib.auth.tokens import default_token_generator
 from django.urls import reverse
@@ -157,8 +157,6 @@ def test_check_email_view(api_client, user):
 
     res = api_client.post(url, {"email": user.email}, format="json")
     assert res.json()["available"] is False
-
-
 
 
 @pytest.mark.django_db

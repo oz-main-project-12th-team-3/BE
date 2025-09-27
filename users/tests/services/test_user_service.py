@@ -158,3 +158,120 @@ def test_delete_user_password_mismatch_and_success(service, user, password, sett
 
     with pytest.raises(User.DoesNotExist):
         User.objects.get(pk=user.pk)
+
+
+@pytest.mark.django_db
+def test_authenticate_user_success(service, user, password, settings):
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+    user_returned = service.authenticate_user(user.email, password)
+    assert user_returned == user
+
+
+@pytest.mark.django_db
+def test_login_with_optional_2fa_branches(service, user, mocker, settings):
+    settings.PROJECT_NAME = "TestProject"
+    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+
+    # 2FA 비활성
+    mocker.patch.object(
+        service.user_repo, "get_user_confirmed_2fa_device", return_value=None
+    )
+    mocker.patch.object(
+        service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None
+    )
+    mocker.patch.object(service, "authenticate_user", return_value=user)
+    user_obj, success, pending, access, refresh = service.login_with_optional_2fa(
+        user.email, "pwd"
+    )
+    assert user_obj == user
+    assert success is True
+    assert pending is False
+
+    # 2FA 미확정. verify 실패
+    unconfirmed_mock = mocker.Mock()
+    unconfirmed_mock.verify_token.return_value = False
+    mocker.patch.object(
+        service.user_repo,
+        "get_user_unconfirmed_2fa_device",
+        return_value=unconfirmed_mock,
+    )
+    mocker.patch.object(
+        service.user_repo, "get_user_confirmed_2fa_device", return_value=None
+    )
+    res = service.login_with_optional_2fa(user.email, "pwd")
+    assert res[1] is False  # 인증 실패
+    assert res[2] is True  # 2FA 진행 중
+
+    # 2FA 미확정. verify 성공
+    unconfirmed_mock.verify_token.return_value = True
+    res = service.login_with_optional_2fa(user.email, "pwd", code="valid")
+    assert res[1] is True
+
+    # 2FA 확정. verify 성공
+    confirmed_mock = mocker.Mock()
+    confirmed_mock.verify_token.return_value = True
+    mocker.patch.object(
+        service.user_repo, "get_user_confirmed_2fa_device", return_value=confirmed_mock
+    )
+    mocker.patch.object(
+        service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None
+    )
+    res = service.login_with_optional_2fa(user.email, "pwd", code="valid")
+    assert res[1] is True
+
+    # 2FA 확정. verify 실패
+    confirmed_mock.verify_token.return_value = False
+    res = service.login_with_optional_2fa(user.email, "pwd", code="invalid")
+    assert res[1] is False
+
+
+@pytest.mark.django_db
+def test_get_user_profile_and_2fa(service, user, mocker):
+    profile = service.get_user_profile(user)
+    assert profile is not None
+
+    confirmed, pending = service.get_2fa_setup_status(user)
+    assert confirmed is None and pending is None
+
+    device = service.setup_2fa(user)
+    assert device.user == user
+
+    # 2FA 미확정 기기 조회 함수 mock
+    mocker.patch.object(
+        service.user_repo, "get_user_unconfirmed_2fa_device", return_value=device
+    )
+
+    # verify_token이 False 일 때
+    mocker.patch.object(device, "verify_token", return_value=False)
+    result = service.confirm_2fa(user, "wrongcode")
+    assert result is False
+
+    # verify_token이 True 일 때
+    mocker.patch.object(device, "verify_token", return_value=True)
+    result = service.confirm_2fa(user, "validcode")
+    assert result is True
+
+
+@pytest.mark.django_db
+def test_verify_2fa_exceptions(service, user, mocker):
+    mocker.patch.object(service.user_repo, "get_user_by_email", return_value=user)
+    mocker.patch.object(
+        service.user_repo, "get_user_confirmed_2fa_device", return_value=None
+    )
+    with pytest.raises(ValueError):
+        service.verify_2fa(user.email, "any")
+
+    confirmed_mock = mocker.Mock()
+    confirmed_mock.verify_token.return_value = False
+    mocker.patch.object(
+        service.user_repo, "get_user_confirmed_2fa_device", return_value=confirmed_mock
+    )
+    with pytest.raises(ValueError):
+        service.verify_2fa(user.email, "badcode")
+
+
+@pytest.mark.django_db
+def test_check_email_exists(service, user):
+    assert service.check_email_exists(user.email)
+    assert not service.check_email_exists("notfound@example.com")
