@@ -1,6 +1,7 @@
 import secrets
 from unittest.mock import MagicMock
 
+import django.conf
 import pytest
 from django.contrib.auth.tokens import default_token_generator
 from django.urls import reverse
@@ -89,9 +90,6 @@ def test_token_refresh_fail(api_client):
         status.HTTP_401_UNAUTHORIZED,
         status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
-
-
-import django.conf
 
 
 @pytest.mark.django_db
