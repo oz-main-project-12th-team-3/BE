@@ -10,7 +10,7 @@ from django_otp.plugins import otp_totp
 from django_otp.util import hex_validator
 from rest_framework.test import APIClient
 
-from users.models import (  # Token 모델을 추가로 임포트해야 합니다.
+from users.models import (
     Token,
     User,
     UserProfile,
@@ -64,6 +64,17 @@ def create_user(db, generate_password):
         )
         return user, password
 
+    return _create
+
+
+# 토큰 테스트를 위해 password_changed_at이 설정된 유효한 사용자 객체를 생성하는 픽스처 추가
+@pytest.fixture
+def create_active_user(create_user):
+    """password_changed_at이 현재 시간으로 설정된 활성 사용자 객체를 생성합니다."""
+    def _create(email_prefix):
+        user, password = create_user(f"{email_prefix}@{uuid.uuid4().hex}.com")
+        # create_user 픽스처는 이미 password_changed_at을 설정하므로 추가 로직 불필요
+        return user, password
     return _create
 
 

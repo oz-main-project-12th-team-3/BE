@@ -5,6 +5,23 @@ from rest_framework import status
 
 @pytest.mark.django_db
 class TestAuthViews:
+    def _assert_cookies_cleared(self, response):
+        """응답 헤더에서 access_token, refresh_token의 Max-Age=0 또는 expires 설정 확인"""
+        set_cookie_headers = [
+            val for k, val in response.items() if k.lower() == "set-cookie"
+        ]
+
+        # access_token 제거 확인
+        assert any(
+            "access_token=; Max-Age=0" in h or "access_token=; expires=" in h
+            for h in set_cookie_headers
+        )
+        # refresh_token 제거 확인
+        assert any(
+            "refresh_token=; Max-Age=0" in h or "refresh_token=; expires=" in h
+            for h in set_cookie_headers
+        )
+
     def test_user_register_success(self, api_client, generate_password):
         url = reverse("user-register")
         password = generate_password()
@@ -20,7 +37,7 @@ class TestAuthViews:
         assert response.data["2fa_setup_required"] is True
 
     def test_user_register_duplicate_email(
-        self, api_client, create_user, generate_password
+            self, api_client, create_user, generate_password
     ):
         user, _ = create_user("dup@example.com")
         url = reverse("user-register")
@@ -43,10 +60,11 @@ class TestAuthViews:
         assert response.data["user_id"] == user.id
 
     def test_user_login_requires_2fa_setup(
-        self, api_client, user_service_fixture, generate_password
+            self, api_client, user_service_fixture, generate_password
     ):
         email = "login_2fa@example.com"
         password = generate_password()
+        email = f"login_2fa_{email.split('@')[0]}@{email.split('@')[1]}"
         user_service_fixture.create_user(email, password, "tester", enable_2fa=True)
         url = reverse("user-login")
         response = api_client.post(url, {"email": email, "password": password})
@@ -57,7 +75,7 @@ class TestAuthViews:
         assert "temporary_refresh_token" in response.data
 
     def test_user_login_with_2fa_pending_and_confirm(
-        self, api_client, create_user, create_2fa_device, generate_password
+            self, api_client, create_user, create_2fa_device, generate_password
     ):
         user, password = create_user("login_2fa_pending@example.com")
         device, get_token = create_2fa_device(user, confirmed=False)
@@ -65,7 +83,7 @@ class TestAuthViews:
 
         resp = api_client.post(url, {"email": user.email, "password": password})
         assert resp.data["tfa_required"] is True
-        assert resp.data["tfa_step"] == "setup"
+        assert resp.data["tfa_step"] == "setup" # 이 시점에는 아직 미확인 장치이므로 setup
 
         token = get_token()
         resp2 = api_client.post(
@@ -75,7 +93,7 @@ class TestAuthViews:
         assert "detail" in resp2.data
 
     def test_user_login_with_2fa_confirmed(
-        self, api_client, create_user, create_2fa_device, generate_password
+            self, api_client, create_user, create_2fa_device, generate_password
     ):
         user, password = create_user("login_2fa_confirmed@example.com")
         device, get_token = create_2fa_device(user, confirmed=True)
@@ -83,7 +101,7 @@ class TestAuthViews:
 
         resp = api_client.post(url, {"email": user.email, "password": password})
         assert resp.data["tfa_required"] is True
-        assert resp.data["tfa_step"] == "verify"
+        assert resp.data["tfa_step"] == "verify" # 이미 확인된 장치가 있으므로 verify
 
         resp2 = api_client.post(
             url, {"email": user.email, "password": password, "tfa_code": get_token()}
@@ -105,17 +123,7 @@ class TestAuthViews:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["detail"] == "로그아웃 되었습니다."
 
-        set_cookie_headers = [
-            val for k, val in response.items() if k.lower() == "set-cookie"
-        ]
-        assert any(
-            "access_token=; Max-Age=0" in h or "access_token=; expires=" in h
-            for h in set_cookie_headers
-        )
-        assert any(
-            "refresh_token=; Max-Age=0" in h or "refresh_token=; expires=" in h
-            for h in set_cookie_headers
-        )
+        self._assert_cookies_cleared(response)
 
     def test_token_refresh_success(self, authenticated_client):
         url = reverse("token-refresh")
@@ -132,17 +140,7 @@ class TestAuthViews:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "detail" in response.data
 
-        set_cookie_headers = [
-            val for k, val in response.items() if k.lower() == "set-cookie"
-        ]
-        assert any(
-            "access_token=; Max-Age=0" in h or "access_token=; expires=" in h
-            for h in set_cookie_headers
-        )
-        assert any(
-            "refresh_token=; Max-Age=0" in h or "refresh_token=; expires=" in h
-            for h in set_cookie_headers
-        )
+        self._assert_cookies_cleared(response)
 
     def test_check_email_available_and_taken(self, api_client, create_user):
         user, _ = create_user("user1@example.com")
@@ -174,7 +172,7 @@ class TestAuthViews:
         assert response.status_code in (status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST)
 
     def test_password_reset_confirm_invalid_token_raises_validation_error(
-        self, api_client, monkeypatch
+            self, api_client, monkeypatch
     ):
         uidb64 = "dummy-uid"
         token = "invalid-token"
@@ -183,6 +181,7 @@ class TestAuthViews:
         import users.services.user_service as user_service_module
 
         def raise_value_error(*args, **kwargs):
+            # UserService에서 발생할 수 있는 오류를 모의(mocking)
             raise ValueError("유효하지 않은 토큰입니다.")
 
         monkeypatch.setattr(
@@ -192,7 +191,9 @@ class TestAuthViews:
         data = {"new_password": "somepassword", "new_password_confirm": "somepassword"}
         response = api_client.post(url, data)
 
-        assert response.status_code == 400 or response.status_code == 422
+        # Django REST Framework의 ValidationError 처리에 따라 400 또는 422가 반환 가능
+        assert response.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        # 응답 상세 메시지에 오류 내용이 포함되어 있는지 확인
         assert "detail" in response.data
         assert "유효하지 않은 토큰" in response.data[
             "detail"

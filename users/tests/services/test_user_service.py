@@ -11,7 +11,7 @@ from users.models import UserProfile
 class TestUserService:
     @pytest.fixture(autouse=True)
     def setup(
-        self, user_service_fixture, create_user, create_2fa_device, generate_password
+            self, user_service_fixture, create_user, create_2fa_device, generate_password
     ):
         self.user_service = user_service_fixture
         self.create_user = create_user
@@ -26,10 +26,10 @@ class TestUserService:
             email, password, nickname, enable_2fa=False
         )
 
-        profile, created = UserProfile.objects.get_or_create(
-            user=user, defaults={"nickname": nickname}
-        )
+        # UserService가 UserProfile 생성을 처리했는지 확인
+        profile = UserProfile.objects.get(user=user)
         assert profile.nickname == nickname
+        assert profile.enable_2fa is False # 명시적 확인
 
     def test_create_user_duplicate_email(self):
         email = "dup@example.com"
@@ -76,17 +76,15 @@ class TestUserService:
         email = "no2fa@example.com"
         password = self.generate_password()
         user, _ = self.create_user(email, password)
-        user_profile = getattr(user, "user_profile", None)
-        if user_profile is None:
-            UserProfile.objects.create(user=user, nickname="tester")
-            user_profile = user.user_profile
+
+        user_profile = user.user_profile
         user_profile.enable_2fa = False
         user_profile.save()
 
         result = self.user_service.login_with_optional_2fa(email, password)
         assert result[0].id == user.id
-        assert result[1] is True
-        assert result[2] is False
+        assert result[1] is True  # 로그인 성공
+        assert result[2] is False # 2FA 대기 아님
         assert result[3] is None
         assert result[4] is None
 
@@ -95,21 +93,27 @@ class TestUserService:
         password = self.generate_password()
         user, _ = self.create_user(email, password)
 
+        # 2FA 활성화 (create_user 픽스처는 enable_2fa=True로 기본 설정하므로 불필요하지만, 명시적으로 확인)
+        user.user_profile.enable_2fa = True
+        user.user_profile.save()
+
         device, get_token = self.create_2fa_device(user, confirmed=False)
         assert device is not None
 
+        # 1. 2FA Pending 상태 확인
         result = self.user_service.login_with_optional_2fa(email, password)
-        assert result[1] is False
-        assert result[2] is True
+        assert result[1] is False  # 로그인 토큰 반환 안됨
+        assert result[2] is True   # 2FA 대기 상태
 
+        # 2. 2FA 코드로 확인
         code = get_token()
         result_confirmed = self.user_service.login_with_optional_2fa(
             email, password, code
         )
         device.refresh_from_db()
         assert device.confirmed is True
-        assert result_confirmed[1] is True
-        assert result_confirmed[2] is False
+        assert result_confirmed[1] is True  # 로그인 토큰 반환
+        assert result_confirmed[2] is False # 2FA 대기 아님
 
     def test_setup_2fa_and_confirm(self):
         email = "2fasetup@example.com"
