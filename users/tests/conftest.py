@@ -1,6 +1,7 @@
 import secrets
 import string
 import uuid
+from datetime import timedelta
 
 import pytest
 from django.utils import timezone
@@ -9,19 +10,24 @@ from django_otp.plugins import otp_totp
 from django_otp.util import hex_validator
 from rest_framework.test import APIClient
 
-from users.models import User, UserProfile
+from users.models import (  # Token 모델을 추가로 임포트해야 합니다.
+    Token,
+    User,
+    UserProfile,
+)
 from users.repositories import token_repository, user_repository
 from users.services import token_service, user_service
 
 
+# 인지 복잡도를 낮추기 위해 별도의 헬퍼 함수 정의
 def _is_strong_password(pwd: str) -> bool:
     """비밀번호가 모든 필수 요소를 포함하는지 확인합니다."""
     return (
-        len(pwd) >= 8
-        and any(c.islower() for c in pwd)
-        and any(c.isupper() for c in pwd)
-        and any(c.isdigit() for c in pwd)
-        and any(c in "!@#$%^&*()" for c in pwd)
+            len(pwd) >= 8
+            and any(c.islower() for c in pwd)
+            and any(c.isupper() for c in pwd)
+            and any(c.isdigit() for c in pwd)
+            and any(c in "!@#$%^&*()" for c in pwd)
     )
 
 @pytest.fixture
@@ -105,6 +111,35 @@ def create_2fa_device():
             return f"{totp(key):06d}"
 
         return device, get_token
+
+    return _create
+
+
+@pytest.fixture
+def create_test_token(db):
+    def _create(user, expires_in_days=1, is_blacklisted=False, refresh_token_plain=None):
+        issued_at = timezone.now()
+        expires_at = issued_at + timedelta(days=expires_in_days)
+
+        # Naive datetime 객체를 Aware하게 만드는 로직은 그대로 유지
+        if timezone.is_naive(issued_at):
+            issued_at = timezone.make_aware(issued_at)
+        if timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at)
+
+        token_obj = Token.objects.create(
+            user=user,
+            refresh_token_id=uuid.uuid4(),
+            issued_at=issued_at,
+            expires_at=expires_at,
+            is_blacklisted=is_blacklisted,
+        )
+
+        plain_token = refresh_token_plain if refresh_token_plain else str(uuid.uuid4())
+        token_obj.set_refresh_token(plain_token)
+        token_obj.save()
+
+        return token_obj
 
     return _create
 
