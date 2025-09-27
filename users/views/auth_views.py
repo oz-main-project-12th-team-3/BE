@@ -1,6 +1,5 @@
 from django.conf import settings
 from rest_framework import permissions, status
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -328,5 +327,8 @@ class PasswordResetConfirmView(APIView):
                 {"detail": "비밀번호가 성공적으로 재설정되었습니다."},
                 status=status.HTTP_200_OK,
             )
-        except ValueError as e:
-            raise ValidationError({"detail": str(e)})
+        except PasswordMismatchException as e:
+            detail_message = str(e) if str(e) else "비밀번호 불일치 오류"
+            return Response(
+                {"detail": detail_message}, status=status.HTTP_401_UNAUTHORIZED
+            )

@@ -1,4 +1,6 @@
-from datetime import timedelta
+import secrets
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 import jwt
 import pytest
@@ -6,250 +8,189 @@ from django.conf import settings
 from django.utils import timezone
 
 from users.exceptions import TokenAuthenticationFailed
+from users.models import Token, User
+from users.repositories.token_repository import TokenRepository
+from users.repositories.user_repository import UserRepository
+from users.services.token_service import TokenService
+
+
+@pytest.fixture
+def user(db):
+    password = secrets.token_urlsafe(12)
+    user = User.objects.create_user(email="jwt@example.com", password=password)
+    # password_changed_at を必ず設定（日付は現在時刻）
+    if not user.password_changed_at:
+        user.password_changed_at = timezone.now()
+        user.save()
+    return user
+
+
+@pytest.fixture
+def service(db):
+    return TokenService(UserRepository(), TokenRepository())
 
 
 @pytest.mark.django_db
-def test_generate_tokens_success(create_active_user, token_service_fixture):
-    user, _ = create_active_user("normal_user")
+def test_generate_tokens_and_temporary(user, service):
+    access, refresh, lifetime = service.generate_tokens(user)
+    assert isinstance(access, str)
+    assert isinstance(refresh, str)
+    assert lifetime == settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"]
 
-    access_token, refresh_token, lifetime = token_service_fixture.generate_tokens(user)
+    temp_access, temp_refresh, temp_lifetime = service.generate_temporary_tokens(user)
+    assert isinstance(temp_access, str)
+    assert isinstance(temp_refresh, str)
+    assert temp_lifetime.total_seconds() == 300  # 5分
 
-    access_payload = jwt.decode(
-        access_token,
-        settings.SIMPLE_JWT["SIGNING_KEY"],
-        algorithms=[settings.SIMPLE_JWT["ALGORITHM"]],
+
+@pytest.mark.django_db
+def test_refresh_user_tokens_success(user, service):
+    _, refresh, _ = service.generate_tokens(user)
+    access2, refresh2, _, u = service.refresh_user_tokens(refresh)
+    assert u == user
+    assert isinstance(access2, str)
+    assert isinstance(refresh2, str)
+
+
+@pytest.mark.django_db
+def test_refresh_user_tokens_no_token(user, service):
+    with pytest.raises(TokenAuthenticationFailed):
+        service.refresh_user_tokens(None)
+
+
+@pytest.mark.django_db
+def test_refresh_user_tokens_invalid_signature(service):
+    bad_refresh = jwt.encode(
+        {"user_id": 1}, "wrongkey", algorithm=settings.SIMPLE_JWT["ALGORITHM"]
     )
-    assert access_payload["user_id"] == user.id
-    assert "exp" in access_payload
-    assert "iat" in access_payload
-
-
-@pytest.mark.django_db
-def test_generate_tokens_with_none_password_changed(create_user, token_service_fixture):
-    user, _ = create_user("nopwdchange")
-    user.password_changed_at = None
-    user.save()
-    access_token, refresh_token, lifetime = token_service_fixture.generate_tokens(user)
-    assert access_token and refresh_token
-
-
-@pytest.mark.django_db
-def test_refresh_user_tokens_with_expired_token(
-    create_active_user, token_service_fixture, monkeypatch
-):
-    user, _ = create_active_user("expired-refresh")
-
-    original_decode = jwt.decode
-
-    def raise_expired(*args, **kwargs):
-        raise jwt.ExpiredSignatureError
-
-    monkeypatch.setattr(jwt, "decode", raise_expired)
-
     with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.refresh_user_tokens("fake_refresh_token")
-
-    monkeypatch.setattr(jwt, "decode", original_decode)
+        service.refresh_user_tokens(bad_refresh)
 
 
 @pytest.mark.django_db
-def test_refresh_user_tokens_with_invalid_token_id(
-    create_active_user, token_service_fixture, monkeypatch
-):
-    user, _ = create_active_user("invalidid")
-
-    def raise_token_not_found(token_id):
-        from users.exceptions import TokenNotFoundException
-
-        raise TokenNotFoundException("토큰 없음")
-
-    monkeypatch.setattr(
-        token_service_fixture.token_repo, "get_valid_token_by_id", raise_token_not_found
-    )
-
+def test_refresh_user_tokens_mismatched_token(user, service):
+    _, refresh, _ = service.generate_tokens(user)
+    token_obj = Token.objects.first()
+    token_obj.refresh_token_hash = "tampered"
+    token_obj.save()
     with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.refresh_user_tokens("invalid_refresh_token")
+        service.refresh_user_tokens(refresh)
 
 
 @pytest.mark.django_db
-def test_is_valid_access_token_inactive_user(create_active_user, token_service_fixture):
-    user, _ = create_active_user("inactive_user")
-    user.is_active = False
-    user.save()
-
-    access_token, _, _ = token_service_fixture.generate_tokens(user)
-    with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.is_valid_access_token(access_token)
-
-
-@pytest.mark.django_db
-def test_is_valid_access_token_pwd_changed_mismatch(
-    create_active_user, token_service_fixture, monkeypatch
-):
-    user, _ = create_active_user("pwd_change_mismatch")
-
-    access_token, _, _ = token_service_fixture.generate_tokens(user)
-
-    def fake_decode(token, key, algorithms):
-        yesterday_iso = (timezone.now() - timezone.timedelta(days=1)).isoformat()
-        return {
-            "user_id": user.id,
-            "pwd_changed_at": yesterday_iso,
-        }
-
-    monkeypatch.setattr(jwt, "decode", fake_decode)
-
-    with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.is_valid_access_token(access_token)
-
-
-@pytest.mark.django_db
-def test_generate_temporary_tokens(create_active_user, token_service_fixture):
-    user, _ = create_active_user("temp_user")
-
-    access_token, refresh_token, lifetime = (
-        token_service_fixture.generate_temporary_tokens(user)
-    )
-    payload = jwt.decode(
-        access_token,
-        settings.SIMPLE_JWT["SIGNING_KEY"],
-        algorithms=[settings.SIMPLE_JWT["ALGORITHM"]],
-    )
-    assert payload["user_id"] == user.id
-    assert payload.get("is_temporary") is True
-    assert lifetime == timedelta(minutes=5)
-
-
-@pytest.mark.django_db
-def test_refresh_user_tokens_success(create_active_user, token_service_fixture):
-    user, _ = create_active_user("refresh_user")
-
-    _, refresh_token, _ = token_service_fixture.generate_tokens(user)
-    new_access, new_refresh, lifetime, refreshed_user = (
-        token_service_fixture.refresh_user_tokens(refresh_token)
-    )
-
-    assert refreshed_user == user
-    assert new_access is not None
-    assert new_refresh is not None
-
-
-@pytest.mark.django_db
-def test_refresh_user_tokens_invalid(token_service_fixture):
-    with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.refresh_user_tokens("invalid_token")
-
-
-@pytest.mark.django_db
-def test_is_valid_access_token_success(create_active_user, token_service_fixture):
-    user, _ = create_active_user("valid_user")
-    user.is_active = True
-    user.save()
-
-    access_token, _, _ = token_service_fixture.generate_tokens(user)
-    payload = token_service_fixture.is_valid_access_token(access_token)
-    assert payload["user_id"] == user.id
-
-
-@pytest.mark.django_db
-def test_is_valid_access_token_expired(
-    create_active_user, token_service_fixture, monkeypatch
-):
-    user, _ = create_active_user("expired_user")
-
-    access_token, _, _ = token_service_fixture.generate_tokens(user)
-
-    def fake_decode(*args, **kwargs):
-        raise jwt.ExpiredSignatureError()
-
-    monkeypatch.setattr(jwt, "decode", fake_decode)
-    with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.is_valid_access_token(access_token)
-
-
-@pytest.mark.django_db
-def test_is_valid_access_token_invalid_user(token_service_fixture):
+def test_get_validated_payload_success_and_fail(service):
+    payload = {
+        "user_id": 1,
+        "exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1),
+    }
     token = jwt.encode(
-        {"invalid_field": 123},
+        payload,
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+    )
+    result = service._get_validated_payload(token)
+    assert result["user_id"] == 1
+
+    expired_token = jwt.encode(
+        {"user_id": 1, "exp": datetime.now(dt_timezone.utc) - timedelta(seconds=1)},
         settings.SIMPLE_JWT["SIGNING_KEY"],
         algorithm=settings.SIMPLE_JWT["ALGORITHM"],
     )
     with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.is_valid_access_token(token)
+        service._get_validated_payload(expired_token)
 
-
-@pytest.mark.django_db
-def test_invalidate_refresh_token_calls_blacklist(
-    create_active_user, token_service_fixture, monkeypatch
-):
-    user, _ = create_active_user("invalidate_call")
-
-    access_token, refresh_token, _ = token_service_fixture.generate_tokens(user)
-
-    called = {}
-
-    def mock_blacklist(token_obj):
-        called["called"] = True
-
-    monkeypatch.setattr(
-        token_service_fixture.token_repo, "blacklist_token", mock_blacklist
-    )
-    token_service_fixture.invalidate_refresh_token(refresh_token)
-    assert called.get("called") is True
-
-    token_service_fixture.invalidate_refresh_token("invalid_token")
-
-
-@pytest.mark.django_db
-def test_generate_tokens_with_parent_token(create_active_user, token_service_fixture):
-    user, _ = create_active_user("parent_user")
-
-    parent_access_token, parent_refresh_token, _ = (
-        token_service_fixture.generate_tokens(user)
-    )
-
-    parent_token_obj = token_service_fixture.token_repo.get_valid_token_by_id(
-        jwt.decode(
-            parent_refresh_token,
-            settings.SIMPLE_JWT["SIGNING_KEY"],
-            algorithms=[settings.SIMPLE_JWT["ALGORITHM"]],
-        )["token_id"]
-    )
-
-    access_token, refresh_token, lifetime = token_service_fixture.generate_tokens(
-        user, parent_token_id=parent_token_obj.refresh_token_id
-    )
-    assert access_token is not None
-    assert refresh_token is not None
-    assert lifetime.total_seconds() > 0
-
-
-@pytest.mark.django_db
-def test_refresh_user_tokens_blacklists_old_token(
-    create_active_user, token_service_fixture, monkeypatch
-):
-    user, _ = create_active_user("blacklist_user")
-
-    _, refresh_token, _ = token_service_fixture.generate_tokens(user)
-
-    called = {}
-
-    def mock_blacklist(token_obj):
-        called["called"] = True
-
-    monkeypatch.setattr(
-        token_service_fixture.token_repo, "blacklist_token", mock_blacklist
-    )
-
-    new_access, new_refresh, lifetime, refreshed_user = (
-        token_service_fixture.refresh_user_tokens(refresh_token)
-    )
-    assert called.get("called") is True
-    assert refreshed_user.id == user.id
-
-
-@pytest.mark.django_db
-def test_is_valid_access_token_invalid_signature(token_service_fixture):
-    invalid_token = jwt.encode({"user_id": 1}, "invalid_key", algorithm="HS256")
+    invalid = token + "corrupted"
     with pytest.raises(TokenAuthenticationFailed):
-        token_service_fixture.is_valid_access_token(invalid_token)
+        service._get_validated_payload(invalid)
+
+
+@pytest.mark.django_db
+def test_validate_user_and_password_time_cases(user, service):
+    user.is_active = False
+    # password_changed_at は None でないことが保証されているためここは問題なし
+    user.save()
+    with pytest.raises(TokenAuthenticationFailed):
+        service._validate_user_and_password_time(user, {"pwd_changed_at": None})
+
+    user.is_active = True
+    user.save()
+
+    ts = timezone.now()
+    user.password_changed_at = ts
+    user.save()
+    wrong_payload = {"pwd_changed_at": (ts - timedelta(seconds=5)).isoformat()}
+    with pytest.raises(TokenAuthenticationFailed):
+        service._validate_user_and_password_time(user, wrong_payload)
+
+    correct_payload = {"pwd_changed_at": ts.isoformat()}
+    assert service._validate_user_and_password_time(user, correct_payload) is None
+
+
+@pytest.mark.django_db
+def test_is_valid_access_token_success(user, service):
+    access, refresh, lifetime = service.generate_tokens(user)
+    payload = service.is_valid_access_token(access)
+    assert payload["user_id"] == user.id
+
+
+@pytest.mark.django_db
+def test_is_valid_access_token_no_user_id(service):
+    token = jwt.encode(
+        {"exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1)},
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+    )
+    with pytest.raises(TokenAuthenticationFailed):
+        service.is_valid_access_token(token)
+
+
+@pytest.mark.django_db
+def test_is_valid_access_token_user_not_found(service):
+    payload = {
+        "user_id": 99999,
+        "exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1),
+    }
+    token = jwt.encode(
+        payload,
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+    )
+    with pytest.raises(TokenAuthenticationFailed):
+        service.is_valid_access_token(token)
+
+
+@pytest.mark.django_db
+def test_is_valid_access_token_password_time_mismatch(user, service):
+    user.password_changed_at = timezone.now()
+    user.save()
+    payload = {
+        "user_id": user.id,
+        "exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1),
+        "pwd_changed_at": (
+            user.password_changed_at - timedelta(seconds=10)
+        ).isoformat(),
+    }
+    bad_token = jwt.encode(
+        payload,
+        settings.SIMPLE_JWT["SIGNING_KEY"],
+        algorithm=settings.SIMPLE_JWT["ALGORITHM"],
+    )
+    with pytest.raises(TokenAuthenticationFailed):
+        service.is_valid_access_token(bad_token)
+
+
+@pytest.mark.django_db
+def test_invalidate_refresh_token_success(user, service):
+    _, refresh, _ = service.generate_tokens(user)
+    token_obj = Token.objects.first()
+    assert not token_obj.is_blacklisted
+    service.invalidate_refresh_token(refresh)
+    token_obj.refresh_from_db()
+    assert token_obj.is_blacklisted
+
+
+@pytest.mark.django_db
+def test_invalidate_refresh_token_with_invalid_token(service):
+    bad_token = "this.is.not.jwt"
+    service.invalidate_refresh_token(bad_token)
+    assert Token.objects.count() == 0

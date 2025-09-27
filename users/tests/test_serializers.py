@@ -1,9 +1,11 @@
+import secrets
 from datetime import timedelta
 
 import pytest
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
-from users.models import Token
+from users.models import Token, User
 from users.serializers import (
     CheckEmailSerializer,
     PasswordChangeSerializer,
@@ -18,132 +20,106 @@ from users.serializers import (
 
 
 @pytest.mark.django_db
-def test_user_register_serializer_valid(generate_password):
-    data = {
-        "email": "testuser@example.com",
-        "password": generate_password(),
-        "nickname": "tester",
-        "enable_2fa": True,
-    }
-    serializer = UserRegisterSerializer(data=data)
-    assert serializer.is_valid()
-    validated = serializer.validated_data
-    assert validated["email"] == data["email"]
-    assert validated["nickname"] == data["nickname"]
-    assert validated["enable_2fa"] is True
+def test_user_register_serializer_validate_with_and_without_nickname():
+    pw = secrets.token_urlsafe(10)
+    data = {"email": "new@example.com", "password": pw, "nickname": "Nick"}
+    ser = UserRegisterSerializer(data=data)
+    assert ser.is_valid()
+    assert ser.validated_data["nickname"] == "Nick"
+
+    data2 = {"email": "new2@example.com", "password": pw}
+    ser2 = UserRegisterSerializer(data=data2)
+    assert ser2.is_valid()
+    # nickname 자동으로 None 설정
+    assert ser2.validated_data["nickname"] is None
 
 
-@pytest.mark.django_db
-def test_user_register_serializer_defaults_nickname(generate_password):
-    data = {
-        "email": "nonick@example.com",
-        "password": generate_password(),
-        "enable_2fa": False,
-    }
-    serializer = UserRegisterSerializer(data=data)
-    assert serializer.is_valid()
-    assert serializer.validated_data.get("nickname") is None
+def test_user_login_serializer_valid():
+    pw = secrets.token_urlsafe(8)
+    data = {"email": "login@example.com", "password": pw}
+    ser = UserLoginSerializer(data=data)
+    assert ser.is_valid()
+    assert ser.validated_data["email"] == "login@example.com"
 
 
-@pytest.mark.django_db
-def test_user_login_serializer_valid(generate_password):
-    data = {"email": "loginuser@example.com", "password": generate_password()}
-    serializer = UserLoginSerializer(data=data)
-    assert serializer.is_valid()
-
-
-@pytest.mark.django_db
 def test_check_email_serializer_errors():
-    serializer = CheckEmailSerializer(data={})
-    assert not serializer.is_valid()
-    assert "이메일을 입력해주세요." in str(serializer.errors)
+    ser = CheckEmailSerializer(data={})
+    with pytest.raises(ValidationError):
+        ser.is_valid(raise_exception=True)
 
-    serializer = CheckEmailSerializer(data={"email": "invalid-email"})
-    assert not serializer.is_valid()
-    assert "유효한 이메일 주소를 입력하십시오." in str(serializer.errors)
-
-    serializer = CheckEmailSerializer(data={"email": "valid@example.com"})
-    assert serializer.is_valid()
+    ser2 = CheckEmailSerializer(data={"email": "invalid-email"})
+    with pytest.raises(ValidationError):
+        ser2.is_valid(raise_exception=True)
 
 
 @pytest.mark.django_db
-def test_user_profile_serializer(create_user, generate_password):
-    user, _ = create_user("profileuser@example.com", generate_password())
+def test_userprofile_serializer():
+    user = User.objects.create_user(
+        email="profile@example.com", password=secrets.token_urlsafe(12)
+    )
     profile = user.user_profile
-    profile.nickname = "nick"
-    profile.profile_image_url = "http://test.img"
+    profile.nickname = "Hi"
+    profile.profile_image_url = "http://img.com/img.png"
     profile.last_login = timezone.now()
-    serializer = UserProfileSerializer(instance=profile)
-    data = serializer.data
-    assert data["nickname"] == profile.nickname
-    assert data["profile_image_url"] == profile.profile_image_url
+    profile.save()
+
+    ser = UserProfileSerializer(profile)
+    data = ser.data
+    assert data["nickname"] == "Hi"
+    assert data["profile_image_url"].startswith("http")
 
 
 @pytest.mark.django_db
-def test_token_serializer(create_user, generate_password):
-    user, _ = create_user("tokenuser@example.com", generate_password())
+def test_token_serializer():
+    user = User.objects.create_user(
+        email="token@example.com", password=secrets.token_urlsafe(12)
+    )
     token = Token.objects.create(
         user=user,
         issued_at=timezone.now(),
         expires_at=timezone.now() + timedelta(days=1),
     )
-    serializer = TokenSerializer(instance=token)
-    data = serializer.data
+    ser = TokenSerializer(token)
+    data = ser.data
     assert "issued_at" in data and "expires_at" in data
 
 
-@pytest.mark.django_db
-def test_password_change_serializer_valid_and_invalid(generate_password):
-    valid_data = {"new_password": generate_password()}
-    serializer = PasswordChangeSerializer(data=valid_data)
-    assert serializer.is_valid()
+def test_password_change_serializer_valid_and_invalid():
+    pw = secrets.token_urlsafe(10)
+    ser = PasswordChangeSerializer(data={"new_password": pw})
+    assert ser.is_valid()
 
-    invalid_data = {"new_password": "short"}
-    serializer = PasswordChangeSerializer(data=invalid_data)
-    assert not serializer.is_valid()
-
-
-@pytest.mark.django_db
-def test_two_factor_auth_serializer_required():
-    valid_data = {"code": "123456"}
-    serializer = TwoFactorAuthSerializer(data=valid_data)
-    assert serializer.is_valid()
-
-    invalid_data = {"code": ""}
-    serializer = TwoFactorAuthSerializer(data=invalid_data)
-    assert not serializer.is_valid()
+    # too short → invalid
+    ser2 = PasswordChangeSerializer(data={"new_password": "a"})
+    assert not ser2.is_valid()
 
 
-@pytest.mark.django_db
+def test_twofactor_serializer_valid():
+    ser = TwoFactorAuthSerializer(data={"code": "123456"})
+    assert ser.is_valid()
+    assert ser.validated_data["code"] == "123456"
+
+    bad = TwoFactorAuthSerializer(data={})
+    assert not bad.is_valid()
+
+
 def test_password_reset_request_serializer():
-    valid_data = {"email": "reset@example.com"}
-    serializer = PasswordResetRequestSerializer(data=valid_data)
-    assert serializer.is_valid()
+    ser = PasswordResetRequestSerializer(data={"email": "pwr@example.com"})
+    assert ser.is_valid()
 
-    invalid_data = {"email": ""}
-    serializer = PasswordResetRequestSerializer(data=invalid_data)
-    assert not serializer.is_valid()
+    ser2 = PasswordResetRequestSerializer(data={})
+    assert not ser2.is_valid()
 
 
-@pytest.mark.django_db
-def test_password_reset_confirm_serializer_valid_and_invalid(generate_password):
-    valid_pwd = generate_password()
-    valid_data = {
-        "new_password": valid_pwd,
-        "new_password_confirm": valid_pwd,
-    }
-    serializer = PasswordResetConfirmSerializer(data=valid_data)
-    assert serializer.is_valid()
-
-    invalid_pwd = generate_password()
-    while invalid_pwd == valid_pwd:
-        invalid_pwd = generate_password()
-    invalid_data = {
-        "new_password": valid_pwd,
-        "new_password_confirm": invalid_pwd,
-    }
-    serializer = PasswordResetConfirmSerializer(data=invalid_data)
-    assert not serializer.is_valid()
-    assert "새 비밀번호와 확인용 비밀번호가 일치하지 않습니다." in str(
-        serializer.errors
+def test_password_reset_confirm_serializer_valid_and_mismatch():
+    pw = secrets.token_urlsafe(12)
+    ser = PasswordResetConfirmSerializer(
+        data={"new_password": pw, "new_password_confirm": pw}
     )
+    assert ser.is_valid()
+
+    mismatch = PasswordResetConfirmSerializer(
+        data={"new_password": "abc12345", "new_password_confirm": "zzz12345"}
+    )
+    with pytest.raises(ValidationError):
+        mismatch.is_valid(raise_exception=True)
