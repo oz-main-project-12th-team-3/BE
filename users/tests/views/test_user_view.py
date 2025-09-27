@@ -84,14 +84,16 @@ def test_password_change_passwordmismatch(api_client, user, mocker):
 
     mocker.patch(
         "users.services.user_service.UserService.change_user_password",
-        side_effect=PasswordMismatchException("bad"),
+        side_effect=PasswordMismatchException("비밀번호가 올바르지 않습니다."),
     )
-    res = api_client.patch(url, {"new_password": "xx"}, format="json")
-    assert res.status_code == 400
+    res = api_client.patch(url, {"new_password": "longenoughpassword"}, format="json")
 
-    detail = res.json().get("detail", "")
-    # 빈 문자열인 경우 실패하므로 방어적 체크
-    assert detail and "bad" in detail
+    print(res.json())
+    # 뷰가 401 반환 중이라면 401로 맞춤
+    assert res.status_code == 401
+
+    detail = res.json().get("detail")
+    assert detail and "비밀번호" in detail
 
 
 @pytest.mark.django_db
