@@ -1,8 +1,10 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 import jwt
 from django.conf import settings
+from django.utils import timezone
 from rest_framework.exceptions import AuthenticationFailed
 
 from ..exceptions import TokenAuthenticationFailed, UserNotFoundException
@@ -19,8 +21,7 @@ class TokenService:
         self.token_repo = token_repo
 
     def generate_tokens(self, user, parent_token_id=None):
-        """사용자에게 새로운 액세스/리프레시 토큰 쌍을 발급합니다."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(dt_timezone.utc)
         token_id = uuid.uuid4()
 
         access_token_payload = {
@@ -61,11 +62,10 @@ class TokenService:
         return access_token, refresh_token, ACCESS_TOKEN_LIFETIME
 
     def generate_temporary_tokens(self, user):
-        """2FA 미완료 사용자용 임시 토큰 발급 (짧은 유효기간)"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(dt_timezone.utc)
         token_id = uuid.uuid4()
 
-        temp_access_lifetime = timedelta(minutes=5)  # 5분 임시 토큰 유효시간
+        temp_access_lifetime = timedelta(minutes=5)
 
         access_token_payload = {
             "user_id": user.id,
@@ -74,7 +74,7 @@ class TokenService:
             "pwd_changed_at": user.password_changed_at.isoformat()
             if user.password_changed_at
             else None,
-            "is_temporary": True,  # 임시 토큰 표시
+            "is_temporary": True,
         }
         access_token = jwt.encode(
             access_token_payload,
@@ -87,7 +87,7 @@ class TokenService:
             "user_id": user.id,
             "exp": now + REFRESH_TOKEN_LIFETIME,
             "iat": now,
-            "is_temporary": True,  # 임시 토큰 표시
+            "is_temporary": True,
         }
         refresh_token = jwt.encode(
             refresh_token_payload,
@@ -101,13 +101,12 @@ class TokenService:
             refresh_token,
             now,
             now + REFRESH_TOKEN_LIFETIME,
-            parent_token_id=None,  # 임시 토큰은 부모 없음
+            parent_token_id=None,
         )
 
         return access_token, refresh_token, temp_access_lifetime
 
     def refresh_user_tokens(self, refresh_token):
-        """리프레시 토큰을 사용하여 새로운 액세스/리프레시 토큰을 발급합니다."""
         if not refresh_token:
             raise TokenAuthenticationFailed("Refresh 토큰이 없습니다.")
 
@@ -139,7 +138,6 @@ class TokenService:
         return access_token, new_refresh_token, access_token_lifetime, user
 
     def is_valid_access_token(self, token):
-        """액세스 토큰의 유효성을 검사합니다."""
         try:
             payload = jwt.decode(
                 token,
@@ -163,25 +161,33 @@ class TokenService:
         if not user.is_active:
             raise TokenAuthenticationFailed("비활성 사용자입니다.")
 
-        token_pwd_changed_at = payload.get("pwd_changed_at")
-        user_pwd_changed_at = (
-            user.password_changed_at.isoformat() if user.password_changed_at else None
-        )
+        token_pwd_changed_at_str = payload.get("pwd_changed_at")
+        if token_pwd_changed_at_str:
+            token_pwd_changed_at = datetime.fromisoformat(token_pwd_changed_at_str)
+            # aware가 아니면 UTC 기준 aware로 만들어주기
+            if timezone.is_naive(token_pwd_changed_at):
+                token_pwd_changed_at = timezone.make_aware(
+                    token_pwd_changed_at, timezone.utc
+                )
+        else:
+            token_pwd_changed_at = None
+
+        user_pwd_changed_at = user.password_changed_at
+        if timezone.is_naive(user_pwd_changed_at):
+            user_pwd_changed_at = timezone.make_aware(user_pwd_changed_at, timezone.utc)
 
         if token_pwd_changed_at != user_pwd_changed_at:
             raise TokenAuthenticationFailed(
                 "비밀번호가 변경되어 토큰이 무효화되었습니다."
             )
 
-        # 임시 토큰인 경우 추가 로직 가능
         if payload.get("is_temporary"):
-            # 임시 토큰은 일부 제한된 권한만 허용하는 로직 등 추가 가능
+            # 임시 토큰 처리 로직 가능
             pass
 
         return payload
 
     def invalidate_refresh_token(self, refresh_token):
-        """주어진 리프레시 토큰을 무효화합니다."""
         try:
             payload = jwt.decode(
                 refresh_token,

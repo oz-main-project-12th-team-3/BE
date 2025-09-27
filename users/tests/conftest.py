@@ -44,6 +44,11 @@ def create_user(db, generate_password):
         if password is None:
             password = generate_password()
         user = User.objects.create_user(email=email, password=password)
+        now = timezone.now()
+        if timezone.is_naive(now):
+            now = timezone.make_aware(now)
+        user.password_changed_at = now
+        user.save()
         UserProfile.objects.get_or_create(
             user=user, defaults={"nickname": nickname or "tester"}
         )
@@ -69,7 +74,10 @@ def user_service_fixture():
 @pytest.fixture
 def authenticated_client(api_client, create_user, token_service_fixture):
     user, pwd = create_user(f"user_{uuid.uuid4().hex}@example.com")
-    user.password_changed_at = timezone.now()
+    now = timezone.now()
+    if timezone.is_naive(now):
+        now = timezone.make_aware(now)
+    user.password_changed_at = now
     user.save()
     access_token, refresh_token, _ = token_service_fixture.generate_tokens(user)
     client = api_client
@@ -95,3 +103,10 @@ def create_2fa_device():
         return device, get_token
 
     return _create
+
+
+@pytest.mark.django_db
+def test_authenticated_client_has_tokens(authenticated_client):
+    client = authenticated_client
+    assert "access_token" in client.cookies
+    assert "refresh_token" in client.cookies

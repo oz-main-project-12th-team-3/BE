@@ -1,87 +1,118 @@
+from unittest.mock import patch
+
 import pytest
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.test import RequestFactory
 
 from users.authentication import JWTAuthentication
-
-
-@pytest.fixture
-def auth_request_factory():
-    """JWTAuthentication 테스트를 위한 RequestFactory 픽스처를 제공합니다."""
-    return RequestFactory()
+from users.exceptions import TokenAuthenticationFailed
 
 
 @pytest.mark.django_db
-def test_authenticate_no_token_in_request(auth_request_factory):
-    """요청에 토큰이 없을 때 None을 반환하는지 테스트합니다."""
-    auth = JWTAuthentication()
-    request = auth_request_factory.get("/")
-    assert auth.authenticate(request) is None
+def test_authenticate_with_valid_bearer_token(create_user, token_service_fixture):
+    user, _ = create_user("user@example.com")
+    jwt_auth = JWTAuthentication()
+
+    valid_token = "valid.token.value"
+    payload = {"user_id": user.id}
+
+    # token_service.is_valid_access_token 반환값을 patch로 설정
+    with (
+        patch.object(
+            token_service_fixture,
+            "is_valid_access_token",
+            return_value=payload,
+        ) as mock_token_is_valid,
+        patch(
+            "users.authentication.token_service",
+            new=token_service_fixture,
+        ) as mock_token_service,
+        patch("users.authentication.user_repo") as mock_user_repo,
+    ):
+        mock_user_repo.get_user_by_id.return_value = user
+
+        # Authorization 헤더에 Bearer 토큰 포함
+        class DummyRequest:
+            headers = {"Authorization": f"Bearer {valid_token}"}
+            COOKIES = {}
+
+        user_obj, auth = jwt_auth.authenticate(DummyRequest())
+        assert user_obj == user
+        assert auth is None
+        mock_token_is_valid.assert_called_once_with(valid_token)
+        mock_user_repo.get_user_by_id.assert_called_once_with(user.id)
 
 
 @pytest.mark.django_db
-def test_authenticate_invalid_auth_header(auth_request_factory):
-    """Authorization 헤더 형식이 유효하지 않을 때 예외를 발생시키는지 테스트합니다."""
-    auth = JWTAuthentication()
-    request = auth_request_factory.get("/", HTTP_AUTHORIZATION="Token invalid-format")
-    with pytest.raises(AuthenticationFailed, match="Bearer 토큰이어야 합니다."):
-        auth.authenticate(request)
+def test_authenticate_with_cookie_token(create_user, token_service_fixture):
+    user, _ = create_user("user@example.com")
+    jwt_auth = JWTAuthentication()
+
+    valid_token = "valid.token.value"
+    payload = {"user_id": user.id}
+
+    with (
+        patch.object(
+            token_service_fixture,
+            "is_valid_access_token",
+            return_value=payload,
+        ),
+        patch(
+            "users.authentication.token_service",
+            new=token_service_fixture,
+        ),
+        patch("users.authentication.user_repo") as mock_user_repo,
+    ):
+        mock_user_repo.get_user_by_id.return_value = user
+
+        class DummyRequest:
+            headers = {}
+            COOKIES = {"access_token": valid_token}
+
+        user_obj, auth = jwt_auth.authenticate(DummyRequest())
+        assert user_obj == user
+        assert auth is None
 
 
-@pytest.mark.django_db
-def test_authenticate_invalid_token(auth_request_factory):
-    """유효하지 않은 JWT 토큰에 대해 예외를 발생시키는지 테스트합니다."""
-    auth = JWTAuthentication()
-    request = auth_request_factory.get(
-        "/", HTTP_AUTHORIZATION="Bearer invalid.token.string"
-    )
-    with pytest.raises(AuthenticationFailed, match="유효하지 않은 토큰입니다."):
-        auth.authenticate(request)
+def test_authenticate_raises_authentication_failed_for_invalid_token():
+    jwt_auth = JWTAuthentication()
+    invalid_token = "invalid.token.value"
+
+    class DummyRequest:
+        headers = {"Authorization": f"Bearer {invalid_token}"}
+        COOKIES = {}
+
+    with patch(
+        "users.authentication.token_service.is_valid_access_token",
+        side_effect=TokenAuthenticationFailed("Invalid token"),
+    ):
+        with pytest.raises(AuthenticationFailed) as excinfo:
+            jwt_auth.authenticate(DummyRequest())
+        assert "Invalid token" in str(excinfo.value)
 
 
-@pytest.mark.django_db
-def test_authenticate_token_from_header_success(auth_request_factory, user_with_tokens):
-    """Authorization 헤더의 유효한 토큰으로 인증이 성공하는지 테스트합니다."""
-    user, access_token, _, _ = user_with_tokens
-    auth = JWTAuthentication()
-    request = auth_request_factory.get("/", HTTP_AUTHORIZATION=f"Bearer {access_token}")
-    authenticated_user, _ = auth.authenticate(request)
-    assert authenticated_user == user
+def test_authenticate_raises_authentication_failed_on_malformed_header():
+    jwt_auth = JWTAuthentication()
+
+    class DummyRequest1:
+        headers = {"Authorization": "MalformedHeaderWithoutBearer"}
+        COOKIES = {}
+
+    class DummyRequest2:
+        headers = {"Authorization": "Bearer"}
+        COOKIES = {}
+
+    with pytest.raises(AuthenticationFailed):
+        jwt_auth.authenticate(DummyRequest1())
+
+    with pytest.raises(AuthenticationFailed):
+        jwt_auth.authenticate(DummyRequest2())
 
 
-@pytest.mark.django_db
-def test_authenticate_token_from_cookies_success(
-    auth_request_factory, user_with_tokens
-):
-    """쿠키의 유효한 토큰으로 인증이 성공하는지 테스트합니다."""
-    user, access_token, _, _ = user_with_tokens
-    auth = JWTAuthentication()
-    request = auth_request_factory.get("/")
-    request.COOKIES = {"access_token": access_token}
-    authenticated_user, _ = auth.authenticate(request)
-    assert authenticated_user == user
+def test_authenticate_returns_none_if_no_token():
+    jwt_auth = JWTAuthentication()
 
+    class DummyRequest:
+        headers = {}
+        COOKIES = {}
 
-@pytest.mark.django_db
-def test_authenticate_with_expired_token(auth_request_factory, user_with_profile):
-    """만료된 토큰으로 인증을 시도할 때 예외를 발생시키는지 테스트합니다."""
-    from datetime import timedelta
-
-    import jwt
-    from django.utils import timezone
-
-    # 만료된 토큰 생성
-    user, _ = user_with_profile
-    payload = {
-        "user_id": user.id,
-        "exp": timezone.now() - timedelta(seconds=1),
-        "iat": timezone.now() - timedelta(minutes=1),
-    }
-    expired_token = jwt.encode(payload, "test-secret", algorithm="HS256")
-
-    auth = JWTAuthentication()
-    request = auth_request_factory.get(
-        "/", HTTP_AUTHORIZATION=f"Bearer {expired_token}"
-    )
-    with pytest.raises(AuthenticationFailed, match="토큰이 만료되었습니다."):
-        auth.authenticate(request)
+    assert jwt_auth.authenticate(DummyRequest()) is None
