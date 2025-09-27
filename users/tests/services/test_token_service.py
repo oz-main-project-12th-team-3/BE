@@ -16,9 +16,11 @@ from users.services.token_service import TokenService
 
 @pytest.fixture
 def user(db):
+    # 💡 수정: secrets.token_urlsafe를 사용하여 랜덤 비밀번호 생성
     password = secrets.token_urlsafe(12)
     user = User.objects.create_user(email="jwt@example.com", password=password)
-    # password_changed_at を必ず設定（日付は現在時刻）
+
+    # password_changed_at 을 반드시 설정 (날짜는 현재 시각)
     if not user.password_changed_at:
         user.password_changed_at = timezone.now()
         user.save()
@@ -40,7 +42,7 @@ def test_generate_tokens_and_temporary(user, service):
     temp_access, temp_refresh, temp_lifetime = service.generate_temporary_tokens(user)
     assert isinstance(temp_access, str)
     assert isinstance(temp_refresh, str)
-    assert temp_lifetime.total_seconds() == 300  # 5分
+    assert temp_lifetime.total_seconds() == 300  # 5분
 
 
 @pytest.mark.django_db
@@ -60,6 +62,7 @@ def test_refresh_user_tokens_no_token(user, service):
 
 @pytest.mark.django_db
 def test_refresh_user_tokens_invalid_signature(service):
+    # 이 토큰은 실제 사용자 비밀번호와 무관하므로 그대로 유지
     bad_refresh = jwt.encode(
         {"user_id": 1}, "wrongkey", algorithm=settings.SIMPLE_JWT["ALGORITHM"]
     )
@@ -71,6 +74,7 @@ def test_refresh_user_tokens_invalid_signature(service):
 def test_refresh_user_tokens_mismatched_token(user, service):
     _, refresh, _ = service.generate_tokens(user)
     token_obj = Token.objects.first()
+    # 이 값은 DB에 저장되는 해시 값이므로 그대로 유지
     token_obj.refresh_token_hash = "tampered"
     token_obj.save()
     with pytest.raises(TokenAuthenticationFailed):
@@ -107,7 +111,7 @@ def test_get_validated_payload_success_and_fail(service):
 @pytest.mark.django_db
 def test_validate_user_and_password_time_cases(user, service):
     user.is_active = False
-    # password_changed_at は None でないことが保証されているためここは問題なし
+    # password_changed_at 은 None 이 아닌 것이 보장되어 있으므로 여기는 문제 없음
     user.save()
     with pytest.raises(TokenAuthenticationFailed):
         service._validate_user_and_password_time(user, {"pwd_changed_at": None})
