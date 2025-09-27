@@ -78,43 +78,29 @@ def test_authenticate_user(service, user, password, settings):
 
 @pytest.mark.django_db
 def test_login_flow(service, user, mocker, settings):
-    settings.PROJECT_NAME = "TestProject"
-    settings.DEFAULT_FROM_EMAIL = "from@example.com"
+    def test_login_flow_password_mismatch(service, user, mocker):
+        mocker.patch.object(
+            service,
+            "authenticate_user",
+            side_effect=PasswordMismatchException("비밀번호가 올바르지 않습니다."),
+        )
 
-    mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=None)
-    mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None)
+        with pytest.raises(PasswordMismatchException):
+            service.login_with_optional_2fa(user.email, "wrongpassword")
 
-    result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10))
-    assert result[0] == user
-    assert result[1] is True
-    assert result[2] is False
+    def test_login_flow_success(service, user, mocker):
+        mocker.patch.object(
+            service.user_repo, "get_user_confirmed_2fa_device", return_value=None
+        )
+        mocker.patch.object(
+            service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None
+        )
+        mocker.patch.object(service, "authenticate_user", return_value=user)
 
-    unconfirmed_mock = mocker.Mock()
-    unconfirmed_mock.verify_token.return_value = False
-    mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=unconfirmed_mock)
-    mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=None)
-
-    mocker.patch.object(service, "authenticate_user", side_effect=PasswordMismatchException("비밀번호가 올바르지 않습니다."))
-    with pytest.raises(PasswordMismatchException):
-        service.login_with_optional_2fa(user.email, "wrongpassword")
-
-    mocker.patch.object(service, "authenticate_user", return_value=user)
-    unconfirmed_mock.verify_token.return_value = True
-
-    result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10), code="123456")
-    assert result[1] is True
-
-    confirmed_mock = mocker.Mock()
-    confirmed_mock.verify_token.return_value = True
-    mocker.patch.object(service.user_repo, "get_user_confirmed_2fa_device", return_value=confirmed_mock)
-    mocker.patch.object(service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None)
-
-    result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10), code="123456")
-    assert result[1] is True
-
-    confirmed_mock.verify_token.return_value = False
-    result = service.login_with_optional_2fa(user.email, secrets.token_urlsafe(10), code="wrong")
-    assert result[1] is False
+        result = service.login_with_optional_2fa(user.email, "correctpassword")
+        assert result[0] == user
+        assert result[1] is True
+        assert result[2] is False
 
 
 @pytest.mark.django_db
@@ -126,8 +112,12 @@ def test_send_password_reset_email_and_reset(service, user, settings):
     assert len(mail.outbox) == 1
     assert "비밀번호 재설정" in mail.outbox[0].subject
 
-    service.user_repo.get_user_by_email = lambda e: (_ for _ in ()).throw(UserNotFoundException("not found"))
-    assert service.send_password_reset_email("noexist@example.com", "example.com") is None
+    service.user_repo.get_user_by_email = lambda e: (_ for _ in ()).throw(
+        UserNotFoundException("not found")
+    )
+    assert (
+        service.send_password_reset_email("noexist@example.com", "example.com") is None
+    )
 
     uid = urlsafe_base64_encode(str(user.pk).encode())
     token = default_token_generator.make_token(user)

@@ -1,7 +1,7 @@
 import secrets
+import django.conf
 
 import pytest
-from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode
@@ -126,7 +126,9 @@ def test_token_refresh_success(api_client, user, password):
     api_client.force_authenticate(user=user)
 
     login_url = reverse("user-login")
-    res = api_client.post(login_url, {"email": user.email, "password": password}, format="json")
+    res = api_client.post(
+        login_url, {"email": user.email, "password": password}, format="json"
+    )
     refresh = res.json()["refresh_token"]
 
     url = reverse("token-refresh")
@@ -140,7 +142,10 @@ def test_token_refresh_failed(api_client, user):
     url = reverse("token-refresh")
     badtoken = "not.a.jwt"
     res = api_client.post(url, {"refresh_token": badtoken}, format="json")
-    assert res.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_500_INTERNAL_SERVER_ERROR]
+    assert res.status_code in [
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
+    ]
 
 
 @pytest.mark.django_db
@@ -154,10 +159,17 @@ def test_check_email_view(api_client, user):
     assert res.json()["available"] is False
 
 
+
+
 @pytest.mark.django_db
 def test_password_reset_request_and_confirm(api_client, user, monkeypatch):
-    # PROJECT_NAME 누락 문제 해결용 monkeypatch
-    monkeypatch.setattr(settings, "PROJECT_NAME", "TestProject")
+    # settings 모듈의 LazySettings 객체를 직접 patch, raising=False로 없어도 생성
+    monkeypatch.setattr(
+        django.conf.settings, "PROJECT_NAME", "TestProject", raising=False
+    )
+    monkeypatch.setattr(
+        django.conf.settings, "DEFAULT_FROM_EMAIL", "from@example.com", raising=False
+    )
 
     req_url = reverse("password-reset-request")
     res = api_client.post(req_url, {"email": user.email}, format="json")
@@ -168,7 +180,11 @@ def test_password_reset_request_and_confirm(api_client, user, monkeypatch):
     confirm_url = reverse("password-reset-confirm", args=[uidb64, token])
     newpw = secrets.token_urlsafe(14)
 
-    res2 = api_client.post(confirm_url, {"new_password": newpw, "new_password_confirm": newpw}, format="json")
+    res2 = api_client.post(
+        confirm_url,
+        {"new_password": newpw, "new_password_confirm": newpw},
+        format="json",
+    )
     assert res2.status_code == status.HTTP_200_OK
 
 

@@ -127,6 +127,8 @@ def test_twofactor_verify_unexpected_exception(api_client, user, mocker):
     res = api_client.post(url, {"email": user.email, "code": "boom"})
     assert res.status_code == 500
     assert "2FA 인증 중 오류" in res.json()["detail"]
+
+
 @pytest.mark.django_db
 def test_twofactor_setup_new_and_existing_device(api_client, user):
     api_client.force_authenticate(user=user)
@@ -144,6 +146,7 @@ def test_twofactor_setup_new_and_existing_device(api_client, user):
     res2 = api_client.post(url)
     assert res2.status_code == 200
     assert "이미 등록" in res2.json()["detail"]
+
 
 @pytest.mark.django_db
 def test_twofactor_confirm_success_and_failure(api_client, user, mocker):
@@ -167,8 +170,11 @@ def test_twofactor_confirm_success_and_failure(api_client, user, mocker):
     assert res_fail.status_code == 400
     assert "잘못된" in res_fail.json()["detail"]
 
+
 @pytest.mark.django_db
-def test_twofactor_verify_success_failure_no_device_unexpected(api_client, user, mocker):
+def test_twofactor_verify_success_failure_no_device_unexpected(
+    api_client, user, mocker
+):
     # 성공 케이스
     device = TOTPDevice.objects.create(user=user, name="default", confirmed=True)
     mocker.patch.object(device, "verify_token", return_value=True)
