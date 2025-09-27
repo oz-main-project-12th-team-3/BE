@@ -14,6 +14,16 @@ from users.repositories import token_repository, user_repository
 from users.services import token_service, user_service
 
 
+def _is_strong_password(pwd: str) -> bool:
+    """비밀번호가 모든 필수 요소를 포함하는지 확인합니다."""
+    return (
+        len(pwd) >= 8
+        and any(c.islower() for c in pwd)
+        and any(c.isupper() for c in pwd)
+        and any(c.isdigit() for c in pwd)
+        and any(c in "!@#$%^&*()" for c in pwd)
+    )
+
 @pytest.fixture
 def generate_password():
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*()"
@@ -21,13 +31,7 @@ def generate_password():
     def _generate():
         while True:
             pwd = "".join(secrets.choice(alphabet) for _ in range(16))
-            if (
-                any(c.islower() for c in pwd)
-                and any(c.isupper() for c in pwd)
-                and any(c.isdigit() for c in pwd)
-                and any(c in "!@#$%^&*()" for c in pwd)
-                and len(pwd) >= 8
-            ):
+            if _is_strong_password(pwd):
                 return pwd
 
     return _generate
@@ -65,10 +69,10 @@ def token_service_fixture():
 
 
 @pytest.fixture
-def user_service_fixture():
+def user_service_fixture(token_service_fixture):
     ur = user_repository.UserRepository()
     tr = token_repository.TokenRepository()
-    return user_service.UserService(ur, tr)
+    return user_service.UserService(ur, tr, token_service_fixture)
 
 
 @pytest.fixture

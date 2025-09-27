@@ -9,15 +9,9 @@ from users.exceptions import PasswordMismatchException
 
 class FlexiMock(MagicMock):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        def safe_getitem(instance, key):
-            # 문자열 key만 허용, 안전하게 getattr 호출
-            if not isinstance(key, str):
-                raise KeyError(f"Unusable key type: {type(key)} expected str")
-            return getattr(instance, key)
-
-        self.__getitem__ = safe_getitem
+        super().__init__(*args, spec_set=dict, **kwargs)
+        self.get = lambda x, default=None: getattr(self, x, default)
+        self.__getitem__.side_effect = lambda key: getattr(self, key)
 
 
 @pytest.mark.django_db
