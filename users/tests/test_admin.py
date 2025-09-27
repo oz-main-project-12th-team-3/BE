@@ -1,51 +1,79 @@
+import secrets
+
 import pytest
-from django.contrib.admin.sites import AdminSite
+from django.test import RequestFactory
 
 from users.admin import TokenAdmin, UserAdmin, UserProfileAdmin
 from users.models import Token, User, UserProfile
 
 
-@pytest.mark.django_db
-class TestUserAdmin:
-    def test_user_admin_list_display(self):
-        site = AdminSite()
-        admin = UserAdmin(User, site)
-        list_display = admin.get_list_display(None)
-        expected_fields = (
-            "email",
-            "is_staff",
-            "is_active",
-            "login_fail_count",
-            "password_changed_at",
-            "account_locked_until",
-        )
-        for field in expected_fields:
-            assert field in list_display
+@pytest.fixture
+def rf():
+    return RequestFactory()
+
+
+@pytest.fixture
+def admin_site():
+    from django.contrib.admin.sites import AdminSite
+
+    return AdminSite()
+
+
+@pytest.fixture
+def user(db):
+    password = secrets.token_urlsafe(12)
+    return User.objects.create_user(email="testuser@example.com", password=password)
 
 
 @pytest.mark.django_db
-class TestUserProfileAdmin:
-    def test_user_profile_admin_list_display(self):
-        site = AdminSite()
-        admin = UserProfileAdmin(UserProfile, site)
-        list_display = admin.get_list_display(None)
-        expected_fields = ("user", "nickname", "profile_image_url", "last_login")
-        for field in expected_fields:
-            assert field in list_display
+def test_useradmin_basic_fields(rf, admin_site):
+    password = secrets.token_urlsafe(10)
+    user = User.objects.create_user(email="adminuser@example.com", password=password)
+
+    ua = UserAdmin(User, admin_site)
+    list_disp = ua.get_list_display(rf.get("/"))  # 第二引数 user は渡さない
+    assert "email" in list_disp
+    assert "is_staff" in list_disp
+
+    fieldsets = dict(ua.fieldsets)
+    assert "email" in fieldsets[None]["fields"]
+    assert "is_staff" in fieldsets["Permissions"]["fields"]
+
+    add_fieldsets = ua.add_fieldsets
+    assert ("email", "password", "is_staff", "is_active") in [
+        tup.get("fields") for _, tup in add_fieldsets
+    ]
+
+    assert "email" in ua.search_fields
+    assert "email" in ua.ordering
 
 
 @pytest.mark.django_db
-class TestTokenAdmin:
-    def test_token_admin_list_display(self):
-        site = AdminSite()
-        admin = TokenAdmin(Token, site)
-        list_display = admin.get_list_display(None)
-        expected_fields = (
-            "user",
-            "refresh_token_hash",
-            "issued_at",
-            "expires_at",
-            "is_blacklisted",
-        )
-        for field in expected_fields:
-            assert field in list_display
+def test_userprofileadmin_list_and_search(rf, admin_site, user):
+    profile = user.user_profile
+    profile.nickname = "nick"
+    profile.save()
+
+    upa = UserProfileAdmin(UserProfile, admin_site)
+    list_disp = upa.get_list_display(rf.get("/"))  # 第二引数なし
+    assert "nickname" in list_disp
+    assert "user" in list_disp
+
+    assert "user__email" in upa.search_fields
+
+
+@pytest.mark.django_db
+def test_tokenadmin_list_and_readonly(rf, admin_site, user):
+    token = Token.objects.create(
+        user=user,
+        issued_at=user.created_at,
+        expires_at=user.created_at,
+    )
+
+    ta = TokenAdmin(Token, admin_site)
+    list_disp = ta.get_list_display(rf.get("/"))  # 第二引数なし
+    assert "refresh_token_hash" in list_disp
+    assert "is_blacklisted" in list_disp
+
+    assert "user__email" in ta.search_fields
+    assert "issued_at" in ta.readonly_fields

@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import timedelta
 
@@ -9,70 +10,125 @@ from users.models import User
 from users.repositories.token_repository import TokenRepository
 
 
-@pytest.mark.django_db(transaction=True)
-class TestTokenRepository:
-    @pytest.fixture(autouse=True)
-    def setup(self, db):
-        self.repo = TokenRepository()
-        self.user = User.objects.create_user(
-            email="test@example.com",
-            password=None,
-        )
+@pytest.fixture
+def user(db):
+    """토큰 테스트용 사용자 생성 (비밀번호는 secrets 랜덤 사용)"""
+    password = secrets.token_urlsafe(16)
+    return User.objects.create_user(email="test@example.com", password=password)
 
-    def test_create_token(self):
-        refresh_token_id = uuid.uuid4()
-        refresh_token_plain = str(uuid.uuid4())
-        issued_at = timezone.now()
-        if timezone.is_naive(issued_at):
-            issued_at = timezone.make_aware(issued_at)
-        expires_at = issued_at + timedelta(days=7)
 
-        token_obj = self.repo.create_token(
-            user=self.user,
-            refresh_token_id=refresh_token_id,
-            refresh_token_plain=refresh_token_plain,
-            issued_at=issued_at,
-            expires_at=expires_at,
-        )
+@pytest.mark.django_db
+def test_create_token_with_naive_datetime(user):
+    repo = TokenRepository()
+    refresh_token_id = uuid.uuid4()
+    refresh_token_plain = secrets.token_urlsafe(32)
 
-        assert token_obj.user == self.user
-        assert token_obj.refresh_token_id == refresh_token_id
-        assert token_obj.expires_at == expires_at
-        assert token_obj.refresh_token_hash != ""
-        assert not token_obj.is_blacklisted
+    issued_at = timezone.now().replace(tzinfo=None)  # naive datetime
+    expires_at = timezone.now().replace(tzinfo=None) + timedelta(days=1)
 
-    # 픽스처 사용으로 코드 간결화
-    def test_get_valid_token_by_id_success(self, create_test_token):
-        token_obj = create_test_token(self.user, expires_in_days=1)
+    token = repo.create_token(
+        user=user,
+        refresh_token_id=refresh_token_id,
+        refresh_token_plain=refresh_token_plain,
+        issued_at=issued_at,
+        expires_at=expires_at,
+    )
 
-        fetch_token = self.repo.get_valid_token_by_id(token_obj.refresh_token_id)
-        assert fetch_token == token_obj
+    assert token.refresh_token_id == refresh_token_id
+    assert token.check_refresh_token(refresh_token_plain)
+    assert token.issued_at.tzinfo is not None
+    assert token.expires_at.tzinfo is not None
 
-    def test_get_valid_token_by_id_token_does_not_exist(self):
-        with pytest.raises(TokenNotFoundException):
-            self.repo.get_valid_token_by_id(uuid.uuid4())
 
-    def test_get_valid_token_by_id_token_expired(self, create_test_token):
-        # expires_in_days=-1을 사용하여 만료된 토큰을 생성
-        token_obj = create_test_token(self.user, expires_in_days=-1)
+@pytest.mark.django_db
+def test_get_valid_token_by_id_success(user):
+    repo = TokenRepository()
+    refresh_token_id = uuid.uuid4()
+    refresh_token_plain = secrets.token_urlsafe(24)
 
-        with pytest.raises(TokenBlacklistedException):
-            self.repo.get_valid_token_by_id(token_obj.refresh_token_id)
+    created = repo.create_token(
+        user=user,
+        refresh_token_id=refresh_token_id,
+        refresh_token_plain=refresh_token_plain,
+        issued_at=timezone.now(),
+        expires_at=timezone.now() + timedelta(hours=1),
+    )
 
-    def test_blacklist_token(self, create_test_token):
-        token_obj = create_test_token(self.user, is_blacklisted=False)
+    result = repo.get_valid_token_by_id(refresh_token_id)
+    assert result == created
 
-        self.repo.blacklist_token(token_obj)
-        token_obj.refresh_from_db()
-        assert token_obj.is_blacklisted
 
-    def test_blacklist_all_user_tokens(self, create_test_token):
-        tokens = []
-        for _ in range(3):
-            token_obj = create_test_token(self.user, is_blacklisted=False)
-            tokens.append(token_obj)
+@pytest.mark.django_db
+def test_get_valid_token_by_id_expired(user):
+    repo = TokenRepository()
+    refresh_token_id = uuid.uuid4()
+    plain = secrets.token_urlsafe(24)
 
-        self.repo.blacklist_all_user_tokens(self.user)
-        for token in tokens:
-            token.refresh_from_db()
-            assert token.is_blacklisted
+    _ = repo.create_token(
+        user=user,
+        refresh_token_id=refresh_token_id,
+        refresh_token_plain=plain,
+        issued_at=timezone.now() - timedelta(days=1),
+        expires_at=timezone.now() - timedelta(seconds=1),
+    )
+
+    with pytest.raises(TokenBlacklistedException) as e:
+        repo.get_valid_token_by_id(refresh_token_id)
+    assert "만료된 Refresh 토큰" in str(e.value)
+
+
+@pytest.mark.django_db
+def test_get_valid_token_by_id_not_found(user):
+    repo = TokenRepository()
+    fake_id = uuid.uuid4()
+
+    with pytest.raises(TokenNotFoundException) as e:
+        repo.get_valid_token_by_id(fake_id)
+    assert "유효하지 않거나 만료된 Refresh 토큰" in str(e.value)
+
+
+@pytest.mark.django_db
+def test_blacklist_token(user):
+    repo = TokenRepository()
+    plain = secrets.token_urlsafe(24)
+
+    token = repo.create_token(
+        user=user,
+        refresh_token_id=uuid.uuid4(),
+        refresh_token_plain=plain,
+        issued_at=timezone.now(),
+        expires_at=timezone.now() + timedelta(days=1),
+    )
+
+    assert token.is_blacklisted is False
+    repo.blacklist_token(token)
+    token.refresh_from_db()
+    assert token.is_blacklisted is True
+
+
+@pytest.mark.django_db
+def test_blacklist_all_user_tokens(user):
+    repo = TokenRepository()
+
+    t1 = repo.create_token(
+        user=user,
+        refresh_token_id=uuid.uuid4(),
+        refresh_token_plain=secrets.token_urlsafe(20),
+        issued_at=timezone.now(),
+        expires_at=timezone.now() + timedelta(hours=1),
+    )
+    t2 = repo.create_token(
+        user=user,
+        refresh_token_id=uuid.uuid4(),
+        refresh_token_plain=secrets.token_urlsafe(20),
+        issued_at=timezone.now(),
+        expires_at=timezone.now() + timedelta(hours=2),
+    )
+    assert t1.is_blacklisted is False
+    assert t2.is_blacklisted is False
+
+    repo.blacklist_all_user_tokens(user)
+    t1.refresh_from_db()
+    t2.refresh_from_db()
+    assert t1.is_blacklisted
+    assert t2.is_blacklisted

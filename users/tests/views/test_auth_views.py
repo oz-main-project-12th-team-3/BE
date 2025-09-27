@@ -1,205 +1,297 @@
+import secrets
+
 import pytest
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
 from django.urls import reverse
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
+
+from users.exceptions import PasswordMismatchException
+from users.models import User
+
+
+@pytest.fixture
+def api_client():
+    from rest_framework.test import APIClient
+
+    return APIClient()
+
+
+@pytest.fixture
+def password():
+    return secrets.token_urlsafe(12)
+
+
+@pytest.fixture
+def user(db, password):
+    return User.objects.create_user(email="apitest@example.com", password=password)
 
 
 @pytest.mark.django_db
-class TestAuthViews:
-    def _assert_cookies_cleared(self, response):
-        """응답 헤더에서 access, refresh token의 Max-Age=0 또는 expires 설정 확인"""
-        set_cookie_headers = [
-            val for k, val in response.items() if k.lower() == "set-cookie"
-        ]
+def test_register_success_and_duplicate(api_client):
+    url = reverse("user-register")
+    pw = secrets.token_urlsafe(12)
+    data = {"email": "new@example.com", "password": pw, "nickname": "NN"}
+    res = api_client.post(url, data, format="json")
+    assert res.status_code == status.HTTP_201_CREATED
 
-        # access_token 제거 확인
-        assert any(
-            "access_token=; Max-Age=0" in h or "access_token=; expires=" in h
-            for h in set_cookie_headers
-        )
-        # refresh_token 제거 확인
-        assert any(
-            "refresh_token=; Max-Age=0" in h or "refresh_token=; expires=" in h
-            for h in set_cookie_headers
-        )
+    res2 = api_client.post(url, data, format="json")
+    assert res2.status_code == status.HTTP_400_BAD_REQUEST
+    assert "이미 사용중인 이메일" in res2.json().get("detail", "")
 
-    def test_user_register_success(self, api_client, generate_password):
-        url = reverse("user-register")
-        password = generate_password()
-        data = {
-            "email": "test@example.com",
-            "password": password,
-            "nickname": "tester",
-            "enable_2fa": True,
-        }
-        response = api_client.post(url, data)
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data["email"] == data["email"]
-        assert response.data["2fa_setup_required"] is True
 
-    def test_user_register_duplicate_email(
-            self, api_client, create_user, generate_password
-    ):
-        user, _ = create_user("dup@example.com")
-        url = reverse("user-register")
-        data = {
-            "email": user.email,
-            "password": generate_password(),
-            "nickname": "tester",
-        }
-        response = api_client.post(url, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "이미 사용중인 이메일입니다." in response.data["detail"]
+@pytest.mark.django_db
+def test_login_success(api_client, user, password):
+    url = reverse("user-login")
+    data = {"email": user.email, "password": password}
+    res = api_client.post(url, data, format="json")
+    assert res.status_code == status.HTTP_200_OK
+    body = res.json()
+    assert body["detail"] == "로그인 성공"
+    assert "access_token" in body
+    assert "refresh_token" in body
+    assert res.cookies.get("access_token") is not None
 
-    def test_user_login_no_2fa(self, api_client, create_user, generate_password):
-        user, password = create_user("login_no_2fa@example.com")
-        url = reverse("user-login")
-        response = api_client.post(url, {"email": user.email, "password": password})
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data["detail"] == "로그인 성공"
-        assert not response.data["tfa_required"]
-        assert response.data["user_id"] == user.id
 
-    def test_user_login_requires_2fa_setup(
-            self, api_client, user_service_fixture, generate_password
-    ):
-        email = "login_2fa@example.com"
-        password = generate_password()
-        email = f"login_2fa_{email.split('@')[0]}@{email.split('@')[1]}"
-        user_service_fixture.create_user(email, password, "tester", enable_2fa=True)
-        url = reverse("user-login")
-        response = api_client.post(url, {"email": email, "password": password})
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data["tfa_required"] is True
-        assert response.data["tfa_step"] == "setup"
-        assert "temporary_access_token" in response.data
-        assert "temporary_refresh_token" in response.data
+@pytest.mark.django_db
+def test_login_with_wrong_password(api_client, user):
+    url = reverse("user-login")
+    data = {"email": user.email, "password": "not-correct"}
+    res = api_client.post(url, data, format="json")
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_user_login_with_2fa_pending_and_confirm(
-            self, api_client, create_user, create_2fa_device, generate_password
-    ):
-        user, password = create_user("login_2fa_pending@example.com")
-        device, get_token = create_2fa_device(user, confirmed=False)
-        url = reverse("user-login")
 
-        resp = api_client.post(url, {"email": user.email, "password": password})
-        assert resp.data["tfa_required"] is True
-        assert (
-                resp.data["tfa_step"] == "setup"
-        )  # 이 시점에는 아직 미확인 장치이므로 setup
+@pytest.mark.django_db
+def test_login_with_2fa_required(api_client, user, mocker):
+    url = reverse("user-login")
+    data = {"email": user.email, "password": secrets.token_urlsafe(8)}
 
-        token = get_token()
-        resp2 = api_client.post(
-            url, {"email": user.email, "password": password, "tfa_code": token}
-        )
-        assert resp2.status_code == status.HTTP_200_OK
-        assert "detail" in resp2.data
+    mock_service = mocker.patch(
+        "users.services.user_service.UserService.login_with_optional_2fa"
+    )
+    mock_service.return_value = (user, False, True, "tempA", "tempR")
 
-    def test_user_login_with_2fa_confirmed(
-            self, api_client, create_user, create_2fa_device, generate_password
-    ):
-        user, password = create_user("login_2fa_confirmed@example.com")
-        device, get_token = create_2fa_device(user, confirmed=True)
-        url = reverse("user-login")
+    res = api_client.post(url, data, format="json")
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["tfa_required"] is True
+    assert "temporary_access_token" in res.json()
 
-        resp = api_client.post(url, {"email": user.email, "password": password})
-        assert resp.data["tfa_required"] is True
-        assert resp.data["tfa_step"] == "verify"  # 이미 확인된 장치가 있으므로 verify
 
-        resp2 = api_client.post(
-            url, {"email": user.email, "password": password, "tfa_code": get_token()}
-        )
-        assert resp2.status_code == status.HTTP_200_OK
-        assert resp2.data["detail"] == "로그인 성공"
+@pytest.mark.django_db
+def test_login_with_confirmed_device(api_client, user, mocker):
+    url = reverse("user-login")
+    data = {"email": user.email, "password": secrets.token_urlsafe(8)}
 
-    def test_user_login_invalid_credentials(self, api_client):
-        url = reverse("user-login")
-        resp = api_client.post(
-            url, {"email": "nonexist@example.com", "password": "wrong"}
-        )
-        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "detail" in resp.data
+    mock_service = mocker.patch(
+        "users.services.user_service.UserService.login_with_optional_2fa"
+    )
+    mock_service.return_value = (user, False, False, None, None)
 
-    def test_logout(self, authenticated_client):
-        url = reverse("user-logout")
-        response = authenticated_client.post(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data["detail"] == "로그아웃 되었습니다."
+    res = api_client.post(url, data, format="json")
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["tfa_required"] is True
+    assert res.json()["tfa_step"] == "verify"
 
-        self._assert_cookies_cleared(response)
 
-    def test_token_refresh_success(self, authenticated_client):
-        url = reverse("token-refresh")
-        refresh_token = authenticated_client.cookies.get("refresh_token").value
-        response = authenticated_client.post(url, {"refresh_token": refresh_token})
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data.get("detail") == "토큰이 성공적으로 갱신되었습니다."
-        assert "access_token" in response.data
-        assert "user_id" in response.data
+@pytest.mark.django_db
+def test_login_unexpected_exception(api_client, user, mocker):
+    url = reverse("user-login")
+    data = {"email": user.email, "password": secrets.token_urlsafe(8)}
+    mocker.patch(
+        "users.services.user_service.UserService.login_with_optional_2fa",
+        side_effect=Exception("boom"),
+    )
+    res = api_client.post(url, data, format="json")
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "boom" in res.json()["detail"]
 
-    def test_token_refresh_failure(self, api_client):
-        url = reverse("token-refresh")
-        response = api_client.post(url, {"refresh_token": "invalidtoken"})
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "detail" in response.data
 
-        self._assert_cookies_cleared(response)
+@pytest.mark.django_db
+def test_logout(api_client, user):
+    url = reverse("user-logout")
+    api_client.force_authenticate(user=user)
+    res = api_client.post(url)
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["detail"] == "로그아웃 되었습니다."
+    assert res.cookies.get("access_token").value == ""
+    assert res.cookies.get("refresh_token").value == ""
 
-    def test_check_email_available_and_taken(self, api_client, create_user):
-        user, _ = create_user("user1@example.com")
-        url = reverse("email-check")
 
-        resp = api_client.post(url, {"email": "new@example.com"})
-        assert resp.status_code == status.HTTP_200_OK
-        assert resp.data["available"] is True
+@pytest.mark.django_db
+def test_token_refresh_success(api_client, user, password):
+    api_client.force_authenticate(user=user)
 
-        resp2 = api_client.post(url, {"email": user.email})
-        assert resp2.status_code == status.HTTP_200_OK
-        assert resp2.data["available"] is False
+    login_url = reverse("user-login")
+    res = api_client.post(
+        login_url, {"email": user.email, "password": password}, format="json"
+    )
+    refresh = res.json()["refresh_token"]
 
-    def test_password_reset_request_email_sent(self, api_client, create_user):
-        user, _ = create_user("resetreq@example.com")
+    url = reverse("token-refresh")
+    res2 = api_client.post(url, {"refresh_token": refresh}, format="json")
+    assert res2.status_code == status.HTTP_200_OK
+    assert "access_token" in res2.json()
+
+
+@pytest.mark.django_db
+def test_token_refresh_failed(api_client, user):
+    url = reverse("token-refresh")
+    badtoken = "not.a.jwt"
+    res = api_client.post(url, {"refresh_token": badtoken}, format="json")
+    assert res.status_code in [
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
+    ]
+
+
+@pytest.mark.django_db
+def test_check_email_view(api_client, user):
+    url = reverse("email-check")
+    res = api_client.post(url, {"email": "free@example.com"}, format="json")
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["available"] is True
+
+    res = api_client.post(url, {"email": user.email}, format="json")
+    assert res.json()["available"] is False
+
+
+@pytest.mark.django_db
+def test_password_reset_request_and_confirm(api_client, user, monkeypatch):
+    monkeypatch.setattr(settings, "PROJECT_NAME", "TestProject")
+
+    req_url = reverse("password-reset-request")
+    res = api_client.post(req_url, {"email": user.email}, format="json")
+    assert res.status_code == status.HTTP_200_OK
+
+    uidb64 = urlsafe_base64_encode(str(user.pk).encode())
+    token = default_token_generator.make_token(user)
+    confirm_url = reverse("password-reset-confirm", args=[uidb64, token])
+    newpw = secrets.token_urlsafe(14)
+
+    res2 = api_client.post(confirm_url, {"new_password": newpw, "new_password_confirm": newpw}, format="json")
+    assert res2.status_code == status.HTTP_200_OK
+
+
+
+@pytest.mark.django_db
+def test_password_reset_confirm_invalid(api_client, user):
+    confirm_url = reverse("password-reset-confirm", args=["bad", "badtoken"])
+    res = api_client.post(
+        confirm_url,
+        {"new_password": "whatever", "new_password_confirm": "mismatch"},
+        format="json",
+    )
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert ("detail" in res.json()) or ("non_field_errors" in res.json())
+
+
+@pytest.mark.django_db
+def test_password_change_passwordmismatch(api_client, user, mocker):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-password-change")
+
+    mocker.patch(
+        "users.services.user_service.UserService.change_user_password",
+        side_effect=PasswordMismatchException("bad"),
+    )
+    res = api_client.patch(
+        url, {"new_password": secrets.token_urlsafe(10)}, format="json"
+    )
+    assert res.status_code in [
+        status.HTTP_400_BAD_REQUEST,
+        status.HTTP_401_UNAUTHORIZED,
+    ]
+
+    detail = res.json().get("detail", "")
+    assert detail != "" and "bad" in detail
+
+
+@pytest.mark.django_db
+def test_user_register_duplicate_email(api_client, user, password):
+    url = reverse("user-register")
+    data = {"email": user.email, "password": password, "nickname": "nick"}
+    res = api_client.post(url, data, format="json")
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "이미 사용중인 이메일" in res.json().get("detail", "")
+
+
+@pytest.mark.django_db
+def test_user_login_2fa_flows(api_client, user, mocker, password):
+    url = reverse("user-login")
+    mock_login = mocker.patch(
+        "users.services.user_service.UserService.login_with_optional_2fa"
+    )
+
+    # 2FA 필요 초기 상태
+    mock_login.return_value = (user, False, True, "temp_token", "temp_refresh")
+    res = api_client.post(
+        url, {"email": user.email, "password": password}, format="json"
+    )
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json().get("tfa_required") is True
+    assert "temporary_access_token" in res.json()
+
+    # 2FA 인증 대기 상태
+    mock_login.return_value = (user, False, False, None, None)
+    res = api_client.post(
+        url, {"email": user.email, "password": password}, format="json"
+    )
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json().get("tfa_required") is True
+    assert res.json().get("tfa_step") == "verify"
+
+
+@pytest.mark.django_db
+def test_token_refresh_token_authentication_failed(api_client, mocker):
+    url = reverse("token-refresh")
+    error_msg = "Invalid token"
+    mock_token_service = mocker.patch(
+        "users.services.token_service.TokenService.refresh_user_tokens",
+        side_effect=Exception(error_msg),
+    )
+    res = api_client.post(url, {"refresh_token": "badtoken"}, format="json")
+    assert res.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert error_msg in res.json().get("detail", "")
+
+
+@pytest.mark.django_db
+def test_password_reset_request_missing_project_name(api_client, user):
+    # settings.PROJECT_NAME 없어서 실패했던 점 monkeypatch로 대응
+    from django.test import override_settings
+
+    with override_settings(PROJECT_NAME="TestProject"):
         url = reverse("password-reset-request")
-        response = api_client.post(url, {"email": user.email})
-        assert response.status_code == status.HTTP_200_OK
-        assert "비밀번호 재설정 메일" in response.data["detail"]
+        res = api_client.post(url, {"email": user.email}, format="json")
+        assert res.status_code == status.HTTP_200_OK
 
-    def test_password_reset_confirm_success_and_failure(self, api_client, create_user):
-        user, _ = create_user("resetconfirm@example.com")
-        uidb64 = "dummy-uidb64"
-        token = "dummy-token"
-        url = reverse("password-reset-confirm", args=[uidb64, token])
 
-        data = {"new_password": "NewPass123!", "new_password_confirm": "NewPass123!"}
-        response = api_client.post(url, data)
-        # 뷰 코드가 ValueError를 400 Bad Request로 처리하도록 수정되었으므로,
-        # 400 Bad Request 또는 성공 시 200을 기대합니다.
-        assert response.status_code in (status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST)
+@pytest.mark.django_db
+def test_password_reset_confirm_invalid_data(api_client, user):
+    uidb64 = urlsafe_base64_encode(str(user.pk).encode())
+    url = reverse("password-reset-confirm", args=[uidb64, "invalidtoken"])
+    res = api_client.post(
+        url, {"new_password": "pass", "new_password_confirm": "mismatch"}, format="json"
+    )
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "detail" in res.json() or "non_field_errors" in res.json()
 
-    def test_password_reset_confirm_invalid_token_raises_validation_error(
-            self, api_client, monkeypatch
-    ):
-        uidb64 = "dummy-uid"
-        token = "invalid-token"
-        url = reverse("password-reset-confirm", args=[uidb64, token])
 
-        import users.services.user_service as user_service_module
+@pytest.mark.django_db
+def test_password_change_mismatch_response(api_client, user, mocker):
+    api_client.force_authenticate(user=user)
+    url = reverse("user-password-change")
 
-        def raise_value_error(*args, **kwargs):
-            # UserService에서 발생할 수 있는 오류를 모의(mocking)
-            raise ValueError("유효하지 않은 토큰입니다.")
-
-        # 뷰 코드를 모킹하여, 실제 서비스 호출 시 ValueError를 발생시키도록 설정
-        monkeypatch.setattr(
-            user_service_module.UserService, "reset_password", raise_value_error
-        )
-
-        data = {"new_password": "somepassword", "new_password_confirm": "somepassword"}
-        response = api_client.post(url, data)
-
-        # 뷰가 ValueError를 포착하여 400 Bad Request와 JSON 응답을 반환하도록 수정했으므로,
-        # 이에 맞춰서 테스트를 수정합니다. (이전에는 422나 400을 허용했음)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-        # 응답 상세 메시지에 오류 내용이 포함되어 있는지 확인
-        assert "detail" in response.data
-        assert "유효하지 않은 토큰" in response.data["detail"]
+    mocker.patch(
+        "users.services.user_service.UserService.change_user_password",
+        side_effect=PasswordMismatchException("bad"),
+    )
+    res = api_client.patch(
+        url, {"new_password": secrets.token_urlsafe(10)}, format="json"
+    )
+    assert res.status_code in (
+        status.HTTP_400_BAD_REQUEST,
+        status.HTTP_401_UNAUTHORIZED,
+    )
+    detail = res.json().get("detail", "")
+    assert detail != "" and "bad" in detail

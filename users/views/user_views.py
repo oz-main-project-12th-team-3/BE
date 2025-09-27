@@ -101,7 +101,14 @@ class PasswordChangeView(APIView):
             return response
 
         except PasswordMismatchException as e:
-            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            detail_message = str(e)
+
+            if not detail_message:
+                detail_message = "비밀번호 변경 중 오류가 발생했습니다."
+
+            return Response(
+                {"detail": detail_message}, status=status.HTTP_401_UNAUTHORIZED
+            )
 
 
 class UserDeleteView(APIView):
