@@ -11,12 +11,6 @@ from ..serializers import TwoFactorAuthSerializer
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
-# ⚠️ 전역 객체 선언은 삭제되었습니다. (CI/테스트 환경 문제 해결)
-# user_repo = UserRepository()
-# token_repo = TokenRepository()
-# token_service = TokenService(user_repo, token_repo)
-# user_service = UserService(user_repo, token_repo, token_service)
-
 
 class TwoFactorSetupView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -32,10 +26,16 @@ class TwoFactorSetupView(APIView):
     def post(self, request):
         user_service = self._get_user_service()
         user = request.user
-        device = user_service.setup_2fa(user)
+        try:
+            device = user_service.setup_2fa(user)
+        except Exception as e:
+            return Response(
+                {"detail": f"2FA 설정 중 오류: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         otp_uri = device.config_url
-        qr_code_base64 = None  # 프론트에서 otp_uri로 QR 코드 생성 권장
+        qr_code_base64 = None
 
         if device.confirmed:
             return Response(

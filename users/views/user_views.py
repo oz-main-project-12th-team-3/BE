@@ -87,28 +87,16 @@ class PasswordChangeView(APIView):
         user = request.user
         new_password = serializer.validated_data["new_password"]
 
-        try:
-            _ = user_service.change_user_password(user, new_password)
-            response = Response(
-                {
-                    "detail": "비밀번호가 성공적으로 변경되었습니다. "
-                    "다시 로그인해 주세요."
-                },
-                status=status.HTTP_200_OK,
-            )
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
-            return response
+        # 비밀번호 변경 시 PasswordMismatchException 발생 시 자동으로 처리됨
+        user_service.change_user_password(user, new_password)
 
-        except PasswordMismatchException as e:
-            detail_message = str(e)
-
-            if not detail_message:
-                detail_message = "비밀번호 변경 중 오류가 발생했습니다."
-
-            return Response(
-                {"detail": detail_message}, status=status.HTTP_401_UNAUTHORIZED
-            )
+        response = Response(
+            {"detail": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해 주세요."},
+            status=status.HTTP_200_OK,
+        )
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+        return response
 
 
 class UserDeleteView(APIView):
