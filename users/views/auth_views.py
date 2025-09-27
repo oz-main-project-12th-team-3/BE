@@ -22,16 +22,25 @@ from ..serializers import (
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
-user_repo = UserRepository()
-token_repo = TokenRepository()
-token_service = TokenService(user_repo, token_repo)
-user_service = UserService(user_repo, token_repo, token_service)
+# ⚠️ 전역 객체 선언 제거:
+# user_repo = UserRepository()
+# token_repo = TokenRepository()
+# token_service = TokenService(user_repo, token_repo)
+# user_service = UserService(user_repo, token_repo, token_service)
 
 
 class UserRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request, *args, **kwargs):
+        user_service = self._get_user_service()
         serializer = UserRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -56,7 +65,16 @@ class UserRegisterView(APIView):
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _get_services(self):
+        """요청 시마다 독립적인 서비스 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        user_service = UserService(user_repo, token_repo, token_service)
+        return user_service, token_service
+
     def post(self, request):
+        user_service, token_service = self._get_services()
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get("email")
@@ -155,7 +173,12 @@ class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_token_repo(self):
+        """요청 시마다 독립적인 TokenRepository 객체를 생성합니다."""
+        return TokenRepository()
+
     def post(self, request):
+        token_repo = self._get_token_repo()
         if request.user:
             token_repo.blacklist_all_user_tokens(request.user)
 
@@ -170,7 +193,14 @@ class LogoutView(APIView):
 class TokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _get_token_service(self):
+        """요청 시마다 독립적인 TokenService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        return TokenService(user_repo, token_repo)
+
     def post(self, request):
+        token_service = self._get_token_service()
         refresh_token = (
             request.COOKIES.get("refresh_token")
             or request.data.get("refresh_token")
@@ -227,7 +257,15 @@ class TokenRefreshView(APIView):
 class CheckEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request):
+        user_service = self._get_user_service()
         serializer = CheckEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get("email")
@@ -247,7 +285,15 @@ class CheckEmailView(APIView):
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request):
+        user_service = self._get_user_service()
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"]
@@ -263,7 +309,15 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request, uidb64, token):
+        user_service = self._get_user_service()
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         new_password = serializer.validated_data["new_password"]

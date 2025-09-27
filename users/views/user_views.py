@@ -13,18 +13,26 @@ from ..serializers import (
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
-# 의존성 주입
-user_repo = UserRepository()
-token_repo = TokenRepository()
-token_service = TokenService(user_repo, token_repo)
-user_service = UserService(user_repo, token_repo, token_service)
+# ⚠️ 전역 객체 선언 제거:
+# user_repo = UserRepository()
+# token_repo = TokenRepository()
+# token_service = TokenService(user_repo, token_repo)
+# user_service = UserService(user_repo, token_repo, token_service)
 
 
 class UserProfileView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def get(self, request):
+        user_service = self._get_user_service()
         profile = user_service.get_user_profile(request.user)
         if not profile:
             return Response(
@@ -35,6 +43,7 @@ class UserProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
+        user_service = self._get_user_service()
         profile = user_service.get_user_profile(request.user)
         if not profile:
             return Response(
@@ -47,6 +56,7 @@ class UserProfileView(APIView):
         return Response(serializer.data)
 
     def delete(self, request):
+        user_service = self._get_user_service()
         profile = user_service.get_user_profile(request.user)
         if not profile:
             return Response(
@@ -63,7 +73,15 @@ class PasswordChangeView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def patch(self, request):
+        user_service = self._get_user_service()
         serializer = PasswordChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = request.user
@@ -90,7 +108,15 @@ class UserDeleteView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request):
+        user_service = self._get_user_service()
         password = request.data.get("password")
         if not password:
             return Response(

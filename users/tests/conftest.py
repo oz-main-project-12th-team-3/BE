@@ -16,6 +16,7 @@ from users.models import (
     User,
     UserProfile,
 )
+# 서비스와 레포지토리는 모듈 임포트만 유지
 from users.repositories import token_repository, user_repository
 from users.services import token_service, user_service
 
@@ -95,6 +96,8 @@ def create_active_user(create_user):
 
 @pytest.fixture
 def token_service_fixture():
+    """요청 시마다 독립적인 TokenService 객체를 생성합니다."""
+    # ⚠️ 수정: 픽스처 호출 시마다 새로운 인스턴스를 생성하도록 변경
     ur = user_repository.UserRepository()
     tr = token_repository.TokenRepository()
     return token_service.TokenService(ur, tr)
@@ -102,6 +105,8 @@ def token_service_fixture():
 
 @pytest.fixture
 def user_service_fixture(token_service_fixture):
+    """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+    # ⚠️ 수정: 픽스처 호출 시마다 새로운 인스턴스를 생성하도록 변경
     ur = user_repository.UserRepository()
     tr = token_repository.TokenRepository()
     return user_service.UserService(ur, tr, token_service_fixture)
