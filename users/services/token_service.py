@@ -137,52 +137,67 @@ class TokenService:
 
         return access_token, new_refresh_token, access_token_lifetime, user
 
-    def is_valid_access_token(self, token):
+    def _get_validated_payload(self, token):
+        """JWT 디코딩 및 기본 유효성 검사를 수행"""
         try:
             payload = jwt.decode(
                 token,
                 settings.SIMPLE_JWT["SIGNING_KEY"],
                 algorithms=[settings.SIMPLE_JWT["ALGORITHM"]],
             )
+            return payload
         except jwt.ExpiredSignatureError:
             raise TokenAuthenticationFailed("토큰이 만료되었습니다.")
         except jwt.InvalidTokenError:
             raise TokenAuthenticationFailed("유효하지 않은 토큰입니다.")
 
-        user_id = payload.get("user_id")
-        if not user_id:
-            raise TokenAuthenticationFailed("유효하지 않은 토큰입니다.")
-
-        try:
-            user = self.user_repo.get_user_by_id(user_id)
-        except UserNotFoundException:
-            raise TokenAuthenticationFailed("사용자가 존재하지 않습니다.")
-
+    def _validate_user_and_password_time(self, user, payload):
+        """사용자 상태 및 비밀번호 변경 시간 검증"""
         if not user.is_active:
             raise TokenAuthenticationFailed("비활성 사용자입니다.")
 
+        # 1. 토큰의 비밀번호 변경 시간 파싱 (Naive -> Aware UTC)
         token_pwd_changed_at_str = payload.get("pwd_changed_at")
+        token_pwd_changed_at = None
         if token_pwd_changed_at_str:
             token_pwd_changed_at = datetime.fromisoformat(token_pwd_changed_at_str)
-            # aware가 아니면 UTC 기준 aware로 만들어주기
             if timezone.is_naive(token_pwd_changed_at):
                 token_pwd_changed_at = timezone.make_aware(
                     token_pwd_changed_at, timezone.utc
                 )
-        else:
-            token_pwd_changed_at = None
 
+        # 2. 사용자 모델의 비밀번호 변경 시간 (Naive -> Aware UTC)
         user_pwd_changed_at = user.password_changed_at
         if timezone.is_naive(user_pwd_changed_at):
             user_pwd_changed_at = timezone.make_aware(user_pwd_changed_at, timezone.utc)
 
+        # 3. 시간 비교
         if token_pwd_changed_at != user_pwd_changed_at:
             raise TokenAuthenticationFailed(
                 "비밀번호가 변경되어 토큰이 무효화되었습니다."
             )
 
+    def is_valid_access_token(self, token):
+        # C901 복잡도 문제 해결됨 (복잡도 3-4 예상)
+
+        # 1. JWT 디코딩 및 기본 검증
+        payload = self._get_validated_payload(token)
+
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise TokenAuthenticationFailed("유효하지 않은 토큰입니다.")
+
+        # 2. 사용자 조회
+        try:
+            user = self.user_repo.get_user_by_id(user_id)
+        except UserNotFoundException:
+            raise TokenAuthenticationFailed("사용자가 존재하지 않습니다.")
+
+        # 3. 사용자 상태 및 비밀번호 변경 시간 검증
+        self._validate_user_and_password_time(user, payload)
+
         if payload.get("is_temporary"):
-            # 임시 토큰 처리 로직 가능
+            # 임시 토큰 처리 로직 가능 (추가 로직 필요 시 구현)
             pass
 
         return payload

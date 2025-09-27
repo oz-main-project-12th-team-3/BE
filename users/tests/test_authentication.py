@@ -15,7 +15,6 @@ def test_authenticate_with_valid_bearer_token(create_user, token_service_fixture
     valid_token = "valid.token.value"
     payload = {"user_id": user.id}
 
-    # token_service.is_valid_access_token 반환값을 patch로 설정
     with (
         patch.object(
             token_service_fixture,
@@ -25,7 +24,7 @@ def test_authenticate_with_valid_bearer_token(create_user, token_service_fixture
         patch(
             "users.authentication.token_service",
             new=token_service_fixture,
-        ) as mock_token_service,
+        ),
         patch("users.authentication.user_repo") as mock_user_repo,
     ):
         mock_user_repo.get_user_by_id.return_value = user

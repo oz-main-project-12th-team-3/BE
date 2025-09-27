@@ -15,8 +15,7 @@ class TestUserRepository:
     def setup(self, generate_password):
         self.repo = UserRepository()
         self.user = User.objects.create_user(
-            email="commonuser@example.com",
-            password=generate_password()
+            email="commonuser@example.com", password=generate_password()
         )
 
     def test_create_user_profile_and_2fa(self, generate_password):
