@@ -17,7 +17,6 @@ from users.models import User
 @pytest.fixture
 def api_client():
     from rest_framework.test import APIClient
-
     return APIClient()
 
 
@@ -50,9 +49,7 @@ def test_register_success_and_duplicate(api_client):
 @pytest.mark.django_db
 def test_login_success(api_client, user, password):
     url = reverse("user-login")
-    res = api_client.post(
-        url, {"email": user.email, "password": password}, format="json"
-    )
+    res = api_client.post(url, {"email": user.email, "password": password}, format="json")
     assert res.status_code == 200
 
 
@@ -65,7 +62,7 @@ def test_login_wrong_password(api_client, user):
 
 @pytest.mark.django_db
 def test_token_refresh_success(api_client, user):
-    pw = "strongpassword"
+    pw = secrets.token_urlsafe(12)
     user.set_password(pw)
     user.save()
     login_url = reverse("user-login")
@@ -87,7 +84,7 @@ def test_token_refresh_fail(api_client):
 
 @pytest.mark.django_db
 def test_password_reset(monkeypatch, api_client, user):
-    # settings.PROJECT_NAME 없어서 발생하는 AttributeError 해결
+    # PROJECT_NAME이 없음으로 발생하는 에러 대응을 위한 monkeypatch
     monkeypatch.setattr(settings, "PROJECT_NAME", "TestProject")
 
     url = reverse("password-reset-request")
@@ -99,11 +96,7 @@ def test_password_reset(monkeypatch, api_client, user):
     reset_url = reverse("password-reset-confirm", args=[uidb64, token])
     new_password = secrets.token_urlsafe(12)
 
-    res2 = api_client.post(
-        reset_url,
-        {"new_password": new_password, "new_password_confirm": new_password},
-        format="json",
-    )
+    res2 = api_client.post(reset_url, {"new_password": new_password, "new_password_confirm": new_password}, format="json")
     assert res2.status_code == status.HTTP_200_OK
 
 
@@ -112,11 +105,7 @@ def test_password_reset_confirm_fail(api_client, user):
     uidb64 = urlsafe_base64_encode(str(user.pk).encode())
     token = "invalid-token"
     url = reverse("password-reset-confirm", args=[uidb64, token])
-    res = api_client.post(
-        url,
-        {"new_password": "password123", "new_password_confirm": "mismatch"},
-        format="json",
-    )
+    res = api_client.post(url, {"new_password": "password123", "new_password_confirm": "mismatch"}, format="json")
     assert res.status_code == status.HTTP_400_BAD_REQUEST
     data = res.json()
     assert "detail" in data or "non_field_errors" in data
@@ -130,14 +119,9 @@ def test_password_change_mismatch(api_client, user, mocker):
     except Exception:
         pytest.skip("Password change URL not configured.")
 
-    mocker.patch(
-        "users.services.user_service.UserService.change_user_password",
-        side_effect=PasswordMismatchException("bad"),
-    )
+    mocker.patch("users.services.user_service.UserService.change_user_password", side_effect=PasswordMismatchException("bad"))
 
-    res = api_client.patch(
-        url, {"new_password": secrets.token_urlsafe(12)}, format="json"
-    )
+    res = api_client.patch(url, {"new_password": secrets.token_urlsafe(12)}, format="json")
     assert res.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED)
     assert "error" in res.json() or "detail" in res.json() or "message" in res.json()
 
@@ -146,8 +130,8 @@ def test_password_change_mismatch(api_client, user, mocker):
 def test_authenticate_with_valid_token(db):
     user = User.objects.create_user(email="auth_test@example.com", password="testpassword")
     auth = JWTAuthentication()
-
     valid_token = "valid.token.value"
+
     auth.token_service.is_valid_access_token = MagicMock(return_value={"user_id": user.pk})
     auth.user_repo.get_user_by_id = MagicMock(return_value=user)
 
