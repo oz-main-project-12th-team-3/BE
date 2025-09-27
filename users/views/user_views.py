@@ -13,18 +13,26 @@ from ..serializers import (
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
-# 의존성 주입
-user_repo = UserRepository()
-token_repo = TokenRepository()
-token_service = TokenService(user_repo, token_repo)
-user_service = UserService(user_repo, token_repo, token_service)
+# ⚠️ 전역 객체 선언 제거:
+# user_repo = UserRepository()
+# token_repo = TokenRepository()
+# token_service = TokenService(user_repo, token_repo)
+# user_service = UserService(user_repo, token_repo, token_service)
 
 
 class UserProfileView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def get(self, request):
+        user_service = self._get_user_service()
         profile = user_service.get_user_profile(request.user)
         if not profile:
             return Response(
@@ -35,6 +43,7 @@ class UserProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
+        user_service = self._get_user_service()
         profile = user_service.get_user_profile(request.user)
         if not profile:
             return Response(
@@ -47,6 +56,7 @@ class UserProfileView(APIView):
         return Response(serializer.data)
 
     def delete(self, request):
+        user_service = self._get_user_service()
         profile = user_service.get_user_profile(request.user)
         if not profile:
             return Response(
@@ -63,34 +73,45 @@ class PasswordChangeView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def patch(self, request):
+        user_service = self._get_user_service()
         serializer = PasswordChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = request.user
         new_password = serializer.validated_data["new_password"]
 
-        try:
-            _ = user_service.change_user_password(user, new_password)
-            response = Response(
-                {
-                    "detail": "비밀번호가 성공적으로 변경되었습니다. "
-                    "다시 로그인해 주세요."
-                },
-                status=status.HTTP_200_OK,
-            )
-            response.delete_cookie("access_token")
-            response.delete_cookie("refresh_token")
-            return response
+        # 비밀번호 변경 시 PasswordMismatchException 발생 시 자동으로 처리됨
+        user_service.change_user_password(user, new_password)
 
-        except PasswordMismatchException as e:
-            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        response = Response(
+            {"detail": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해 주세요."},
+            status=status.HTTP_200_OK,
+        )
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+        return response
 
 
 class UserDeleteView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    def _get_user_service(self):
+        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        return UserService(user_repo, token_repo, token_service)
+
     def post(self, request):
+        user_service = self._get_user_service()
         password = request.data.get("password")
         if not password:
             return Response(
