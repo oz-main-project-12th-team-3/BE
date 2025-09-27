@@ -2,7 +2,7 @@ import secrets
 import string
 import uuid
 from datetime import timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock # FlexiMock을 제거했으므로 MagicMock만 사용
 
 import pytest
 from django.utils import timezone
@@ -21,17 +21,9 @@ from users.repositories import token_repository, user_repository
 from users.services import token_service, user_service
 
 
-class FlexiMock(MagicMock):
-    """
-    MagicMock을 상속받아 딕셔너리처럼 .get()과 [] 접근을 지원하는 Mock 객체.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, spec_set=dict, **kwargs)
-        # .get('key', default) 구문 지원
-        self.get = lambda x, default=None: getattr(self, x, default)
-        # ['key'] 구문 지원
-        self.__getitem__.side_effect = lambda key: getattr(self, key)
+# ⚠️ FlexiMock 클래스 정의 제거 완료 ⚠️
+# class FlexiMock(MagicMock):
+#     ...
 
 
 def _is_strong_password(pwd: str) -> bool:
@@ -88,7 +80,6 @@ def create_active_user(create_user):
 
     def _create(email_prefix):
         user, password = create_user(f"{email_prefix}@{uuid.uuid4().hex}.com")
-        # create_user 픽스처는 이미 password_changed_at을 설정하므로 추가 로직 불필요
         return user, password
 
     return _create
@@ -97,7 +88,6 @@ def create_active_user(create_user):
 @pytest.fixture
 def token_service_fixture():
     """요청 시마다 독립적인 TokenService 객체를 생성합니다."""
-    # ⚠️ 수정: 픽스처 호출 시마다 새로운 인스턴스를 생성하도록 변경
     ur = user_repository.UserRepository()
     tr = token_repository.TokenRepository()
     return token_service.TokenService(ur, tr)
@@ -106,7 +96,6 @@ def token_service_fixture():
 @pytest.fixture
 def user_service_fixture(token_service_fixture):
     """요청 시마다 독립적인 UserService 객체를 생성합니다."""
-    # ⚠️ 수정: 픽스처 호출 시마다 새로운 인스턴스를 생성하도록 변경
     ur = user_repository.UserRepository()
     tr = token_repository.TokenRepository()
     return user_service.UserService(ur, tr, token_service_fixture)
@@ -127,7 +116,7 @@ def authenticated_client(api_client, create_user, token_service_fixture):
     client.force_authenticate(user)
 
     client.user = user
-    client.password = pwd  # 비밀번호 변경/삭제 테스트를 위해 비밀번호도 저장
+    client.password = pwd
     return client
 
 
@@ -157,7 +146,6 @@ def create_test_token(db):
         issued_at = timezone.now()
         expires_at = issued_at + timedelta(days=expires_in_days)
 
-        # Naive datetime 객체를 Aware하게 만드는 로직은 그대로 유지
         if timezone.is_naive(issued_at):
             issued_at = timezone.make_aware(issued_at)
         if timezone.is_naive(expires_at):

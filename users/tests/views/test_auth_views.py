@@ -37,7 +37,7 @@ class TestAuthViews:
         assert response.data["2fa_setup_required"] is True
 
     def test_user_register_duplicate_email(
-        self, api_client, create_user, generate_password
+            self, api_client, create_user, generate_password
     ):
         user, _ = create_user("dup@example.com")
         url = reverse("user-register")
@@ -60,7 +60,7 @@ class TestAuthViews:
         assert response.data["user_id"] == user.id
 
     def test_user_login_requires_2fa_setup(
-        self, api_client, user_service_fixture, generate_password
+            self, api_client, user_service_fixture, generate_password
     ):
         email = "login_2fa@example.com"
         password = generate_password()
@@ -75,7 +75,7 @@ class TestAuthViews:
         assert "temporary_refresh_token" in response.data
 
     def test_user_login_with_2fa_pending_and_confirm(
-        self, api_client, create_user, create_2fa_device, generate_password
+            self, api_client, create_user, create_2fa_device, generate_password
     ):
         user, password = create_user("login_2fa_pending@example.com")
         device, get_token = create_2fa_device(user, confirmed=False)
@@ -84,7 +84,7 @@ class TestAuthViews:
         resp = api_client.post(url, {"email": user.email, "password": password})
         assert resp.data["tfa_required"] is True
         assert (
-            resp.data["tfa_step"] == "setup"
+                resp.data["tfa_step"] == "setup"
         )  # 이 시점에는 아직 미확인 장치이므로 setup
 
         token = get_token()
@@ -95,7 +95,7 @@ class TestAuthViews:
         assert "detail" in resp2.data
 
     def test_user_login_with_2fa_confirmed(
-        self, api_client, create_user, create_2fa_device, generate_password
+            self, api_client, create_user, create_2fa_device, generate_password
     ):
         user, password = create_user("login_2fa_confirmed@example.com")
         device, get_token = create_2fa_device(user, confirmed=True)
@@ -171,10 +171,12 @@ class TestAuthViews:
 
         data = {"new_password": "NewPass123!", "new_password_confirm": "NewPass123!"}
         response = api_client.post(url, data)
+        # 뷰 코드가 ValueError를 400 Bad Request로 처리하도록 수정되었으므로,
+        # 400 Bad Request 또는 성공 시 200을 기대합니다.
         assert response.status_code in (status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST)
 
     def test_password_reset_confirm_invalid_token_raises_validation_error(
-        self, api_client, monkeypatch
+            self, api_client, monkeypatch
     ):
         uidb64 = "dummy-uid"
         token = "invalid-token"
@@ -186,6 +188,7 @@ class TestAuthViews:
             # UserService에서 발생할 수 있는 오류를 모의(mocking)
             raise ValueError("유효하지 않은 토큰입니다.")
 
+        # 뷰 코드를 모킹하여, 실제 서비스 호출 시 ValueError를 발생시키도록 설정
         monkeypatch.setattr(
             user_service_module.UserService, "reset_password", raise_value_error
         )
@@ -193,13 +196,10 @@ class TestAuthViews:
         data = {"new_password": "somepassword", "new_password_confirm": "somepassword"}
         response = api_client.post(url, data)
 
-        # Django REST Framework의 ValidationError 처리에 따라 400 또는 422가 반환 가능
-        assert response.status_code in (
-            status.HTTP_400_BAD_REQUEST,
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-        )
+        # 뷰가 ValueError를 포착하여 400 Bad Request와 JSON 응답을 반환하도록 수정했으므로,
+        # 이에 맞춰서 테스트를 수정합니다. (이전에는 422나 400을 허용했음)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
         # 응답 상세 메시지에 오류 내용이 포함되어 있는지 확인
         assert "detail" in response.data
-        assert "유효하지 않은 토큰" in response.data[
-            "detail"
-        ] or "유효하지 않은 토큰" in str(response.data)
+        assert "유효하지 않은 토큰" in response.data["detail"]
