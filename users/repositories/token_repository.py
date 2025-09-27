@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 
 from ..exceptions import TokenBlacklistedException, TokenNotFoundException
 from ..models import Token
@@ -15,6 +16,12 @@ class TokenRepository:
         parent_token_id=None,
     ):
         """데이터베이스에 새로운 토큰을 저장합니다."""
+        # issued_at, expires_at이 naive일 경우 aware로 변환
+        if timezone.is_naive(issued_at):
+            issued_at = timezone.make_aware(issued_at)
+        if timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at)
+
         token_obj = Token(
             user=user,
             refresh_token_id=refresh_token_id,
@@ -34,7 +41,9 @@ class TokenRepository:
                     refresh_token_id=token_id,
                     is_blacklisted=False,
                 )
-                if token_obj.expires_at <= token_obj.issued_at.now():
+                now = timezone.now()
+                # 만료 시 예외 발생
+                if token_obj.expires_at <= now:
                     raise TokenBlacklistedException("만료된 Refresh 토큰입니다.")
                 return token_obj
         except Token.DoesNotExist:

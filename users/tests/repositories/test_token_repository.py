@@ -15,7 +15,8 @@ class TestTokenRepository:
     def setup(self, db):
         self.repo = TokenRepository()
         self.user = User.objects.create_user(
-            email="test@example.com", password=None  # 비밀번호 conftest.py generate_password로 생성 시 변경가능
+            email="test@example.com",
+            password=None,  # 비밀번호 conftest.py generate_password로 생성 시 변경가능
         )
 
     def test_create_token(self):
@@ -92,9 +93,7 @@ class TestTokenRepository:
                 token_obj.issued_at = timezone.make_aware(token_obj.issued_at)
             if timezone.is_naive(token_obj.expires_at):
                 token_obj.expires_at = timezone.make_aware(token_obj.expires_at)
-            token_obj.set_refresh_token(
-                str(uuid.uuid4())
-            )
+            token_obj.set_refresh_token(str(uuid.uuid4()))
             token_obj.save()
 
             self.repo.blacklist_token(token_obj)
