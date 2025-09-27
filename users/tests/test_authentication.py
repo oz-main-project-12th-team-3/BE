@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.test import APIClient
 
 from users.authentication import JWTAuthentication
 from users.exceptions import PasswordMismatchException, TokenAuthenticationFailed
@@ -17,8 +18,6 @@ from users.models import User
 
 @pytest.fixture
 def api_client():
-    from rest_framework.test import APIClient
-
     return APIClient()
 
 
