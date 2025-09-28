@@ -24,6 +24,7 @@ JWT_SECRET_KEY = os.getenv(
 )
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
 DEBUG = os.environ.get("DEBUG", "0") == "1"
+IS_CI = os.environ.get("CI") == "true"
 
 if os.environ.get("RUNNING_TESTS"):
     ALLOWED_HOSTS = ["testserver"]
@@ -46,11 +47,6 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
-    # 2FA 관련 앱 추가
-    "django_otp",
-    "django_otp.plugins.otp_totp",
-    "django_otp.plugins.otp_static",
-    # "two_factor",
     # local apps
     "users",
     "chat",
@@ -62,6 +58,14 @@ INSTALLED_APPS = [
     "django_extensions",
 ]
 
+if not IS_CI:
+    INSTALLED_APPS.extend([
+        "django_otp",
+        "django_otp.plugins.otp_totp",
+        "django_otp.plugins.otp_static",
+        "two_factor",
+    ])
+
 
 # -----------------------------
 # 미들웨어
@@ -72,10 +76,13 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+if not IS_CI:
+    MIDDLEWARE.insert(5, "django_otp.middleware.OTPMiddleware") # Insert after auth middleware
+
 
 
 AUTHENTICATION_BACKENDS = [
