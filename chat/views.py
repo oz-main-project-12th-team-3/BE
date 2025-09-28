@@ -13,6 +13,30 @@ from .services.chat_service import (
 )
 
 
+class ChatSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ChatSessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = "session_id"
+
+    def get_queryset(self):
+        return get_chat_sessions_for_user(user=self.request.user)
+
+
+class ChatMessageSearchView(generics.ListAPIView):
+    serializer_class = ChatLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        search_query = self.request.query_params.get("q", "")
+        if not search_query:
+            return ChatLog.objects.none()
+
+        return ChatLog.objects.filter(
+            user=self.request.user, message__icontains=search_query
+        ).order_by("-timestamp")
+
+
+
 class ChatSessionListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatSessionSerializer
     permission_classes = [permissions.IsAuthenticated]

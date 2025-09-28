@@ -1,6 +1,16 @@
 version: '3.9'
 
 services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - staticfiles_volume:/var/www/staticfiles
+    depends_on:
+      - web
+
   db:
     image: postgres:16
     volumes:
@@ -28,8 +38,7 @@ services:
       - ./schedule:/home/appuser/app/schedule
       - ./notifications:/home/appuser/app/notifications   # <- 추가
       - ./manage.py:/home/appuser/app/manage.py
-    ports:
-      - "8000:8000"
+      - staticfiles_volume:/home/appuser/app/staticfiles
     depends_on:
       - db
       - redis
@@ -59,3 +68,4 @@ services:
 
 volumes:
   postgres_data:
+  staticfiles_volume:
