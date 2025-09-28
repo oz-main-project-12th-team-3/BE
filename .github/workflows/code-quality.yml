@@ -117,6 +117,16 @@ jobs:
         fi
 
 
+    - name: 🧪 Run Migrations
+      id: run-migrations
+      if: ${{ !inputs.skip-tests }}
+      run: |
+        echo "⚙️ Running database migrations..."
+        python manage.py migrate
+      env:
+        RUNNING_TESTS: 1
+        PYTHONPATH: ${{ github.workspace }}
+
     - name: 🧪 Run Tests with Coverage
       id: run-tests-with-coverage
       if: ${{ !inputs.skip-tests }}
