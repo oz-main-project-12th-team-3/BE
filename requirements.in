@@ -1,22 +1,50 @@
-Django
+# Django 기본 웹 프레임워크
+django
+
+# Django REST 프레임워크 및 인증 관련
 djangorestframework
 djoser
+django-filter
+drf-spectacular
+djangorestframework-simplejwt
+
+# 비동기 작업 큐 (Celery) 및 메시지 브로커 (Redis, RabbitMQ)
 celery
 redis
-psycopg2-binary
-drf-spectacular
-django-filter
-python-json-logger
-daphne
+kombu
+amqp
+
+# 웹소켓 및 ASGI 서버
 channels
 channels-redis
+daphne
+
+# PostgreSQL 데이터베이스 드라이버
+psycopg2-binary
+
+# 로그 및 환경변수 관리
+python-json-logger
+python-dotenv
+
+# 배포용 WSGI 서버
+gunicorn
+
+# 보안 및 인증 관련
+django-two-factor-auth
+django-otp
+qrcode[pil]
+
+# 이미지 처리
+Pillow
+
+# CORS 처리
+django-cors-headers
+
+# 개발 편의 도구
+django-extensions
+
+# 테스트 관련
 pytest
 pytest-django
 pytest-cov
 pytest-mock
-django-two-factor-auth
-django-otp
-qrcode[pil]
-Pillow
-django-extensions
-python-dotenv
