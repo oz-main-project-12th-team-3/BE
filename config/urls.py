@@ -8,5 +8,6 @@ urlpatterns = [
     path("api/", include("chat.urls")),
     path("api/", include("schedule.urls")),
     path("api/", include("search.urls")),
-    path("api/", include("notifications.urls")),  # ← search 앱 URL 포함
+    path("api/", include("notifications.urls")),
+    path("api/payments/", include("payments.urls")),
 ]

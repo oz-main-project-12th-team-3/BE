@@ -66,6 +66,9 @@ EOF
 # 어플리케이션 코드 복사
 COPY . .
 
+# 정적 파일 수집
+RUN /home/appuser/.venv/bin/python3 manage.py collectstatic --noinput
+
 # 앱 경로권한 부여
 RUN chown -R appuser:appuser /home/appuser/app
 

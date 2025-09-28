@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "schedule",
     "search",
     "notifications",
+    "payments",
     "django_extensions",
 ]
 
@@ -133,9 +134,12 @@ else:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
+            "CONFIG": {"hosts": [(os.environ.get("REDIS_HOST", "redis"), 6379)]},
         },
     }
+
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
 # -----------------------------
 # 데이터베이스
@@ -207,6 +211,12 @@ SECURE_COOKIE = os.getenv("DEBUG", "0") != "1"
 SESSION_COOKIE_SECURE = SECURE_COOKIE
 CSRF_COOKIE_SECURE = SECURE_COOKIE
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin
+]
+
 
 # -----------------------------
 # 패스워드 검증
@@ -234,6 +244,8 @@ USE_TZ = True
 # 정적 파일
 # -----------------------------
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
 
 # -----------------------------
 # 기본 PK 필드
