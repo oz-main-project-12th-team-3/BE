@@ -24,7 +24,9 @@ JWT_SECRET_KEY = os.getenv(
 )
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
 DEBUG = os.environ.get("DEBUG", "0") == "1"
-IS_CI = os.environ.get("CI") == "true"
+
+# CI/Test 환경에서는 2FA 앱을 비활성화
+IS_TEST_ENV = os.environ.get("RUNNING_TESTS") == "1"
 
 if os.environ.get("RUNNING_TESTS"):
     ALLOWED_HOSTS = ["testserver"]
@@ -58,15 +60,13 @@ INSTALLED_APPS = [
     "django_extensions",
 ]
 
-if not IS_CI:
-    INSTALLED_APPS.extend(
-        [
-            "django_otp",
-            "django_otp.plugins.otp_totp",
-            "django_otp.plugins.otp_static",
-            "two_factor",
-        ]
-    )
+if not IS_TEST_ENV:
+    INSTALLED_APPS.extend([
+        "django_otp",
+        "django_otp.plugins.otp_totp",
+        "django_otp.plugins.otp_static",
+        "two_factor",
+    ])
 
 
 # -----------------------------
@@ -82,10 +82,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-if not IS_CI:
-    MIDDLEWARE.insert(
-        5, "django_otp.middleware.OTPMiddleware"
-    )  # Insert after auth middleware
+if not IS_TEST_ENV:
+    MIDDLEWARE.insert(5, "django_otp.middleware.OTPMiddleware") # Insert after auth middleware
 
 
 AUTHENTICATION_BACKENDS = [
