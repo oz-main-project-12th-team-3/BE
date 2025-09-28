@@ -59,12 +59,14 @@ INSTALLED_APPS = [
 ]
 
 if not IS_CI:
-    INSTALLED_APPS.extend([
-        "django_otp",
-        "django_otp.plugins.otp_totp",
-        "django_otp.plugins.otp_static",
-        "two_factor",
-    ])
+    INSTALLED_APPS.extend(
+        [
+            "django_otp",
+            "django_otp.plugins.otp_totp",
+            "django_otp.plugins.otp_static",
+            "two_factor",
+        ]
+    )
 
 
 # -----------------------------
@@ -81,8 +83,9 @@ MIDDLEWARE = [
 ]
 
 if not IS_CI:
-    MIDDLEWARE.insert(5, "django_otp.middleware.OTPMiddleware") # Insert after auth middleware
-
+    MIDDLEWARE.insert(
+        5, "django_otp.middleware.OTPMiddleware"
+    )  # Insert after auth middleware
 
 
 AUTHENTICATION_BACKENDS = [
