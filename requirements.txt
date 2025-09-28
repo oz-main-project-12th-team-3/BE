@@ -212,7 +212,7 @@ wcwidth==0.2.13
     # via prompt-toolkit
 zope-interface==8.0
     # via twisted
-django-two-factor-auth
+# django-two-factor-auth
 django-otp
 qrcode[pil]
 Pillow

@@ -1,9 +1,9 @@
 [project]
 name = "be"
 version = "0.1.0"
-dependencies = [
-    "django-two-factor-auth>=1.18.0",
-]
+#dependencies = [
+#    "django-two-factor-auth>=1.18.0",
+#]
 
 [tool.ruff]
 line-length = 88
