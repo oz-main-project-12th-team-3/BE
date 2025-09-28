@@ -74,7 +74,6 @@ wcwidth==0.2.13
 zope-interface==8.0
 
 # 추가 필수 패키지
-django-two-factor-auth
 django-otp
 qrcode[pil]
 Pillow

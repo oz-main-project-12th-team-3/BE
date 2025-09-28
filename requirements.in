@@ -30,7 +30,6 @@ python-dotenv
 gunicorn
 
 # 보안 및 인증 관련
-django-two-factor-auth
 django-otp
 qrcode[pil]
 

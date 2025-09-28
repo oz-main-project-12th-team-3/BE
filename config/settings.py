@@ -32,7 +32,6 @@ INSTALLED_APPS = [
     "django_otp",
     "django_otp.plugins.otp_totp",
     "django_otp.plugins.otp_static",
-    "two_factor",
     # local apps
     "users",
     "chat",
@@ -76,11 +75,11 @@ TEMPLATES = [
     },
 ]
 
-TWO_FACTOR_FORMS = {
-    "setup": "two_factor.forms.TOTPDeviceForm",
-}
-LOGIN_URL = "two_factor:login"
-LOGIN_REDIRECT_URL = "/"
+# TWO_FACTOR_FORMS = {
+#     "setup": "two_factor.forms.TOTPDeviceForm",
+# }
+# LOGIN_URL = "two_factor:login"
+# LOGIN_REDIRECT_URL = "/"
 
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
