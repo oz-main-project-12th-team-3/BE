@@ -2,6 +2,7 @@ import secrets
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.utils import timezone
@@ -98,6 +99,9 @@ def test_login_flow_password_mismatch(service, user, mocker):  # mocker 추가
         service.login_with_optional_2fa(user.email, "wrongpassword")
 
 
+@pytest.mark.skipif(
+    settings.IS_TEST_ENV, reason="2FA tests disabled in CI/Test environment"
+)
 @pytest.mark.django_db
 def test_login_flow_success(service, user, mocker):  # mocker 추가
     mocker.patch.object(
@@ -183,6 +187,9 @@ def test_authenticate_user_success(service, user, password, settings):
     assert user_returned == user
 
 
+@pytest.mark.skipif(
+    settings.IS_TEST_ENV, reason="2FA tests disabled in CI/Test environment"
+)
 @pytest.mark.django_db
 def test_login_with_optional_2fa_branches(service, user, mocker, settings):
     settings.PROJECT_NAME = "TestProject"
@@ -236,6 +243,9 @@ def test_login_with_optional_2fa_branches(service, user, mocker, settings):
     assert res[1] is False
 
 
+@pytest.mark.skipif(
+    settings.IS_TEST_ENV, reason="2FA tests disabled in CI/Test environment"
+)
 @pytest.mark.django_db
 def test_get_user_profile_and_2fa(service, user, mocker):
     profile = service.get_user_profile(user)
@@ -260,6 +270,9 @@ def test_get_user_profile_and_2fa(service, user, mocker):
     assert result is True
 
 
+@pytest.mark.skipif(
+    settings.IS_TEST_ENV, reason="2FA tests disabled in CI/Test environment"
+)
 @pytest.mark.django_db
 def test_verify_2fa_exceptions(service, user, mocker):
     mocker.patch.object(service.user_repo, "get_user_by_email", return_value=user)

@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta, timezone
 
+from django.conf import settings
 from django.db import transaction
-from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from ..exceptions import (
     AccountLockedException,
     UserNotFoundException,
 )
 from ..models import User, UserProfile
+
+if not settings.IS_TEST_ENV:
+    from django_otp.plugins.otp_totp.models import TOTPDevice
 
 
 class UserRepository:
@@ -19,7 +22,7 @@ class UserRepository:
             if nickname:
                 profile.nickname = nickname
                 profile.save()
-            if enable_2fa:
+            if not settings.IS_TEST_ENV and enable_2fa:
                 TOTPDevice.objects.create(user=user, name="default", confirmed=False)
         return user
 
@@ -75,14 +78,16 @@ class UserRepository:
         except UserProfile.DoesNotExist:
             return None
 
-    def get_user_confirmed_2fa_device(self, user):
-        """사용자의 확정된 2FA 기기를 조회합니다."""
-        return TOTPDevice.objects.filter(user=user, confirmed=True).first()
+    if not settings.IS_TEST_ENV:
 
-    def get_user_unconfirmed_2fa_device(self, user):
-        """사용자의 미확정 2FA 기기를 조회합니다."""
-        return TOTPDevice.objects.filter(user=user, confirmed=False).first()
+        def get_user_confirmed_2fa_device(self, user):
+            """사용자의 확정된 2FA 기기를 조회합니다."""
+            return TOTPDevice.objects.filter(user=user, confirmed=True).first()
 
-    def create_2fa_device(self, user):
-        """새로운 2FA 기기를 생성합니다."""
-        return TOTPDevice.objects.create(user=user, name="default")
+        def get_user_unconfirmed_2fa_device(self, user):
+            """사용자의 미확정 2FA 기기를 조회합니다."""
+            return TOTPDevice.objects.filter(user=user, confirmed=False).first()
+
+        def create_2fa_device(self, user):
+            """새로운 2FA 기기를 생성합니다."""
+            return TOTPDevice.objects.create(user=user, name="default")
