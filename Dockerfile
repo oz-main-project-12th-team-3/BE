@@ -46,22 +46,22 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
 
 
-# # two_factor 패키지 내부 URLs 문제 패치: two_factor/urls.py 패치 스크립트
-RUN python3 - <<EOF
-import re
-file_path = '/home/appuser/.venv/lib/python3.10/site-packages/two_factor/urls.py'
-with open(file_path, 'r') as f:
-    content = f.read()
-if 'app_name' not in content:
-    content = 'app_name = "two_factor"\\n' + content
-pattern = r"urlpatterns\\s*=\\s*\\((.+?),\\s*['\"]two_factor['\"]\\)"
-match = re.search(pattern, content, flags=re.DOTALL)
-if match:
-    urls_content = match.group(1).strip()
-    content = re.sub(pattern, f"urlpatterns = {urls_content}", content, flags=re.DOTALL)
-with open(file_path, 'w') as f:
-    f.write(content)
-EOF
+## # two_factor 패키지 내부 URLs 문제 패치: two_factor/urls.py 패치 스크립트
+#RUN python3 - <<EOF
+#import re
+#file_path = '/home/appuser/.venv/lib/python3.10/site-packages/two_factor/urls.py'
+#with open(file_path, 'r') as f:
+#    content = f.read()
+#if 'app_name' not in content:
+#    content = 'app_name = "two_factor"\\n' + content
+#pattern = r"urlpatterns\\s*=\\s*\\((.+?),\\s*['\"]two_factor['\"]\\)"
+#match = re.search(pattern, content, flags=re.DOTALL)
+#if match:
+#    urls_content = match.group(1).strip()
+#    content = re.sub(pattern, f"urlpatterns = {urls_content}", content, flags=re.DOTALL)
+#with open(file_path, 'w') as f:
+#    f.write(content)
+#EOF
 
 # 어플리케이션 코드 복사
 COPY . .
