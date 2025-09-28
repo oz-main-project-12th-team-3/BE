@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 # 모델 import는 유지
 from notifications.models.notification import Notification
 from notifications.models.notification_type import NotificationType
