@@ -36,7 +36,6 @@ class ChatMessageSearchView(generics.ListAPIView):
         ).order_by("-timestamp")
 
 
-
 class ChatSessionListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
