@@ -136,3 +136,7 @@ staticfiles/
 .coveragerc
 
   fix_schedule_notification.py
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
