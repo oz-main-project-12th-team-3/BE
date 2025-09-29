@@ -10,6 +10,9 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
 # -----------------------------
 # 기본 경로 설정
 # -----------------------------

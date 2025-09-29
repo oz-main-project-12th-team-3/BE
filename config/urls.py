@@ -10,6 +10,7 @@ urlpatterns = [
     path("api/", include("search.urls")),
     path("api/", include("notifications.urls")),
     path("api/payments/", include("payments.urls")),
+    path("api/ai/", include("ai.urls")),
 ]
 
 if not settings.IS_TEST_ENV:

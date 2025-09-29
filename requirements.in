@@ -19,3 +19,4 @@ qrcode[pil]
 Pillow
 django-extensions
 python-dotenv
+openai
