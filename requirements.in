@@ -14,8 +14,10 @@ pytest
 pytest-django
 pytest-cov
 pytest-mock
+django-two-factor-auth
 django-otp
 qrcode[pil]
 Pillow
 django-extensions
 python-dotenv
+pip-tools
