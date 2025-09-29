@@ -1,4 +1,40 @@
-.coverage
-*.pyc
-__pycache__/
+# Git
 .git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+env/
+venv/
+ENV/
+
+# Dependencies
+pip-log.txt
+
+# DB
+*.sqlite3
+
+# Config
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Test & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Logs
+*.log
