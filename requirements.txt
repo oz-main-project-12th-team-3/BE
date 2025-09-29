@@ -211,12 +211,12 @@ vine==5.1.0
 wcwidth==0.2.13
     # via prompt-toolkit
 zope-interface==8.0
-    # via twisted
+google-generativeai
+# django-two-factor-auth
 django-otp
 qrcode[pil]
 Pillow
 django-extensions
 python-dotenv
-openai
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

@@ -13,5 +13,5 @@ urlpatterns = [
     path("api/ai/", include("ai.urls")),
 ]
 
-if not settings.IS_TEST_ENV:
-    urlpatterns.append(path("two_factor/", include("two_factor.urls")))
+# if not settings.IS_TEST_ENV:
+#     urlpatterns.append(path("two_factor/", include("two_factor.urls")))
