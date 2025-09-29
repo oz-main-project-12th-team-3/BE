@@ -12,5 +12,5 @@ urlpatterns = [
     path("api/payments/", include("payments.urls")),
 ]
 
-if not settings.IS_TEST_ENV:
-    urlpatterns.append(path("two_factor/", include("two_factor.urls")))
+# if not settings.IS_TEST_ENV:
+#     urlpatterns.append(path("two_factor/", include("two_factor.urls")))
