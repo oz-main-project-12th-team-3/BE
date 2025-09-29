@@ -231,6 +231,11 @@ CSRF_TRUSTED_ORIGINS = [
     if origin
 ]
 
+# Proxy/Load Balancer Settings
+if not DEBUG:
+    USE_X_FORWARDED_HOST = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 # -----------------------------
 # 패스워드 검증

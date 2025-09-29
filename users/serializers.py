@@ -1,12 +1,13 @@
 from rest_framework import serializers
 
 from .models import Token, UserProfile
+from .validators import profanity_validator
 
 
 class UserRegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    nickname = serializers.CharField(required=False, allow_blank=True)
+    nickname = serializers.CharField(required=False, allow_blank=True, validators=[profanity_validator])
     enable_2fa = serializers.BooleanField(default=False)
     # 프론트에서 구현
     # password_confirm = serializers.CharField(write_only=True)
@@ -46,6 +47,8 @@ class CheckEmailSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    nickname = serializers.CharField(validators=[profanity_validator])
+
     class Meta:
         model = UserProfile
         fields = ["nickname", "profile_image_url", "last_login"]
