@@ -1,5 +1,6 @@
 import secrets
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 from django.conf import settings
 from django.utils import timezone as django_timezone

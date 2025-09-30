@@ -10,11 +10,13 @@ from rest_framework.test import APIClient
 from users.exceptions import UserNotFoundException
 from users.models import User
 
-# from users.views.tfa_views import TwoFactorSetupView, TwoFactorConfirmView, TwoFactorVerifyView # 필요시 사용
-
+# from users.views.tfa_views import (
+#     TwoFactorSetupView, TwoFactorConfirmView, TwoFactorVerifyView
+# ) 필요시 사용
 # ----------------------------------------------------------------------
 # Fixtures
 # ----------------------------------------------------------------------
+
 
 # 1. API Client Fixture
 @pytest.fixture
@@ -243,7 +245,7 @@ def test_2fa_confirm_internal_error(api_client, user, tfa_urls, mocker):
 @pytest.mark.django_db
 def test_2fa_verify_missing_email(api_client, tfa_urls):
     """이메일이 누락된 경우 400 오류 (라인 113-117 커버)"""
-    # serializer.is_valid(raise_exception=True)는 통과하지만, email이 None이면 이 분기에서 걸림
+    # serializer.is_valid()는 통과하지만, email이 None이면 이 분기에서 걸림
     request_data = {"code": secrets.token_hex(3)}
     res = api_client.post(tfa_urls["verify"], request_data, format="json")
 
@@ -253,10 +255,12 @@ def test_2fa_verify_missing_email(api_client, tfa_urls):
 
 @pytest.mark.django_db
 def test_2fa_verify_success_secure_cookie(api_client, user, tfa_urls, mocker, settings):
-    """2FA 인증 성공 후 정식 토큰 발급 및 보안 쿠키 설정 (DEBUG=False, 라인 146-167 커버)"""
+    """2FA 인증 성공 후 정식 토큰 발급 및 보안 쿠키 설정"""
 
-    settings.DEBUG = False # Secure cookie test (settings.SECURE_COOKIE가 True라고 가정)
-    settings.SECURE_COOKIE = True # 명시적으로 설정
+    settings.DEBUG = (
+        False  # Secure cookie test (settings.SECURE_COOKIE가 True라고 가정)
+    )
+    settings.SECURE_COOKIE = True  # 명시적으로 설정
 
     # Mocking: UserService.verify_2fa가 user를 반환하도록 설정
     mock_user_service = mocker.Mock(verify_2fa=mocker.Mock(return_value=user))
@@ -284,9 +288,9 @@ def test_2fa_verify_success_secure_cookie(api_client, user, tfa_urls, mocker, se
     assert res.status_code == status.HTTP_200_OK
 
     # Secure Cookie 확인
-    assert res.cookies["access_token"]["secure"] == True
-    assert res.cookies["refresh_token"]["secure"] == True
-    assert res.cookies["access_token"]["httponly"] == True
+    assert res.cookies["access_token"]["secure"]
+    assert res.cookies["refresh_token"]["secure"]
+    assert res.cookies["access_token"]["httponly"]
     assert res.cookies["access_token"]["samesite"] == "Strict"
 
 
@@ -294,8 +298,8 @@ def test_2fa_verify_success_secure_cookie(api_client, user, tfa_urls, mocker, se
 def test_2fa_verify_cookie_debug_mode(api_client, user, tfa_urls, mocker, settings):
     """DEBUG=True일 때 secure=False로 쿠키가 설정되는지 확인 (라인 146 분기 커버)"""
 
-    settings.DEBUG = True # Non-secure cookie test
-    settings.SECURE_COOKIE = True # 이 값이 True여도 DEBUG=True가 우선
+    settings.DEBUG = True  # Non-secure cookie test
+    settings.SECURE_COOKIE = True  # 이 값이 True여도 DEBUG=True가 우선
 
     mock_user_service = mocker.Mock(verify_2fa=mocker.Mock(return_value=user))
     mock_token_service = mocker.Mock(
@@ -319,8 +323,9 @@ def test_2fa_verify_cookie_debug_mode(api_client, user, tfa_urls, mocker, settin
 
     assert res.status_code == status.HTTP_200_OK
 
-    # Non-Secure Cookie 확인 (기존: assert res.cookies["access_token"]["secure"] == False)
-    # 💡 빈 문자열 '' 로 비교하여 Django 테스트 클라이언트의 동작과 일치시킵니다.
+    # Non-Secure Cookie 확인
+    # (기존: assert res.cookies["access_token"]["secure"] == False)
+    # 💡 빈 문자열 '' 로 비교하여 Django 테스트 클라이언트의 동작과 일치
     #    (secure=False로 설정될 때, 테스트 쿠키 딕셔너리에서는 ''으로 표현됨)
     assert res.cookies["access_token"]["secure"] == ""
     assert res.cookies["refresh_token"]["secure"] == ""
@@ -377,7 +382,7 @@ def test_2fa_verify_failure_user_not_found(api_client, tfa_urls, mocker):
 @pytest.mark.django_db
 def test_2fa_verify_internal_error(api_client, user, tfa_urls, mocker):
     """
-    토큰 발급 중 일반 Exception 발생 시 500 Internal Server Error 반환 (라인 171-175 커버)
+    토큰 발급 중 일반 Exception 발생 시 500 Internal Server Error 반환
     """
     # UserService.verify_2fa는 성공적으로 user를 반환
     mock_user_service = mocker.Mock(verify_2fa=mocker.Mock(return_value=user))
