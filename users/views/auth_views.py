@@ -2,6 +2,9 @@ from django.conf import settings
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.contrib.auth import authenticate, login
+from django.urls import reverse
+from django_otp import user_has_device
 
 from ..authentication import JWTAuthentication
 from ..exceptions import (
@@ -61,113 +64,50 @@ class UserRegisterView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+from django.contrib.auth import authenticate, login
+from django.urls import reverse
+from two_factor.utils import user_has_device
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions, status
+
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def _get_services(self):
-        """요청 시마다 독립적인 서비스 객체를 생성합니다."""
-        user_repo = UserRepository()
-        token_repo = TokenRepository()
-        token_service = TokenService(user_repo, token_repo)
-        user_service = UserService(user_repo, token_repo, token_service)
-        return user_service, token_service
-
     def post(self, request):
-        user_service, token_service = self._get_services()
-        serializer = UserLoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data.get("email")
-        password = serializer.validated_data.get("password")
-        code = request.data.get("tfa_code")  # 2FA 코드 선택적
+        email = request.data.get("email")
+        password = request.data.get("password")
 
-        try:
-            user, verified, is_temp_token, *tokens = (
-                user_service.login_with_optional_2fa(email, password, code)
+        user = authenticate(request, username=email, password=password)
+        if user is None:
+            return Response(
+                {"detail": "로그인 정보가 올바르지 않습니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
-            response_data = {
-                "detail": None,
-                "user_id": None,
-                "email": None,
-                "expires_in": None,
-                "access_token": None,
-                "refresh_token": None,
-                "tfa_required": False,
-                "tfa_step": "none",
-                "temporary_access_token": None,
-                "temporary_refresh_token": None,
-            }
+        login(request, user)  # Django 세션 로그인 수행
 
-            if is_temp_token:
-                temp_access_token, temp_refresh_token = tokens
-                response_data.update(
-                    {
-                        "detail": "2FA 설정이 필요합니다.",
-                        "tfa_required": True,
-                        "tfa_step": "setup",
-                        "temporary_access_token": temp_access_token,
-                        "temporary_refresh_token": temp_refresh_token,
-                    }
-                )
-                return Response(response_data, status=status.HTTP_200_OK)
-
-            if not verified:
-                response_data.update(
-                    {
-                        "detail": "2FA 인증 코드가 필요합니다.",
-                        "tfa_required": True,
-                        "tfa_step": "verify",
-                        "user_id": user.id,
-                    }
-                )
-                return Response(response_data, status=status.HTTP_200_OK)
-
-            access_token, refresh_token, access_token_lifetime = (
-                token_service.generate_tokens(user)
+        if user_has_device(user):
+            # 2FA 등록 사용자: 2FA 로그인 페이지 URL 프론트에 전달
+            return Response(
+                {
+                    "detail": "2FA 인증이 필요합니다.",
+                    "tfa_required": True,
+                    "tfa_login_url": reverse("two_factor:login"),
+                },
+                status=status.HTTP_200_OK,
             )
-
-            response_data.update(
+        else:
+            # 2FA 미등록 사용자: 로그인 성공 응답
+            return Response(
                 {
                     "detail": "로그인 성공",
                     "user_id": user.id,
                     "email": user.email,
-                    "expires_in": int(access_token_lifetime.total_seconds()),
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
                     "tfa_required": False,
-                    "tfa_step": "none",
-                }
+                },
+                status=status.HTTP_200_OK,
             )
-
-            response = Response(response_data, status=status.HTTP_200_OK)
-
-            secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
-            response.set_cookie(
-                "access_token",
-                access_token,
-                httponly=True,
-                secure=secure_cookie,
-                samesite="Strict",
-                max_age=int(access_token_lifetime.total_seconds()),
-            )
-            response.set_cookie(
-                "refresh_token",
-                refresh_token,
-                httponly=True,
-                secure=secure_cookie,
-                samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
-            )
-            return response
-
-        except (UserNotFoundException, PasswordMismatchException) as e:
-            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-        except Exception as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
