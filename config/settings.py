@@ -37,7 +37,7 @@ else:
     ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     # Add the Elastic Beanstalk hostname to the allowed hosts
     if not DEBUG:
-        ALLOWED_HOSTS.append('.elasticbeanstalk.com')
+        ALLOWED_HOSTS.append(".elasticbeanstalk.com")
 
 
 # -----------------------------
@@ -63,6 +63,10 @@ INSTALLED_APPS = [
     "search",
     "notifications",
     "payments",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
+    "two_factor",
     "django_extensions",
 ]
 
