@@ -107,30 +107,25 @@ def test_login_with_2fa_required(api_client, tfa_user, password, mocker):
 
 # 2. LogoutView 테스트
 @pytest.mark.django_db
-def test_logout(
-    api_client, user, mocker
-):  # 👈 mocker 인자를 추가 (pytest-mock 사용 가정)
-    """로그아웃 테스트 (토큰 무효화 및 쿠키 삭제)"""
+def test_logout(api_client, user, mocker):
+    """로그아웃 테스트 (TokenRepository 목킹 경로 수정)"""
     url = reverse("user-logout")
     api_client.force_authenticate(user=user)
 
-    # 1. TokenRepository 클래스 자체를 목킹합니다.
-    #    뷰는 이 목킹된 클래스를 호출해 Mock 인스턴스를 얻게 됩니다.
-    MockTokenRepository = mocker.patch(
-        "users.repositories.token_repository.TokenRepository"
-    )
+    # 1. 목킹 경로 수정: TokenRepository가 auth_views.py 파일 내에서 사용(임포트)되는 경로를 사용합니다.
+    #    (예: users.views.auth_views 파일 내에서 TokenRepository를 임포트했다는 가정)
+    mock_token_repo_cls = mocker.patch("users.views.auth_views.TokenRepository")
 
     # 2. Mock 인스턴스에서 호출될 blacklist_all_user_tokens 메서드를 가져옵니다.
-    #    (MockTokenRepository.return_value는 TokenRepository() 호출의 결과를 나타냅니다.)
-    mock_blacklist_method = MockTokenRepository.return_value.blacklist_all_user_tokens
+    #    이는 (users.views.auth_views.TokenRepository()) 결과의 .blacklist_all_user_tokens 입니다.
+    mock_blacklist_method = mock_token_repo_cls.return_value.blacklist_all_user_tokens
 
     res = api_client.post(url)
 
     assert res.status_code == status.HTTP_200_OK
     assert res.json()["detail"] == "로그아웃 되었습니다."
 
-    # 3. 인스턴스의 메서드가 올바른 인수로 호출되었는지 확인합니다.
-    #    (AssertionError: Expected 'blacklist_all_user_tokens' to be called once. Called 0 times. 해결)
+    # 3. 호출 확인
     mock_blacklist_method.assert_called_once_with(user)
 
     # 쿠키 삭제 확인
