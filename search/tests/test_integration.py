@@ -58,11 +58,11 @@ class TestSearchLogIntegration:
     def test_unauthenticated_access(self, api_client):
         url = reverse("search:search-log-list-create")
         response = api_client.get(url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_create_search_log_anonymous(self, api_client):
         url = reverse("search:search-log-list-create")
         data = {"keyword": "Anonymous", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert not SearchLog.objects.filter(keyword="Anonymous").exists()
