@@ -198,6 +198,7 @@ if os.environ.get("RUNNING_TESTS"):
             "rest_framework.authentication.SessionAuthentication",
         ),
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+        "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     }
 else:
     REST_FRAMEWORK = {
