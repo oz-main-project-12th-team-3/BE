@@ -10,6 +10,9 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
 # -----------------------------
 # 기본 경로 설정
 # -----------------------------
@@ -52,7 +55,6 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
-    "drf_spectacular",
     # local apps
     "users",
     "chat",
@@ -70,7 +72,7 @@ if not IS_TEST_ENV:
             "django_otp",
             "django_otp.plugins.otp_totp",
             "django_otp.plugins.otp_static",
-            # "two_factor",
+            "two_factor",
         ]
     )
 
@@ -122,14 +124,16 @@ TEMPLATES = [
 
 
 # -----------------------------
-# 2FA 관련 설정 (비활성화)
+# 2FA 관련 설정
 # -----------------------------
-# TWO_FACTOR_FORMS = {
-#     "setup": "two_factor.forms.TOTPDeviceForm",
-# }
-# LOGIN_URL = "two_factor:login"
-# LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "two_factor:login"  # 로그인 시작 URL, 커스텀 로그인 사용 시 이 URL 연결
+LOGIN_REDIRECT_URL = "/"  # 로그인 성공 후 리다이렉트할 URL
+LOGOUT_REDIRECT_URL = "two_factor:login"
 
+# 2FA 폼 설정 (기본 TOTP 폼 사용)
+TWO_FACTOR_FORMS = {
+    "setup": "two_factor.forms.TOTPDeviceForm",
+}
 
 # -----------------------------
 # WSGI / ASGI
@@ -198,7 +202,6 @@ else:
             "rest_framework_simplejwt.authentication.JWTAuthentication",
         ),
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-        "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     }
 
 
@@ -332,8 +335,8 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # 발신 이메일 주소 기본값
 
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'OZ-Digital-Human API',
-    'DESCRIPTION': 'API documentation for the OZ Digital Human project.',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    "TITLE": "OZ-Digital-Human API",
+    "DESCRIPTION": "API documentation for the OZ Digital Human project.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
