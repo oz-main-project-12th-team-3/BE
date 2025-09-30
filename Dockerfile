@@ -54,8 +54,7 @@ import re
 import sys
 from pathlib import Path
 
-# /usr/local/lib/python3.10/site-packages 경로 설정 (시스템 환경에 설치)
-# 주의: 이 경로는 python:3.10-slim 이미지의 표준 site-packages 경로입니다.
+# 파일 경로 정의
 file_path = Path('/usr/local/lib') / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages' / 'two_factor' / 'urls.py'
 
 if not file_path.exists():
@@ -65,24 +64,24 @@ if not file_path.exists():
 with open(file_path, 'r') as f:
     content = f.read()
 
-# 1. 'app_name'이 없는 경우 추가 (앱 이름 설정 보장)
-if 'app_name' not in content:
-    content = 'app_name = "two_factor"\\n' + content
-
-# 2. 'urlpatterns = ( ... , "two_factor")' 튜플 형태를 찾아 마지막 요소를 제거합니다.
-#    패턴: urlpatterns = ( ... , ['"]two_factor['"])
-#    (.+?)는 URL 패턴들을 비탐욕적으로 캡쳐합니다.
-pattern = r"urlpatterns\s*=\s*\((.+?),(\s*['\"]two_factor['\"]\s*)\)"
+# 1. 'urlpatterns = (... , 'two_factor')' 패턴을 찾습니다.
+#    (.+?) : 튜플 내부의 모든 내용을 비탐욕적으로 캡처 (core + profile + plugin_urlpatterns)
+#    \s* : 공백 (띄어쓰기)
+#    'two_factor' : 오류를 유발하는 문자열
+pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
 
 def replace_tuple(match):
-    # match.group(1)은 튜플의 내부 URL 패턴들입니다.
-    # match.group(2)는 오류를 유발하는, two_factor 문자열입니다.
-    urls_content = match.group(1).strip()
-
-    # 튜플을 (요소1, 요소2, ...) 형태로 변환하여 오류를 유발하는 요소를 제거
-    return f"urlpatterns = ({urls_content})"
+    # group(1)은 'urlpatterns = ('와 URL 패턴 리스트를 포함합니다.
+    # group(2)는 패턴 리스트 자체입니다.
+    # 이를 튜플로 닫고 'two_factor' 문자열을 제거합니다.
+    return match.group(1) + ')'
 
 content = re.sub(pattern, replace_tuple, content, flags=re.DOTALL)
+
+# 2. app_name 정의 추가 (이전에는 튜플의 마지막 요소로 사용됨)
+if 'app_name' not in content:
+    # 맨 위에 app_name을 추가합니다.
+    content = 'app_name = "two_factor"\\n' + content
 
 with open(file_path, 'w') as f:
     f.write(content)
