@@ -10,6 +10,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import sys
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
@@ -29,7 +31,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
 DEBUG = os.environ.get("DEBUG", "0") == "1"
 
 # CI/Test 환경에서는 2FA 앱을 비활성화
-IS_TEST_ENV = os.environ.get("RUNNING_TESTS") == "1"
+IS_TEST_ENV = "test" in sys.argv
 
 if os.environ.get("RUNNING_TESTS"):
     ALLOWED_HOSTS = ["testserver"]
