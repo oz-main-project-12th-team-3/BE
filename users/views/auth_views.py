@@ -265,3 +265,10 @@ class PasswordResetConfirmView(APIView):
             return Response(
                 {"detail": detail_message}, status=status.HTTP_401_UNAUTHORIZED
             )
+        except ValueError as e:  # 👈 이 부분을 추가하여 유효하지 않은 링크 오류 처리
+            detail_message = (
+                str(e) if str(e) else "유효하지 않은 비밀번호 재설정 링크입니다."
+            )
+            return Response(
+                {"detail": detail_message}, status=status.HTTP_401_UNAUTHORIZED
+            )
