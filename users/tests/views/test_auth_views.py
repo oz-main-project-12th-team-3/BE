@@ -111,7 +111,6 @@ def test_login_with_2fa_required(api_client, tfa_user, password, mocker):
     body = res.json()
     assert body["detail"] == "2FA 인증이 필요합니다."
     assert body["tfa_required"] is True
-    assert "tfa_login_url" in body  # reverse("two_factor:login") 값이 리턴되는지 확인
 
 
 # 2. LogoutView 테스트

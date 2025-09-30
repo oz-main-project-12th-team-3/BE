@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.contrib.auth import authenticate, login
-from django.urls import reverse
 from django_otp import user_has_device
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -78,7 +77,9 @@ class UserLoginView(APIView):
 
         if user_has_device(user):
             # 2FA 등록 유저는 임시 토큰 발급 후 2FA 인증 단계로
-            temp_access_token, temp_refresh_token, temp_lifetime = token_service.generate_temporary_tokens(user)
+            temp_access_token, temp_refresh_token, temp_lifetime = (
+                token_service.generate_temporary_tokens(user)
+            )
             response_data = {
                 "detail": "2FA 인증이 필요합니다.",
                 "user_id": user.id,
@@ -107,12 +108,16 @@ class UserLoginView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
             )
             return response
 
         # 2FA 미등록 유저 - 정식 토큰 발급
-        access_token, refresh_token, access_token_lifetime = token_service.generate_tokens(user)
+        access_token, refresh_token, access_token_lifetime = (
+            token_service.generate_tokens(user)
+        )
         response_data = {
             "detail": "로그인 성공",
             "user_id": user.id,
@@ -144,6 +149,7 @@ class UserLoginView(APIView):
             max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
         )
         return response
+
 
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
