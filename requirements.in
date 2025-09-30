@@ -21,3 +21,4 @@ Pillow
 django-extensions
 python-dotenv
 pip-tools
+google-generativeai
