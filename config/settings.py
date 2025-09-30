@@ -37,7 +37,7 @@ else:
     ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     # Add the Elastic Beanstalk hostname to the allowed hosts
     if not DEBUG:
-        ALLOWED_HOSTS.append('.elasticbeanstalk.com')
+        ALLOWED_HOSTS.append(".elasticbeanstalk.com")
 
 
 # -----------------------------
