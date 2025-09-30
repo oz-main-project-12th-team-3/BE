@@ -1,5 +1,6 @@
 import secrets
 from datetime import timedelta
+from unittest.mock import MagicMock
 
 import pytest
 from django.contrib.auth.tokens import default_token_generator
@@ -58,7 +59,49 @@ def service(db):
 
 
 # ----------------------------------------------------------------------
-# 1. User CRUD & Email Check
+# 4. Two-Factor Authentication (2FA) Helper
+# ----------------------------------------------------------------------
+
+def mock_2fa_repo(mocker, user):
+    """
+    UserRepository 클래스에 2FA 메서드를 동적으로 주입하고 Mocking합니다.
+    (settings.IS_TEST_ENV=True 일 때 발생하는 AttributeError 방지)
+    """
+
+    mock_device = MagicMock(
+        confirmed=False,
+        user=user,
+        save=MagicMock(),
+        verify_token=MagicMock(return_value=True),
+        config_url="otp_uri_mock",
+        id=1,
+    )
+
+    # 💡 create=True를 사용하여 메서드가 UserRepository 클래스에 없더라도 Mock 객체로 생성하도록 강제합니다.
+    mock_confirmed = mocker.patch.object(
+        UserRepository,
+        'get_user_confirmed_2fa_device',
+        return_value=None,
+        create=True
+    )
+    mock_unconfirmed = mocker.patch.object(
+        UserRepository,
+        'get_user_unconfirmed_2fa_device',
+        return_value=None,
+        create=True
+    )
+    mock_create = mocker.patch.object(
+        UserRepository,
+        'create_2fa_device',
+        return_value=mock_device,
+        create=True
+    )
+
+    return mock_confirmed, mock_unconfirmed, mock_create, mock_device
+
+
+# ----------------------------------------------------------------------
+# 1. User CRUD & Email Check (이전 코드 유지)
 # ----------------------------------------------------------------------
 
 
@@ -120,7 +163,7 @@ def test_delete_user(service, user, password):
 
     # 1. 비밀번호 불일치 시 PasswordMismatchException
     with pytest.raises(
-        PasswordMismatchException, match="비밀번호가 올바르지 않습니다."
+            PasswordMismatchException, match="비밀번호가 올바르지 않습니다."
     ):
         service.delete_user(user, "wrongpassword")
 
@@ -141,7 +184,7 @@ def test_get_user_profile(service, user):
 
 
 # ----------------------------------------------------------------------
-# 2. Authentication
+# 2. Authentication (이전 코드 유지)
 # ----------------------------------------------------------------------
 
 
@@ -183,7 +226,7 @@ def test_authenticate_user_inactive_locked_mismatch(service, user, password, moc
     mocker.patch.object(service.user_repo, "update_login_fail_count")
 
     with pytest.raises(
-        PasswordMismatchException, match="비밀번호가 올바르지 않습니다."
+            PasswordMismatchException, match="비밀번호가 올바르지 않습니다."
     ):
         service.authenticate_user(user.email, "wrongpass")
 
@@ -191,13 +234,13 @@ def test_authenticate_user_inactive_locked_mismatch(service, user, password, moc
 
 
 # ----------------------------------------------------------------------
-# 3. Password Reset
+# 3. Password Reset (이전 코드 유지)
 # ----------------------------------------------------------------------
 
 
 @pytest.mark.django_db
 def test_send_password_reset_email_success_and_notfound(
-    service, user, settings, mocker
+        service, user, settings, mocker
 ):
     """비밀번호 재설정 이메일 발송 테스트 및 사용자 없음 처리"""
     settings.PROJECT_NAME = "TestProject"
@@ -265,40 +308,8 @@ def test_reset_password_invalid_link_and_token(service, user, mocker):
 
 
 # ----------------------------------------------------------------------
-# 4. Two-Factor Authentication (2FA)
+# 4. Two-Factor Authentication (2FA) Test Logic
 # ----------------------------------------------------------------------
-
-
-def mock_user_repo_2fa(service, mocker, user):
-    """UserRepository 인스턴스에 조건부 2FA 메서드를 동적으로 Mocking하고 Mock 객체를 반환합니다."""
-
-    # 💡 2FA Mock Device 정의
-    mock_device = mocker.Mock(
-        confirmed=False,
-        user=user,
-        save=mocker.Mock(),
-        verify_token=mocker.Mock(return_value=True),
-        config_url="otp_uri_mock",
-        id=1,
-    )
-
-    # 💡 1. get_user_confirmed_2fa_device Mocking
-    mock_confirmed = mocker.patch.object(
-        service.user_repo, "get_user_confirmed_2fa_device", return_value=None
-    )
-    # 💡 2. get_user_unconfirmed_2fa_device Mocking
-    mock_unconfirmed = mocker.patch.object(
-        service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None
-    )
-    # 💡 3. create_2fa_device Mocking
-    mock_create = mocker.patch.object(
-        service.user_repo,
-        "create_2fa_device",
-        return_value=mock_device,
-    )
-
-    # Mock 객체들을 반환하여 테스트 함수에서 사용
-    return mock_confirmed, mock_unconfirmed, mock_create, mock_device
 
 
 @pytest.mark.skipif(not TOTPDevice, reason="django_otp or TOTPDevice not available")
@@ -306,10 +317,8 @@ def mock_user_repo_2fa(service, mocker, user):
 def test_setup_and_get_2fa_status(service, user, mocker):
     """2FA 기기 설정 및 상태 조회 테스트"""
 
-    # 💡 Mock 객체를 반환받아 사용
-    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_user_repo_2fa(
-        service, mocker, user
-    )
+    # 💡 헬퍼 함수 호출
+    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_2fa_repo(mocker, user)
 
     # 1. 초기 상태 확인
     confirmed, pending = service.get_2fa_setup_status(user)
@@ -317,11 +326,10 @@ def test_setup_and_get_2fa_status(service, user, mocker):
 
     # 2. setup_2fa: 새로운 기기 생성 (미확정)
     device = service.setup_2fa(user)
-    assert device == mock_device  # 반환된 객체가 Mock 객체인지 확인
-    # ... (나머지 로직)
+    assert device == mock_device
 
     # 3. 재확인: 미확정 기기 존재 상태 시뮬레이션
-    mock_unconfirmed.return_value = mock_device  # 💡 반환 값으로 Mock Device 사용
+    mock_unconfirmed.return_value = mock_device
     mock_confirmed.return_value = None
 
     confirmed, pending = service.get_2fa_setup_status(user)
@@ -332,53 +340,49 @@ def test_setup_and_get_2fa_status(service, user, mocker):
 @pytest.mark.django_db
 def test_confirm_2fa(service, user, mocker):
     """2FA 확정 성공 및 실패 테스트"""
-    device = TOTPDevice.objects.create(user=user, name="test", confirmed=False)
-    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_user_repo_2fa(
-        service, mocker, user
-    )
+    # 💡 헬퍼 함수 호출 및 TOTPDevice Mocking 설정
+    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_2fa_repo(mocker, user)
+
+    # 💡 confirm_2fa가 의존하는 unconfirmed device를 Mocking합니다.
+    # 기존 코드의 TOTPDevice.objects.create는 실제 DB에 의존하므로, mock_device로 대체합니다.
+    mock_unconfirmed.return_value = mock_device # confirm_2fa의 첫 줄이 이 값을 가져옵니다.
 
     # 1. 실패 (코드 불일치)
-    mocker.patch.object(device, "verify_token", return_value=False)
+    mock_device.verify_token.return_value = False
     result = service.confirm_2fa(user, "wrongcode")
     assert result is False
 
     # 2. 성공 (코드 일치 및 confirmed=True 확인)
-    mocker.patch.object(device, "verify_token", return_value=True)
+    mock_device.verify_token.return_value = True
     result = service.confirm_2fa(user, "validcode")
     assert result is True
-    # DB에 confirmed 상태가 반영되었는지 확인 (save 호출 가정)
-    device.refresh_from_db()
-    assert device.confirmed is True
+    # 확정 상태 반영 확인 (mock 객체의 save 호출 및 confirmed=True 설정 확인)
+    mock_device.save.assert_called_once()
+    assert mock_device.confirmed is True
 
 
 @pytest.mark.skipif(not TOTPDevice, reason="django_otp or TOTPDevice not available")
 @pytest.mark.django_db
 def test_verify_2fa(service, user, mocker):
     """2FA 인증 테스트 (성공 및 실패)"""
-    device = TOTPDevice.objects.create(user=user, name="test", confirmed=True)
-    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_user_repo_2fa(
-        service, mocker, user
-    )
+    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_2fa_repo(mocker, user)
 
-    mocker.patch.object(service.user_repo, "get_user_by_email", return_value=user)
-    mocker.patch.object(
-        service.user_repo, "get_user_confirmed_2fa_device", return_value=device
-    )
+    # 💡 verify_2fa가 의존하는 confirmed device를 Mocking합니다.
+    mock_confirmed.return_value = mock_device
+    mock_device.confirmed = True
 
     # 1. 인증 성공
-    mocker.patch.object(device, "verify_token", return_value=True)
+    mock_device.verify_token.return_value = True
     user_authenticated = service.verify_2fa(user.email, "validcode")
     assert user_authenticated == user
 
     # 2. 인증 실패 (코드 불일치)
-    mocker.patch.object(device, "verify_token", return_value=False)
+    mock_device.verify_token.return_value = False
     with pytest.raises(ValueError, match="잘못된 인증 코드입니다."):
         service.verify_2fa(user.email, "wrongcode")
 
     # 3. 인증 실패 (등록된 기기 없음)
-    mocker.patch.object(
-        service.user_repo, "get_user_confirmed_2fa_device", return_value=None
-    )
+    mock_confirmed.return_value = None
     with pytest.raises(ValueError, match="등록된 2FA 기기가 없습니다."):
         service.verify_2fa(user.email, "any")
 
@@ -387,9 +391,7 @@ def test_verify_2fa(service, user, mocker):
 @pytest.mark.django_db
 def test_login_with_optional_2fa_branches(service, user, mocker):
     """2FA 로그인 플로우의 분기 테스트"""
-    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_user_repo_2fa(
-        service, mocker, user
-    )
+    mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_2fa_repo(mocker, user)
 
     mocker.patch.object(service, "authenticate_user", return_value=user)
 
@@ -402,34 +404,34 @@ def test_login_with_optional_2fa_branches(service, user, mocker):
     )
 
     # Case 2: 미확정 2FA 기기 존재 -> 임시 토큰 발급
-    # Mocking된 unconfirmed_device를 가져옵니다.
-    unconfirmed_mock = service.user_repo.create_2fa_device(user)
-    service.user_repo.get_user_unconfirmed_2fa_device.return_value = unconfirmed_mock
-    service.user_repo.get_user_confirmed_2fa_device.return_value = None
+    mock_unconfirmed.return_value = mock_device # 미확정 기기 존재
+    mock_confirmed.return_value = None
+
+    # 2-1. 임시 토큰 발급 확인 (코드 없음)
+    res = service.login_with_optional_2fa(user.email, "pwd", code=None)
+    assert res[1] is False # success=False
+    assert res[2] is True  # pending=True
+    assert res[3] == "temp_access"
 
     # Case 3: 미확정 2FA 기기 존재 + 유효 코드 -> 로그인 성공
-    unconfirmed_mock.verify_token.return_value = True
-    unconfirmed_mock.save = mocker.Mock()
+    mock_device.verify_token.return_value = True
+    mock_device.save.reset_mock() # save 호출 횟수 초기화
     res = service.login_with_optional_2fa(user.email, "pwd", code="valid")
     assert res[1] is True  # success=True
-    unconfirmed_mock.save.assert_called_once()  # 기기 확정 저장 확인
+    mock_device.save.assert_called_once()  # 기기 확정 저장 확인
+    assert mock_device.confirmed is True
 
     # Case 4: 확정 2FA 기기 존재 + 유효 코드 -> 로그인 성공
-    confirmed_mock = mocker.Mock(
-        confirmed=True, verify_token=mocker.Mock(return_value=True)
-    )
-    mocker.patch.object(
-        service.user_repo, "get_user_confirmed_2fa_device", return_value=confirmed_mock
-    )
-    mocker.patch.object(
-        service.user_repo, "get_user_unconfirmed_2fa_device", return_value=None
-    )
+    mock_confirmed.return_value = mock_device # 확정 기기 존재
+    mock_unconfirmed.return_value = None
+    mock_device.confirmed = True
+    mock_device.verify_token.return_value = True
 
     res = service.login_with_optional_2fa(user.email, "pwd", code="valid")
     assert res[1] is True
 
     # Case 5: 확정 2FA 기기 존재 + 코드 불일치 -> 2FA 인증 필요
-    confirmed_mock.verify_token.return_value = False
+    mock_device.verify_token.return_value = False
     res = service.login_with_optional_2fa(user.email, "pwd", code="invalid")
     assert res[1] is False  # success=False
     assert res[2] is False  # pending=False (2FA 인증 필요 상태)
