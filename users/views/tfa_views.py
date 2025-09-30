@@ -1,7 +1,7 @@
 import base64
-import qrcode
 from io import BytesIO
 
+import qrcode
 from django.conf import settings
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -150,7 +150,9 @@ class TwoFactorVerifyView(APIView):
             # 보안 쿠키 설정
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
             max_age_access = int(access_token_lifetime.total_seconds())
-            max_age_refresh = int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+            max_age_refresh = int(
+                settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+            )
 
             response.set_cookie(
                 "access_token",
@@ -183,4 +185,5 @@ class TwoFactorLoginView(APIView):
     """
     django-two-factor-auth의 내장 로그인 뷰를 사용하므로 API에서 별도 구현 X
     """
+
     pass
