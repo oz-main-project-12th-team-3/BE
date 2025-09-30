@@ -29,15 +29,15 @@ services:
 
   web:
     build: .
-    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    command: sh -c "sleep 10 && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     volumes:
-      - ./config:/home/appuser/app/config
-      - ./users:/home/appuser/app/users
-      - ./chat:/home/appuser/app/chat
-      - ./ai:/home/appuser/app/ai
+      - ./config:/app/config
+      - ./users:/app/users
+      - ./chat:/app/chat
+      - ./ai:/app/ai
       - ./schedule:/home/appuser/app/schedule
-      - ./notifications:/home/appuser/app/notifications   # <- 추가
-      - ./manage.py:/home/appuser/app/manage.py
+      - ./notifications:/app/notifications
+      - ./manage.py://app/manage.py
       - staticfiles_volume:/home/appuser/app/staticfiles
     depends_on:
       - db
@@ -49,15 +49,15 @@ services:
 
   worker:
     build: .
-    command: /home/appuser/.venv/bin/celery -A config worker -l info
+    command:  /usr/local/bin/celery -A config worker -l info
     volumes:
-      - ./config:/home/appuser/app/config
-      - ./users:/home/appuser/app/users
-      - ./chat:/home/appuser/app/chat
-      - ./ai:/home/appuser/app/ai
-      - ./schedule:/home/appuser/app/schedule
-      - ./notifications:/home/appuser/app/notifications   # <- 추가
-      - ./manage.py:/home/appuser/app/manage.py
+      - ./config:/app/config
+      - ./users:/app/users
+      - ./chat:/app/chat
+      - ./ai:/app/ai
+      - ./schedule:/app/schedule
+      - ./notifications:/app/notifications
+      - ./manage.py:/app/manage.py
     depends_on:
       - db
       - redis
