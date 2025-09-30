@@ -215,7 +215,7 @@ def test_authenticate_user_inactive_locked_mismatch(service, user, password, moc
     service.user_repo.update_login_fail_count.assert_called_with(user, is_success=False)
 
 
-# 💡 authenticate_user의 get_user_by_email에서 UserNotFoundException 발생 시 테스트 추가
+# authenticate_user의 get_user_by_email에서 UserNotFoundException 발생 시 테스트
 @pytest.mark.django_db
 def test_authenticate_user_user_not_found(service, mocker, password):
     """인증 시 사용자 없음 테스트"""
@@ -288,7 +288,7 @@ def test_reset_password_invalid_link_and_token(service, user, mocker):
     with pytest.raises(ValueError, match="유효하지 않은 토큰입니다."):
         service.reset_password(uid, "badtoken", "pass")
 
-    # 3. UserNotFound (uidb64는 유효하나 user_repo에서 찾지 못함 - reset_password try-except 분기)
+    # 3. UserNotFound (uidb64 유효, user_repo에서 못찾음)
     mocker.patch.object(
         service.user_repo,
         "get_user_by_id",
