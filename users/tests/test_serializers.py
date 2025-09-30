@@ -28,8 +28,6 @@ def test_user_register_serializer_validate_with_and_without_nickname():
     assert ser.is_valid()
     assert ser.validated_data["nickname"] == "Nick"
 
-    # ⚠️ 주목: 기존 password_confirm 검증 로직이 제거되어 해당 테스트는 필요 없어졌습니다.
-
     data2 = {"email": "new2@example.com", "password": pw}
     ser2 = UserRegisterSerializer(data=data2)
     assert ser2.is_valid()
@@ -44,9 +42,6 @@ def test_user_login_serializer_valid():
     ser = UserLoginSerializer(data=data)
     assert ser.is_valid()
     assert ser.validated_data["email"] == "login@example.com"
-
-    # ❌ (제거) assert "tfa_code" in ser.validated_data
-    # tfa_code는 선택 사항, 입력 데이터에 포함되지 않았을 경우 validated_data에 키 부재 가능
 
     # 💡 (선택적 추가) tfa_code가 입력된 경우 확인
     data_with_tfa = {
