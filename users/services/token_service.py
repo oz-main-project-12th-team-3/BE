@@ -168,7 +168,7 @@ class TokenService:
 
         # 2. 사용자 모델의 비밀번호 변경 시간 (Naive -> Aware UTC)
         user_pwd_changed_at = user.password_changed_at
-        if timezone.is_naive(user_pwd_changed_at):
+        if user_pwd_changed_at and timezone.is_naive(user_pwd_changed_at):
             user_pwd_changed_at = timezone.make_aware(user_pwd_changed_at, timezone.utc)
 
         # 3. 시간 비교
