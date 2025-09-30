@@ -107,30 +107,37 @@ def test_login_with_2fa_required(api_client, tfa_user, password, mocker):
 
 # 2. LogoutView 테스트
 @pytest.mark.django_db
-def test_logout(api_client, user, mocker):
+def test_logout(
+    api_client, user, mocker
+):  # 👈 mocker 인자를 추가 (pytest-mock 사용 가정)
     """로그아웃 테스트 (토큰 무효화 및 쿠키 삭제)"""
     url = reverse("user-logout")
     api_client.force_authenticate(user=user)
 
     # 1. TokenRepository 클래스 자체를 목킹합니다.
+    #    뷰는 이 목킹된 클래스를 호출해 Mock 인스턴스를 얻게 됩니다.
     MockTokenRepository = mocker.patch(
         "users.repositories.token_repository.TokenRepository"
     )
-    # 2. MockTokenRepository 인스턴스에서 호출될 blacklist_all_user_tokens 메서드를 가져옵니다.
+
+    # 2. Mock 인스턴스에서 호출될 blacklist_all_user_tokens 메서드를 가져옵니다.
+    #    (MockTokenRepository.return_value는 TokenRepository() 호출의 결과를 나타냅니다.)
     mock_blacklist_method = MockTokenRepository.return_value.blacklist_all_user_tokens
 
     res = api_client.post(url)
+
     assert res.status_code == status.HTTP_200_OK
     assert res.json()["detail"] == "로그아웃 되었습니다."
 
     # 3. 인스턴스의 메서드가 올바른 인수로 호출되었는지 확인합니다.
+    #    (AssertionError: Expected 'blacklist_all_user_tokens' to be called once. Called 0 times. 해결)
     mock_blacklist_method.assert_called_once_with(user)
 
     # 쿠키 삭제 확인
     assert res.cookies.get("access_token").value == ""
     assert res.cookies.get("refresh_token").value == ""
 
-# 3. TokenRefreshView 테스트 유지
+# 3. TokenRefreshView 테스트
 @pytest.mark.django_db
 def test_token_refresh_success(api_client, user, password, mocker):
     """토큰 갱신 성공 테스트"""
@@ -175,7 +182,7 @@ def test_token_refresh_failed(api_client, user, mocker):
     assert res.cookies.get("refresh_token").value == ""
 
 
-# 4. CheckEmailView 테스트 유지
+# 4. CheckEmailView 테스트
 @pytest.mark.django_db
 def test_check_email_view(api_client, user):
     """이메일 중복 확인 테스트"""
@@ -193,7 +200,7 @@ def test_check_email_view(api_client, user):
     assert res.json()["detail"] == "이미 사용중인 이메일입니다."
 
 
-# 5. PasswordResetRequestView / ConfirmView 테스트 유지
+# 5. PasswordResetRequestView / ConfirmView 테스트
 @pytest.mark.django_db
 def test_password_reset_request_and_confirm(api_client, user, monkeypatch):
     """비밀번호 재설정 요청 및 확인 테스트"""
@@ -265,7 +272,9 @@ def test_password_reset_confirm_mismatch(api_client, user):
 # 6. PasswordChangeView 테스트
 # 기존 테스트 파일에 'user-password-change'를 사용하는 테스트가 있었지만,
 # 변경된 auth_views.py에는 해당 View(PasswordChangeView)가 없으므로 해당 테스트는 제거하거나
-# 해당 View가 추가되어야 함. 여기서는 기존 테스트를 참고하여 'password-reset-confirm'의 PasswordMismatchException 처리를 확인하는 테스트로 변경합니다.
+# 해당 View가 추가되어야 함.
+# 여기서는 기존 테스트를 참고하여
+# 'password-reset-confirm'의 PasswordMismatchException 처리를 확인하는 테스트로 변경
 @pytest.mark.django_db
 def test_password_reset_confirm_passwordmismatch_exception(api_client, user, mocker):
     """비밀번호 재설정 확인 - 내부 서비스에서 비밀번호 불일치 예외 발생 테스트"""
