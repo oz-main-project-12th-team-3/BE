@@ -76,10 +76,10 @@ class TestSearchFull:
         url = reverse("search:search-log-list-create")
         data = {"keyword": "Anon", "search_type": "test", "result_count": 1}
         response = api_client.post(url, data, format="json")
-        assert response.status_code == 403
+        assert response.status_code == 401
         assert not SearchLog.objects.filter(keyword="Anon").exists()
 
     def test_list_search_logs_unauthenticated(self, api_client):
         url = reverse("search:search-log-list-create")
         response = api_client.get(url)
-        assert response.status_code == 403
+        assert response.status_code == 401
