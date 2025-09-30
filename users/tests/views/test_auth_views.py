@@ -130,31 +130,29 @@ def test_logout(api_client, user, mocker):
     assert res.cookies.get("refresh_token").value == ""
 
 
-# 3. TokenRefreshView 테스트
+
 @pytest.mark.django_db
-def test_token_refresh_success(api_client, user, password, mocker):
-    """토큰 갱신 성공 테스트"""
-    # TokenRefreshView의 토큰 갱신 로직(TokenService) 목킹
-    mock_service = mocker.patch(
-        "users.services.token_service.TokenService.refresh_user_tokens"
-    )
-    # 3600초 (1시간) 수명, 새 토큰 및 유저 반환 목킹
-    mock_service.return_value = (
-        "new_access_token_jwt",
-        "new_refresh_token_jwt",
-        django.conf.settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],
-        user,
-    )
+def test_token_refresh_success(api_client, user, password):
+    """토큰 갱신 성공 테스트 (쿠키 기반)"""
+    login_url = reverse("user-login")
+    refresh_url = reverse("token-refresh")
 
-    url = reverse("token-refresh")
-    # 실제 refresh_token이 아닌 가짜 토큰을 사용하되, 로직이 목킹되었으므로 성공
-    res = api_client.post(url, {"refresh_token": "some_valid_refresh"}, format="json")
-    assert res.status_code == status.HTTP_200_OK
-    assert res.json()["access_token"] == "new_access_token_jwt"
-    assert res.cookies.get("access_token").value == "new_access_token_jwt"
-    assert res.cookies.get("refresh_token").value == "new_refresh_token_jwt"
+    # 1. 로그인 요청: 쿠키 (access, refresh token)를 클라이언트 세션에 저장
+    login_data = {"email": user.email, "password": password}
+    login_res = api_client.post(login_url, login_data, format="json")
 
+    # 로그인 성공 확인
+    assert login_res.status_code == 200
+    assert "refresh_token" in login_res.cookies
 
+    # 2. 토큰 갱신 요청: 클라이언트가 저장된 쿠키(refresh_token)를 자동으로 포함해야 합니다.
+    res = api_client.post(refresh_url)
+
+    # 💡 상태 코드 200 확인
+    assert res.status_code == 200
+
+    # 3. 응답에 새 access_token 쿠키가 설정되었는지 확인
+    assert "access_token" in res.cookies
 @pytest.mark.django_db
 def test_token_refresh_failed(api_client, user, mocker):
     """토큰 갱신 실패 테스트"""
