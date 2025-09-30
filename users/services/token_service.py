@@ -1,10 +1,9 @@
 import uuid
-from datetime import datetime, timedelta
-from datetime import timezone as dt_timezone
+from datetime import timedelta
 
 import jwt
 from django.conf import settings
-from django.utils import timezone
+from django.utils import timezone  # ⭐ django.utils.timezone 사용으로 통일
 from rest_framework.exceptions import AuthenticationFailed
 
 from ..exceptions import TokenAuthenticationFailed, UserNotFoundException
@@ -21,13 +20,15 @@ class TokenService:
         self.token_repo = token_repo
 
     def generate_tokens(self, user, parent_token_id=None):
-        now = datetime.now(dt_timezone.utc)
+        # ⭐ timezone.now() 사용
+        now = timezone.now()
         token_id = uuid.uuid4()
 
         access_token_payload = {
             "user_id": user.id,
             "exp": now + ACCESS_TOKEN_LIFETIME,
             "iat": now,
+            # 비밀번호 변경 시간은 이미 DB에 Aware 객체로 저장되어 있으므로 isoformat() 사용
             "pwd_changed_at": user.password_changed_at.isoformat()
             if user.password_changed_at
             else None,
@@ -62,7 +63,8 @@ class TokenService:
         return access_token, refresh_token, ACCESS_TOKEN_LIFETIME
 
     def generate_temporary_tokens(self, user):
-        now = datetime.now(dt_timezone.utc)
+        # ⭐ timezone.now() 사용
+        now = timezone.now()
         token_id = uuid.uuid4()
 
         temp_access_lifetime = timedelta(minutes=5)
@@ -156,19 +158,22 @@ class TokenService:
         if not user.is_active:
             raise TokenAuthenticationFailed("비활성 사용자입니다.")
 
-        # 1. 토큰의 비밀번호 변경 시간 파싱 (Naive -> Aware UTC)
+        # 1. 토큰의 비밀번호 변경 시간 파싱 (isoformat()에서 Aware 객체로 파싱)
         token_pwd_changed_at_str = payload.get("pwd_changed_at")
         token_pwd_changed_at = None
         if token_pwd_changed_at_str:
+            # datetime.fromisoformat은 ISO 8601 문자열에서 TZ 정보를 포함하여 Aware 객체를 생성합니다.
             token_pwd_changed_at = datetime.fromisoformat(token_pwd_changed_at_str)
+            # 만약 TZ 정보가 없는 Naive 객체라면, UTC로 강제 변환합니다.
             if timezone.is_naive(token_pwd_changed_at):
                 token_pwd_changed_at = timezone.make_aware(
                     token_pwd_changed_at, timezone.utc
                 )
 
-        # 2. 사용자 모델의 비밀번호 변경 시간 (Naive -> Aware UTC)
+        # 2. 사용자 모델의 비밀번호 변경 시간 처리
         user_pwd_changed_at = user.password_changed_at
-        if timezone.is_naive(user_pwd_changed_at):
+        if user_pwd_changed_at and timezone.is_naive(user_pwd_changed_at):
+            # DB에서 Naive로 로드되는 경우를 대비하여 Aware(UTC)로 변환합니다.
             user_pwd_changed_at = timezone.make_aware(user_pwd_changed_at, timezone.utc)
 
         # 3. 시간 비교
@@ -178,8 +183,6 @@ class TokenService:
             )
 
     def is_valid_access_token(self, token):
-        # C901 복잡도 문제 해결됨 (복잡도 3-4 예상)
-
         # 1. JWT 디코딩 및 기본 검증
         payload = self._get_validated_payload(token)
 
@@ -214,3 +217,7 @@ class TokenService:
             self.token_repo.blacklist_token(token_obj)
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, AuthenticationFailed):
             pass
+
+# ⭐ 불필요한 import 제거
+from datetime import datetime
+# from datetime import timezone as dt_timezone
