@@ -19,6 +19,7 @@ else:
 @pytest.fixture
 def api_client():
     from rest_framework.test import APIClient
+
     return APIClient()
 
 
@@ -35,6 +36,7 @@ def user(db, password):
 # ----------------------------------------------------------------------
 # TwoFactorSetupView 테스트
 # ----------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 def test_twofactor_setup_new_device(api_client, user):
@@ -85,6 +87,7 @@ def test_twofactor_setup_exception(api_client, user, mocker):
 # TwoFactorConfirmView 테스트
 # ----------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 def test_twofactor_confirm_success(api_client, user, mocker):
     """2FA 확정 성공 테스트"""
@@ -94,8 +97,7 @@ def test_twofactor_confirm_success(api_client, user, mocker):
 
     # UserService.confirm_2fa가 성공(True)을 반환하도록 Mock
     mocker.patch(
-        "users.services.user_service.UserService.confirm_2fa",
-        return_value=True
+        "users.services.user_service.UserService.confirm_2fa", return_value=True
     )
 
     url = reverse("2fa-confirm")
@@ -114,8 +116,7 @@ def test_twofactor_confirm_failure(api_client, user, mocker):
 
     # UserService.confirm_2fa가 실패(False)를 반환하도록 Mock
     mocker.patch(
-        "users.services.user_service.UserService.confirm_2fa",
-        return_value=False
+        "users.services.user_service.UserService.confirm_2fa", return_value=False
     )
 
     url = reverse("2fa-confirm")
@@ -132,7 +133,7 @@ def test_twofactor_confirm_no_code(api_client, user, mocker):
     # request.data.get("code")는 코드가 없으면 None 반환
     mocker.patch(
         "users.services.user_service.UserService.confirm_2fa",
-        return_value=False # None이 전달되면 서비스 로직에 따라 실패 가정
+        return_value=False,  # None이 전달되면 서비스 로직에 따라 실패 가정
     )
 
     url = reverse("2fa-confirm")
@@ -146,6 +147,7 @@ def test_twofactor_confirm_no_code(api_client, user, mocker):
 # ----------------------------------------------------------------------
 # TwoFactorVerifyView 테스트
 # ----------------------------------------------------------------------
+
 
 # 기존 test_twofactor_verify_success 로직을 간소화하고 명확히 분리
 @pytest.mark.django_db
@@ -174,7 +176,7 @@ def test_twofactor_verify_success_and_tokens(api_client, user, mocker):
     assert body["access_token"] == "mock_access"
     assert res.cookies.get("access_token") is not None
     assert res.cookies.get("refresh_token") is not None
-    assert res.cookies["access_token"].value == "mock_access" # 쿠키 값 확인 추가
+    assert res.cookies["access_token"].value == "mock_access"  # 쿠키 값 확인 추가
 
 
 @pytest.mark.django_db
@@ -185,7 +187,7 @@ def test_twofactor_verify_serializer_failure(api_client):
     # 1. 코드 누락 (TwoFactorAuthSerializer는 code를 required=True로 설정)
     res = api_client.post(url, {"email": "test@example.com"})
     assert res.status_code == 400
-    assert "code" in res.json() # Serializer 에러 필드 확인
+    assert "code" in res.json()  # Serializer 에러 필드 확인
 
 
 @pytest.mark.django_db
@@ -196,7 +198,7 @@ def test_twofactor_verify_service_valide_error(api_client, user, mocker):
     # 1. ValueError (잘못된 코드 또는 2FA 장치 없음)
     mocker.patch(
         "users.services.user_service.UserService.verify_2fa",
-        side_effect=ValueError("잘못된 인증 코드입니다.")
+        side_effect=ValueError("잘못된 인증 코드입니다."),
     )
     res = api_client.post(url, {"email": user.email, "code": "bad"})
     assert res.status_code == 400
@@ -205,7 +207,7 @@ def test_twofactor_verify_service_valide_error(api_client, user, mocker):
     # 2. UserNotFoundException
     mocker.patch(
         "users.services.user_service.UserService.verify_2fa",
-        side_effect=UserNotFoundException("사용자를 찾을 수 없습니다.")
+        side_effect=UserNotFoundException("사용자를 찾을 수 없습니다."),
     )
     res2 = api_client.post(url, {"email": "nonexistent@example.com", "code": "0000"})
     assert res2.status_code == 400
@@ -219,10 +221,8 @@ def test_twofactor_verify_unexpected_exception(api_client, user, mocker):
 
     mocker.patch(
         "users.services.user_service.UserService.verify_2fa",
-        side_effect=Exception("Internal server error")
+        side_effect=Exception("Internal server error"),
     )
     res = api_client.post(url, {"email": user.email, "code": "boom"})
     assert res.status_code == 500
     assert "2FA 인증 중 오류: Internal server error" in res.json()["detail"]
-
-

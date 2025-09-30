@@ -1,5 +1,4 @@
 import secrets
-from datetime import timedelta
 from unittest.mock import MagicMock
 
 import django.conf
@@ -68,39 +67,38 @@ def test_login_wrong_password(api_client, user):
 
 
 @pytest.mark.django_db
-def test_token_refresh_success(api_client, user, mocker):
-    pw = secrets.token_urlsafe(12)
-    user.set_password(pw)
-    user.save()
-
+def test_token_refresh_success(api_client, user, password, mocker):
     login_url = reverse("user-login")
+    refresh_url = reverse("token-refresh")
 
-    res = api_client.post(
-        login_url, {"email": user.email, "password": pw}, format="json"
+    # 1. 로그인 요청을 수행하여 클라이언트 세션을 활성화합니다.
+    login_res = api_client.post(
+        login_url, {"email": user.email, "password": password}, format="json"
     )
-    assert res.status_code == status.HTTP_200_OK
+    assert login_res.status_code == 200
 
-    refresh_token = res.json().get("refresh_token")
+    # 2. 강제로 유효한 refresh_token 쿠키를 클라이언트 세션에 추가합니다.
+    # 💡 실제 토큰 로직에 따라 유효한 값을 사용하거나 Mocking합니다.
+    mock_refresh_token = "valid_mock_refresh_token_for_test"
 
-    # 인증 관련 함수 mock 처리로 403 문제 해결
-    mocker.patch(
-        "users.services.token_service.TokenService.is_valid_access_token",
-        return_value={"user_id": user.id},
-    )
-    mocker.patch(
-        "users.services.token_service.TokenService.generate_tokens",
-        return_value=(
-            "access_token_mock",
-            "refresh_token_mock",
-            timedelta(seconds=3600),
-        ),
+    # TokenRepository의 check_refresh_token을 Mock하여 토큰 검증을 성공시킵니다.
+    mocker.patch.object(
+        service.token_repo,
+        "get_token_by_refresh_token",
+        return_value=mocker.Mock(is_blacklisted=False),
     )
 
-    url = reverse("token-refresh")
-    res2 = api_client.post(url, {"refresh_token": refresh_token}, format="json")
-    assert res2.status_code == status.HTTP_200_OK
-    assert "access_token" in res2.json()
+    # 클라이언트 쿠키에 refresh_token 설정
+    api_client.cookies["refresh_token"] = mock_refresh_token
 
+    # 3. 토큰 갱신 요청: 클라이언트가 저장된 쿠키를 자동으로 포함합니다.
+    res = api_client.post(refresh_url, format="json")
+
+    # 💡 401 대신 200을 기대
+    assert res.status_code == 200
+
+    # 4. 응답에 새 access_token 쿠키가 설정되었는지 확인
+    assert "access_token" in res.cookies
 
 @pytest.mark.django_db
 def test_token_refresh_fail(api_client):
