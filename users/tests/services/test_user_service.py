@@ -82,7 +82,6 @@ def test_create_user(service):
     # 1. 생성 성공
     user = service.create_user(email, password_val, "nick", enable_2fa=False)
     assert user.email == email
-    # 💡 수정: UserProfile을 통해 nickname에 접근
     assert user.user_profile.nickname == "nick"
 
     # 2. 이메일 중복 시 ValueError 발생
