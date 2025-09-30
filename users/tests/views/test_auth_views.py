@@ -454,6 +454,7 @@ def test_check_email_view(api_client, user, mocker, mock_user_service):
 # 6. PasswordResetRequestView / ConfirmView 테스트
 # ----------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 def test_password_reset_request(api_client, user, mocker, mock_user_service):
     """비밀번호 재설정 요청 테스트 (http 및 https 프로토콜 분기 커버)"""
@@ -481,7 +482,6 @@ def test_password_reset_request(api_client, user, mocker, mock_user_service):
             request = response.renderer_context["request"]
             request.scheme = "http"
             return response
-
 
         res_http = api_client.post(req_url, {"email": user.email}, format="json")
         assert res_http.status_code == status.HTTP_200_OK

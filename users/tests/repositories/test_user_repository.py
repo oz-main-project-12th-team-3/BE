@@ -226,20 +226,20 @@ def test_2fa_methods_handle_name_error_in_test_env(repo, user, mocker, password)
     settings.IS_TEST_ENV=True일 때 TOTPDevice가 정의되지 않아 NameError가 발생하며,
     이때 모든 2FA 메서드가 None을 반환하거나 오류 없이 작동하는지 테스트합니다.
     """
-    # 💡 NameError를 강제로 발생시키기 위해 TOTPDevice를 None으로 설정 (실제 환경과 유사하게)
+    # 💡 NameError를 강제로 발생시키기 위해 TOTPDevice를 None으로 설정
     global TOTPDevice
     original_TOTPDevice = TOTPDevice
     TOTPDevice = None
 
     # 1. create_user: NameError 발생 시 try/except로 무시되는지 확인
     email = "2fa_fail@example.com"
-    new_user = repo.create_user(email=email, password=password, enable_2fa=True)
+    _ = repo.create_user(email=email, password=password, enable_2fa=True)
     assert User.objects.filter(email=email).exists()  # 사용자는 생성되어야 함
 
-    # 2. get_user_confirmed_2fa_device: NameError 발생 시 None 반환 확인
+    # 2. get_user_confirmed_2fa_device: NameError 발생 시 None 반환
     assert repo.get_user_confirmed_2fa_device(user) is None
 
-    # 3. get_user_unconfirmed_2fa_device: NameError 발생 시 None 반환 확인
+    # 3. get_user_unconfirmed_2fa_device: NameError 발생 시 None 반환
     assert repo.get_user_unconfirmed_2fa_device(user) is None
 
     # 4. create_2fa_device: NameError 발생 시 None 반환 확인

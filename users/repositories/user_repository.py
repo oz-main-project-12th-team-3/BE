@@ -8,7 +8,6 @@ from ..exceptions import (
 )
 from ..models import User, UserProfile
 
-# 🟢 로그인 실패 횟수 및 잠금 관련 상수 정의
 LOGIN_FAILURE_LIMIT = 5
 ACCOUNT_LOCK_DURATION_MINUTES = 30
 
@@ -44,7 +43,6 @@ class UserRepository:
         except User.DoesNotExist:
             raise UserNotFoundException("사용자를 찾을 수 없습니다.")
 
-    # 🟢 추가된 메서드 1: ID로 사용자 조회 (test_get_user_by_id_success_and_failure 해결)
     def get_user_by_id(self, user_id):
         """ID로 사용자를 조회합니다."""
         try:
@@ -58,7 +56,6 @@ class UserRepository:
         user.password_changed_at = django_timezone.now()
         user.save()
 
-    # 🟢 추가된 메서드 2: 로그인 실패 횟수 업데이트 및 계정 잠금 처리 (나머지 AttributeError 해결)
     def update_login_fail_count(self, user, is_success):
         """
         로그인 성공/실패에 따라 실패 횟수를 업데이트하고,
@@ -85,8 +82,11 @@ class UserRepository:
                     + django_timezone.timedelta(minutes=ACCOUNT_LOCK_DURATION_MINUTES)
                 )
                 user.save()
-                raise AccountLockedException(
-                    f"로그인 실패 횟수 초과로 계정이 {ACCOUNT_LOCK_DURATION_MINUTES}분 동안 잠금 처리되었습니다."
+                raise (
+                    AccountLockedException(
+                        f"로그인 실패 횟수 초과로 계정이 "
+                        f"{ACCOUNT_LOCK_DURATION_MINUTES}분 동안 잠금 처리되었습니다."
+                    )
                 )
             else:
                 user.save()

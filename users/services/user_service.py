@@ -43,7 +43,7 @@ class UserService:
             return user, True, False, None, None
 
         # 2. 미확정 (Pending) 기기가 있는 경우 (회원가입 직후)
-        #    🚨 뷰에서 tfa_required=True를 받도록 임시 토큰 반환을 최우선으로 처리합니다.
+        #    🚨 뷰에서 tfa_required=True를 받도록 임시 토큰 반환을 최우선으로 처리
         if pending_device:
             # 2A 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
             if not code:
@@ -62,7 +62,7 @@ class UserService:
                 raise ValueError("잘못된 2FA 인증 코드입니다.")
 
         # 3. 확정된 (Confirmed) 기기가 있는 경우
-        #    🚨 Pending과 동일하게, 코드가 없으면 임시 토큰 반환을 최우선으로 처리합니다.
+        #    🚨 Pending과 동일하게, 코드가 없으면 임시 토큰 반환을 최우선으로 처리
         if confirmed_device:
             # 2A 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
             if not code:
