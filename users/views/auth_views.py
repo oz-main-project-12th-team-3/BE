@@ -1,16 +1,16 @@
 from django.conf import settings
-from rest_framework import permissions, status
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from django.contrib.auth import authenticate, login
 from django.urls import reverse
 from django_otp import user_has_device
+from rest_framework import permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from two_factor.utils import user_has_device
 
 from ..authentication import JWTAuthentication
 from ..exceptions import (
     PasswordMismatchException,
     TokenAuthenticationFailed,
-    UserNotFoundException,
 )
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
@@ -18,7 +18,6 @@ from ..serializers import (
     CheckEmailSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
-    UserLoginSerializer,
     UserRegisterSerializer,
 )
 from ..services.token_service import TokenService
@@ -64,13 +63,6 @@ class UserRegisterView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-from django.contrib.auth import authenticate, login
-from django.urls import reverse
-from two_factor.utils import user_has_device
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import permissions, status
-
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -85,10 +77,10 @@ class UserLoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        login(request, user)  # Django 세션 로그인 수행
+        login(request, user)  # Django 세션 로그인
 
+        # 2FA 등록 여부 확인
         if user_has_device(user):
-            # 2FA 등록 사용자: 2FA 로그인 페이지 URL 프론트에 전달
             return Response(
                 {
                     "detail": "2FA 인증이 필요합니다.",
@@ -98,7 +90,6 @@ class UserLoginView(APIView):
                 status=status.HTTP_200_OK,
             )
         else:
-            # 2FA 미등록 사용자: 로그인 성공 응답
             return Response(
                 {
                     "detail": "로그인 성공",
@@ -108,6 +99,8 @@ class UserLoginView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
+
+
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]

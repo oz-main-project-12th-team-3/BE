@@ -123,13 +123,13 @@ TEMPLATES = [
 # -----------------------------
 # 2FA 관련 설정
 # -----------------------------
-LOGIN_URL = 'two_factor:login'   # 로그인 시작 URL, 커스텀 로그인 사용 시 이 URL 연결
-LOGIN_REDIRECT_URL = '/'         # 로그인 성공 후 리다이렉트할 URL
-LOGOUT_REDIRECT_URL = 'two_factor:login'
+LOGIN_URL = "two_factor:login"  # 로그인 시작 URL, 커스텀 로그인 사용 시 이 URL 연결
+LOGIN_REDIRECT_URL = "/"  # 로그인 성공 후 리다이렉트할 URL
+LOGOUT_REDIRECT_URL = "two_factor:login"
 
 # 2FA 폼 설정 (기본 TOTP 폼 사용)
 TWO_FACTOR_FORMS = {
-    'setup': 'two_factor.forms.TOTPDeviceForm',
+    "setup": "two_factor.forms.TOTPDeviceForm",
 }
 
 # -----------------------------
@@ -332,8 +332,8 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # 발신 이메일 주소 기본값
 
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'OZ-Digital-Human API',
-    'DESCRIPTION': 'API documentation for the OZ Digital Human project.',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    "TITLE": "OZ-Digital-Human API",
+    "DESCRIPTION": "API documentation for the OZ Digital Human project.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
