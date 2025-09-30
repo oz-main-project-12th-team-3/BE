@@ -48,7 +48,6 @@ def service(db):
 @pytest.fixture
 def tfa_user(db, password):
     """2FA가 활성화된 것으로 가정하는 유저 픽스처"""
-    # 실제 User 모델에 2FA 관련 필드가 없더라도, 테스트에서 user_has_device를 목킹할 수 있도록 준비
     user = User.objects.create_user(email="tfauser@example.com")
     user.set_password(password)
     user.save()
@@ -122,12 +121,8 @@ def test_logout(api_client, user, mocker):
     url = reverse("user-logout")
     api_client.force_authenticate(user=user)
 
-    # 1. 목킹 경로 수정: TokenRepository가 auth_views.py 파일 내에서 사용(임포트)되는 경로를 사용합니다.
-    #    (예: users.views.auth_views 파일 내에서 TokenRepository를 임포트했다는 가정)
     mock_token_repo_cls = mocker.patch("users.views.auth_views.TokenRepository")
 
-    # 2. Mock 인스턴스에서 호출될 blacklist_all_user_tokens 메서드를 가져옵니다.
-    #    이는 (users.views.auth_views.TokenRepository()) 결과의 .blacklist_all_user_tokens 입니다.
     mock_blacklist_method = mock_token_repo_cls.return_value.blacklist_all_user_tokens
 
     res = api_client.post(url)
@@ -135,10 +130,8 @@ def test_logout(api_client, user, mocker):
     assert res.status_code == status.HTTP_200_OK
     assert res.json()["detail"] == "로그아웃 되었습니다."
 
-    # 3. 호출 확인
     mock_blacklist_method.assert_called_once_with(user)
 
-    # 쿠키 삭제 확인
     assert res.cookies.get("access_token").value == ""
     assert res.cookies.get("refresh_token").value == ""
 
@@ -267,15 +260,13 @@ def test_password_reset_confirm_invalid(api_client, user):
     # 유효하지 않은 uidb64 또는 토큰 사용
     confirm_url = reverse("password-reset-confirm", args=["bad_uid", "bad_token"])
 
-    # ⚠️ 참고: 실제로 UserService.reset_password() 내부에서 ValueError가 발생하면
-    # 뷰가 이를 HTTP_401_UNAUTHORIZED로 응답
     data = {
         "new_password": "NewValidPassword1!",
         "new_password_confirm": "NewValidPassword1!",
     }
     res = api_client.post(confirm_url, data, format="json")
 
-    # 뷰에 try-except ValueError 로직을 추가했다면 401을 기대합니다.
+    # 뷰에 try-except ValueError 로직을 추가했다면 401을 기대
     assert res.status_code == status.HTTP_401_UNAUTHORIZED
     assert "유효하지 않은" in res.json().get("detail", "")
 

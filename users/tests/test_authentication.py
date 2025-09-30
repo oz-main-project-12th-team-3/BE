@@ -97,8 +97,6 @@ def test_token_refresh_success(api_client, user, password, service, mocker):
     mock_refresh_token = "new_refresh_token"
     mock_lifetime = timedelta(minutes=5)
 
-    # 💡 뷰가 내부에서 TokenService를 생성하므로, 뷰의 _get_token_service 메서드를 Mocking합니다.
-    #    (이전 답변에서 제시된 방식)
     mocker.patch(
         "users.views.auth_views.TokenRefreshView._get_token_service",
         return_value=mocker.Mock(
