@@ -7,7 +7,9 @@ from .validators import profanity_validator
 class UserRegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    nickname = serializers.CharField(required=False, allow_blank=True, validators=[profanity_validator])
+    nickname = serializers.CharField(
+        required=False, allow_blank=True, validators=[profanity_validator]
+    )
     enable_2fa = serializers.BooleanField(default=False)
     # 프론트에서 구현
     # password_confirm = serializers.CharField(write_only=True)
@@ -30,10 +32,7 @@ class UserRegisterSerializer(serializers.Serializer):
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    # 2FA 코드 필드 추가 (선택적, 빈 문자열 허용)
-    # two_fa_code = serializers.CharField(
-    #     write_only=True, required=False, allow_blank=True
-    # )
+    tfa_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
 
 class CheckEmailSerializer(serializers.Serializer):

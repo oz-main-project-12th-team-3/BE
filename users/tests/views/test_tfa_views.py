@@ -1,300 +1,322 @@
 import secrets
 from datetime import timedelta
+from unittest.mock import MagicMock
 
 import pytest
-from django.conf import settings
 from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APIClient
 
 from users.exceptions import UserNotFoundException
 from users.models import User
-from users.repositories.user_repository import UserRepository
 
-if settings.IS_TEST_ENV:
-    pytest.skip("2FA tests disabled in CI/Test environment", allow_module_level=True)
-else:
-    from django_otp.plugins.otp_totp.models import TOTPDevice
+# from users.services.token_service import TokenService # 필요한 경우 import
+
+# ----------------------------------------------------------------------
+# Fixtures
+# ----------------------------------------------------------------------
 
 
+# 1. API Client Fixture
 @pytest.fixture
 def api_client():
-    from rest_framework.test import APIClient
-
     return APIClient()
 
 
+# 2. Password and User Fixture
 @pytest.fixture
 def password():
-    # 💡 수정: 비밀번호를 secrets 모듈로 랜덤 생성하도록 명시
     return secrets.token_urlsafe(12)
 
 
 @pytest.fixture
 def user(db, password):
-    # password 픽스처를 사용하여 사용자 생성
-    return User.objects.create_user(email="2fa@example.com", password=password)
+    user_email = f"test_{secrets.token_urlsafe(8)}@example.com"
+    return User.objects.create_user(email=user_email, password=password)
+
+
+# 3. TFA URLs Fixture
+@pytest.fixture
+def tfa_urls():
+    """2FA 관련 URL들을 반환합니다."""
+    # URL name이 '2fa-setup', '2fa-confirm', '2fa-verify'라고 가정합니다.
+    return {
+        "setup": reverse("2fa-setup"),
+        "confirm": reverse("2fa-confirm"),
+        "verify": reverse("2fa-verify"),
+    }
+
+
+# 4. MockTOTPDevice 클래스
+class MockTOTPDevice:
+    def __init__(self, user, confirmed=False, id=1, config_url="otp_uri_test"):
+        self.user = user
+        self.confirmed = confirmed
+        self.id = id
+        self.config_url = config_url
+        self.save = MagicMock()
+        self.verify_token = MagicMock(return_value=True)
+
+
+# ----------------------------------------------------------------------
+# 1. TwoFactorSetupView 테스트
+# ----------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_twofactor_setup_new_device(api_client, user):
+def test_2fa_setup_success_new_device(api_client, user, tfa_urls, mocker):
+    """2FA 기기 설정 성공 (새로운 미확정 기기 생성)"""
     api_client.force_authenticate(user=user)
-    url = reverse("2fa-setup")
-    res = api_client.post(url)
-    # 기존 201 기대 → 실제 200이면 실제 View 확인 후 200으로 수정
-    assert res.status_code in (200, 201)
-    body = res.json()
-    assert "device_id" in body
-    assert "otp_uri" in body
-    assert body.get("qr_code_base64", "") == "" or body.get("qr_code_base64") is None
 
+    mock_device = MockTOTPDevice(user, confirmed=False)
 
-@pytest.mark.django_db
-def test_twofactor_setup_existing_confirmed_device(api_client, user):
-    api_client.force_authenticate(user=user)
-    TOTPDevice.objects.create(user=user, name="default", confirmed=True)
-    url = reverse("2fa-setup")
-    res = api_client.post(url)
-    assert res.status_code == 200
-    assert "이미 등록" in res.json()["detail"]
-
-
-@pytest.mark.django_db
-def test_twofactor_confirm_failure(api_client, user, mocker):
-    api_client.force_authenticate(user=user)
-    dev = TOTPDevice.objects.create(user=user, name="default", confirmed=False)
-    mocker.patch.object(dev, "verify_token", return_value=False)
-    dev.save()
-
-    url = reverse("2fa-confirm")
-    res = api_client.post(url, {"code": "wrong"})
-    assert res.status_code == 400
-    assert "잘못된" in res.json()["detail"]
-
-
-@pytest.mark.django_db
-def test_twofactor_verify_success(api_client, user, mocker):
-    dev = TOTPDevice.objects.create(user=user, name="default", confirmed=True)
-    mocker.patch.object(dev, "verify_token", return_value=True)
-    dev.save()
-
-    # 토큰 생성 Mock
     mocker.patch(
-        "users.services.token_service.TokenService.generate_tokens",
-        return_value=("mock_access", "mock_refresh", timedelta(seconds=3600)),
+        "users.views.tfa_views.TwoFactorSetupView._get_user_service",
+        return_value=mocker.Mock(setup_2fa=mocker.Mock(return_value=mock_device)),
     )
 
-    # verify_2fa 를 무조건 True 리턴하도록 Mock
-    mocker.patch(
-        "users.services.user_service.UserService.verify_2fa",
-        return_value=user,
-    )
+    res = api_client.post(tfa_urls["setup"])
 
-    url = reverse("2fa-verify")
-    data = {"email": user.email, "code": "123456"}
-    res = api_client.post(url, data=data)
-
-    assert res.status_code == 200
-    body = res.json()
-    assert body["detail"] == "2FA 인증 성공"
-    assert "access_token" in body
-    assert res.cookies.get("access_token") is not None
+    assert res.status_code == status.HTTP_201_CREATED
+    assert res.data["detail"] == "2FA 기기가 등록되었습니다."
+    assert res.data["otp_uri"] == mock_device.config_url
+    assert res.data["device_id"] == mock_device.id
 
 
 @pytest.mark.django_db
-def test_twofactor_verify_no_device(api_client, user):
-    url = reverse("2fa-verify")
-    # 💡 뷰가 UserService를 사용하고, UserService가 예외를 던지므로
-    # 이 테스트는 Mocking 없이 실제 UserService의 동작을 검증합니다.
-    res = api_client.post(url, {"email": user.email, "code": "0000"})
-    assert res.status_code == 400
-    assert "등록된 2FA 기기" in res.json()["detail"]
-
-
-@pytest.mark.django_db
-def test_twofactor_verify_bad_code(api_client, user, mocker):
-    dev = TOTPDevice.objects.create(user=user, name="default", confirmed=True)
-    mocker.patch.object(dev, "verify_token", return_value=False)
-    dev.save()
-
-    url = reverse("2fa-verify")
-    res = api_client.post(url, {"email": user.email, "code": "bad"})
-    assert res.status_code == 400
-    assert "잘못된" in res.json()["detail"]
-
-
-@pytest.mark.django_db
-def test_twofactor_verify_unexpected_exception(api_client, user, mocker):
-    url = reverse("2fa-verify")
-    # 💡 서비스 메서드를 Mocking하여 예외 상황을 시뮬레이션
-    mocker.patch(
-        "users.services.user_service.UserService.verify_2fa",
-        side_effect=Exception("boom"),
-    )
-    res = api_client.post(url, {"email": user.email, "code": "boom"})
-    assert res.status_code == 500
-    assert "2FA 인증 중 오류" in res.json()["detail"]
-
-
-@pytest.mark.django_db
-def test_twofactor_setup_new_and_existing_device(api_client, user):
+def test_2fa_setup_existing_device(api_client, user, tfa_urls, mocker):
+    """2FA 기기 설정 시 이미 확정된 기기가 존재하는 경우"""
     api_client.force_authenticate(user=user)
-    url = reverse("2fa-setup")
 
-    # 새로운 2FA 기기 생성 또는 기존 등록 안된 상태
-    res = api_client.post(url)
-    assert res.status_code in (200, 201)
-    body = res.json()
-    assert "device_id" in body
-    assert "otp_uri" in body
+    # UserService.setup_2fa가 반환할 Mock Device 설정 (확정됨)
+    mock_device = MockTOTPDevice(user, confirmed=True)
 
-    # 이미 확정된 기기 있을 때
-    TOTPDevice.objects.create(user=user, name="default", confirmed=True)
-    res2 = api_client.post(url)
-    assert res2.status_code == 200
-    assert "이미 등록" in res2.json()["detail"]
-
-
-@pytest.mark.django_db
-def test_twofactor_confirm_success_and_failure(api_client, user, mocker):
-    api_client.force_authenticate(user=user)
-    device = TOTPDevice.objects.create(user=user, name="default", confirmed=False)
-    mocker.patch.object(device, "verify_token", return_value=True)
-    device.save()
-
-    url = reverse("2fa-confirm")
-    res = api_client.post(url, {"code": "correct_code"})
-    assert res.status_code in (200, 400)
-    if res.status_code == 200:
-        assert "2FA 등록이 완료되었습니다." in res.json()["detail"]
-    else:
-        assert "잘못된" in res.json()["detail"] or "error" in res.json()
-
-    # 실패 케이스
-    mocker.patch.object(device, "verify_token", return_value=False)
-    res_fail = api_client.post(url, {"code": "wrong_code"})
-    assert res_fail.status_code == 400
-    assert "잘못된" in res_fail.json()["detail"]
-
-
-@pytest.mark.django_db
-def test_twofactor_verify_success_failure_no_device_unexpected(
-    api_client, user, mocker
-):
-    # confirmed=True인 TOTPDevice 생성 및 verify_token mock
-    device = TOTPDevice.objects.create(user=user, name="default", confirmed=True)
-    mocker.patch.object(device, "verify_token", return_value=True)
-    device.save()
-
-    url = reverse("2fa-verify")
-    data = {"email": user.email, "code": "correct_code"}
-
-    # 💡 TokenService Mocking을 추가하여 실제 토큰 생성 및 DB I/O를 우회합니다.
     mocker.patch(
-        "users.services.token_service.TokenService.generate_tokens",
-        return_value=("mock_access", "mock_refresh", timedelta(seconds=3600)),
+        "users.views.tfa_views.TwoFactorSetupView._get_user_service",
+        return_value=mocker.Mock(setup_2fa=mocker.Mock(return_value=mock_device)),
     )
 
-    res = api_client.post(url, data=data)
+    res = api_client.post(tfa_urls["setup"])
 
-    assert res.status_code in (200, 400)
-
-    if res.status_code == 200:
-        json_data = res.json()
-        assert "detail" in json_data
-        assert json_data["detail"] == "2FA 인증 성공"
-        assert "access_token" in json_data
-        assert res.cookies.get("access_token") is not None
-    else:
-        json_data = res.json()
-        detail = json_data.get("detail", "")
-        assert "잘못된" in detail or detail == ""
+    assert res.status_code == status.HTTP_200_OK
+    assert res.data["detail"] == "2FA 기기가 이미 등록되어 있습니다."
+    assert res.data["device_id"] == mock_device.id
 
 
 @pytest.mark.django_db
-def test_twofactor_setup_exception(api_client, user, mocker):
+def test_2fa_setup_unauthenticated(api_client, tfa_urls):
+    """인증되지 않은 사용자가 접근 시 403 오류"""
+    api_client.force_authenticate(user=None)
+    res = api_client.post(tfa_urls["setup"])
+    assert res.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_2fa_setup_internal_error(api_client, user, tfa_urls, mocker):
+    """
+    2FA 설정 중 일반 Exception 발생 시 500 Internal Server Error 반환하는지 테스트.
+    """
     api_client.force_authenticate(user=user)
-    url = reverse("2fa-setup")
+
+    # 💡 UserService.setup_2fa가 일반 Exception을 발생시키도록 Mocking
+    error_msg = "Database connection lost during setup"
     mocker.patch(
-        "users.services.user_service.UserService.setup_2fa",
-        side_effect=Exception("setup error"),
-    )
-    res = api_client.post(url)
-    assert res.status_code == 500
-
-
-@pytest.mark.django_db
-def test_twofactor_confirm_no_code(api_client, user):
-    api_client.force_authenticate(user=user)
-    url = reverse("2fa-confirm")
-
-    res = api_client.post(url, {})  # 코드 누락
-    assert res.status_code == 400
-
-
-@pytest.mark.django_db
-def test_twofactor_verify_serializer_failure(api_client):
-    url = reverse("2fa-verify")
-    res = api_client.post(url, {"email": ""})  # 필수 필드 없음
-    assert res.status_code == 400
-
-
-@pytest.mark.django_db
-def test_twofactor_verify_cookie_and_tokens(api_client, user, mocker):
-    dev = TOTPDevice.objects.create(user=user, name="default", confirmed=True)
-
-    mocker.patch.object(
-        UserRepository, "get_user_confirmed_2fa_device", return_value=dev
-    )
-    mocker.patch.object(dev, "verify_token", return_value=True)
-    dev.save()
-
-    # 💡 TokenService Mocking을 사용하여 실제 토큰 생성 및 DB I/O를 우회합니다.
-    mocker.patch(
-        "users.services.token_service.TokenService.generate_tokens",
-        return_value=(
-            "access_token_mock",
-            "refresh_token_mock",
-            timedelta(seconds=3600),
+        "users.views.tfa_views.TwoFactorSetupView._get_user_service",
+        return_value=mocker.Mock(
+            setup_2fa=mocker.Mock(side_effect=Exception(error_msg))
         ),
     )
 
-    url = reverse("2fa-verify")
-    data = {"email": user.email, "code": "123456"}
-    res = api_client.post(url, data)
+    res = api_client.post(tfa_urls["setup"])
 
-    assert res.status_code == 200
-    assert "access_token" in res.cookies
-    assert "refresh_token" in res.cookies
-    # Mocking된 값이 쿠키에 설정되었는지 확인 (선택 사항)
-    assert res.cookies["access_token"].value == "access_token_mock"
+    assert res.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert f"2FA 설정 중 오류: {error_msg}" in res.data["detail"]
+
+
+# ----------------------------------------------------------------------
+# 2. TwoFactorConfirmView 테스트
+# ----------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_twofactor_verify_user_exceptions(api_client, user, mocker):
-    url = reverse("2fa-verify")
+def test_2fa_confirm_success(api_client, user, tfa_urls, mocker):
+    """2FA 확정 성공"""
+    api_client.force_authenticate(user=user)
 
-    # UserNotFoundException 테스트
     mocker.patch(
-        "users.services.user_service.UserService.verify_2fa",
-        side_effect=UserNotFoundException("User not found"),
+        "users.views.tfa_views.TwoFactorConfirmView._get_user_service",
+        return_value=mocker.Mock(confirm_2fa=mocker.Mock(return_value=True)),
     )
-    res = api_client.post(url, {"email": user.email, "code": "code"})
-    assert res.status_code == 400
-    assert "User not found" in res.json().get("detail", "")
 
-    # ValueError (Invalid code) 테스트
-    mocker.patch(
-        "users.services.user_service.UserService.verify_2fa",
-        side_effect=ValueError("Invalid code"),
-    )
-    res = api_client.post(url, {"email": user.email, "code": "code"})
-    assert res.status_code == 400
-    assert "Invalid code" in res.json().get("detail", "")
+    test_code = secrets.token_hex(3)
+    res = api_client.post(tfa_urls["confirm"], {"code": test_code})
 
-    # 일반 Exception 테스트
+    assert res.status_code == status.HTTP_200_OK
+    assert res.data["detail"] == "2FA 등록이 완료되었습니다."
+
+
+@pytest.mark.django_db
+def test_2fa_confirm_failure_invalid_code(api_client, user, tfa_urls, mocker):
+    """2FA 확정 실패 (잘못된 코드)"""
+    api_client.force_authenticate(user=user)
+
+    # UserService.confirm_2fa Mocking: 실패 시 False 반환 (라인 68-71 커버)
     mocker.patch(
-        "users.services.user_service.UserService.verify_2fa",
-        side_effect=Exception("Unknown error"),
+        "users.views.tfa_views.TwoFactorConfirmView._get_user_service",
+        return_value=mocker.Mock(confirm_2fa=mocker.Mock(return_value=False)),
     )
-    res = api_client.post(url, {"email": user.email, "code": "code"})
-    assert res.status_code == 500
-    assert "2FA 인증 중 오류" in res.json().get("detail", "")
+
+    test_code = secrets.token_hex(3)
+    res = api_client.post(tfa_urls["confirm"], {"code": test_code})
+
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert res.data["detail"] == "잘못된 인증 코드"
+
+
+# ----------------------------------------------------------------------
+# 3. TwoFactorVerifyView 테스트
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_2fa_verify_success(api_client, user, tfa_urls, mocker):
+    """2FA 인증 성공 후 정식 토큰 발급"""
+
+    # Mocking: UserService.verify_2fa가 user를 반환하도록 설정
+    mock_user_service = mocker.Mock(verify_2fa=mocker.Mock(return_value=user))
+
+    # Mocking: TokenService.generate_tokens의 반환값 설정
+    mock_token_service = mocker.Mock(
+        generate_tokens=mocker.Mock(
+            return_value=(
+                "valid_access_token",
+                "valid_refresh_token",
+                timedelta(minutes=5),
+            )
+        )
+    )
+
+    mocker.patch(
+        "users.views.tfa_views.TwoFactorVerifyView._get_services",
+        return_value=(mock_user_service, mock_token_service),
+    )
+
+    request_data = {"email": user.email, "code": secrets.token_hex(3)}
+
+    res = api_client.post(tfa_urls["verify"], request_data, format="json")
+
+    assert res.status_code == status.HTTP_200_OK
+    assert res.data["detail"] == "2FA 인증 성공"
+
+
+@pytest.mark.django_db
+def test_2fa_verify_failure_invalid_code(api_client, user, tfa_urls, mocker):
+    """2FA 인증 실패 (잘못된 코드, ValueError)"""
+
+    # Mocking: verify_2fa가 ValueError를 발생시키도록 설정
+    error_message = "잘못된 인증 코드입니다."
+    mock_user_service = mocker.Mock(
+        verify_2fa=mocker.Mock(side_effect=ValueError(error_message))
+    )
+
+    mocker.patch(
+        "users.views.tfa_views.TwoFactorVerifyView._get_services",
+        return_value=(mock_user_service, mocker.Mock()),
+    )
+
+    request_data = {"email": user.email, "code": secrets.token_hex(3)}
+
+    res = api_client.post(tfa_urls["verify"], request_data, format="json")
+
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert res.data["detail"] == error_message
+
+
+@pytest.mark.django_db
+def test_2fa_verify_failure_user_not_found(api_client, user, tfa_urls, mocker):
+    """2FA 인증 실패 (사용자 없음, UserNotFoundException)"""
+
+    # Mocking: verify_2fa가 UserNotFoundException을 발생시키도록 설정
+    error_message = "사용자를 찾을 수 없습니다."
+    mock_user_service = mocker.Mock(
+        verify_2fa=mocker.Mock(side_effect=UserNotFoundException(error_message))
+    )
+
+    mocker.patch(
+        "users.views.tfa_views.TwoFactorVerifyView._get_services",
+        return_value=(mock_user_service, mocker.Mock()),
+    )
+
+    request_data = {
+        "email": f"{secrets.token_urlsafe(8)}@example.com",
+        "code": secrets.token_hex(3),
+    }
+
+    res = api_client.post(tfa_urls["verify"], request_data, format="json")
+
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert res.data["detail"] == error_message
+
+
+@pytest.mark.django_db
+def test_2fa_verify_internal_error(api_client, user, tfa_urls, mocker):
+    """
+    2FA 인증 성공 후 generate_tokens 호출 중 일반 Exception 발생 시
+    500 Internal Server Error (라인 90-94)를 반환하는지 테스트.
+    """
+    # Mocking: UserService.verify_2fa는 성공적으로 user를 반환
+    mock_user_service = mocker.Mock(verify_2fa=mocker.Mock(return_value=user))
+
+    # 💡 Mocking: TokenService.generate_tokens가 일반 Exception을 발생
+    error_msg = "JWT signing error"
+    mock_token_service = mocker.Mock(
+        generate_tokens=mocker.Mock(side_effect=Exception(error_msg))
+    )
+
+    mocker.patch(
+        "users.views.tfa_views.TwoFactorVerifyView._get_services",
+        return_value=(mock_user_service, mock_token_service),
+    )
+
+    request_data = {"email": user.email, "code": secrets.token_hex(3)}
+
+    res = api_client.post(tfa_urls["verify"], request_data, format="json")
+
+    assert res.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert f"2FA 인증 중 오류: {error_msg}" in res.data["detail"]
+
+
+@pytest.mark.django_db
+def test_2fa_verify_cookie_debug_mode(api_client, user, tfa_urls, mocker, settings):
+    """DEBUG=True일 때 secure=False로 쿠키가 설정되는지 확인"""
+
+    settings.DEBUG = True
+
+    mock_user_service = mocker.Mock(verify_2fa=mocker.Mock(return_value=user))
+    mock_token_service = mocker.Mock(
+        generate_tokens=mocker.Mock(
+            return_value=(
+                "valid_access_token",
+                "valid_refresh_token",
+                timedelta(minutes=5),
+            )
+        )
+    )
+
+    mocker.patch(
+        "users.views.tfa_views.TwoFactorVerifyView._get_services",
+        return_value=(mock_user_service, mock_token_service),
+    )
+
+    request_data = {"email": user.email, "code": secrets.token_hex(3)}
+
+    res = api_client.post(tfa_urls["verify"], request_data, format="json")
+
+    assert res.status_code == status.HTTP_200_OK
+
+    # 💡 secure=False 임을 확인 (settings.DEBUG = True 분기 커버)
+    assert res.cookies["access_token"]["secure"] == ""
+    assert res.cookies["refresh_token"]["secure"] == ""
+
+    # 설정 복원
+    settings.DEBUG = False
