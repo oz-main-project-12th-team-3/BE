@@ -98,12 +98,9 @@ def test_login_with_2fa_required(api_client, tfa_user, password, mocker):
     body = res.json()
     assert body["detail"] == "2FA 인증이 필요합니다."
     assert body["tfa_required"] is True
-    assert "tfa_login_url" in body # reverse("two_factor:login") 값이 리턴되는지 확인
+    assert "tfa_login_url" in body  # reverse("two_factor:login") 값이 리턴되는지 확인
 
 
-# test_login_with_confirmed_device와 test_login_unexpected_exception 테스트는
-# 기존 auth_views.py의 로직(UserService.login_with_optional_2fa)에 의존했으므로 제거합니다.
-# 새로운 로직은 Django의 기본 authenticate와 django_otp.user_has_device에 의존합니다.
 
 # 2. LogoutView 테스트
 @pytest.mark.django_db
@@ -131,6 +128,7 @@ def test_logout(api_client, user, mocker):
     # 쿠키 삭제 확인
     assert res.cookies.get("access_token").value == ""
     assert res.cookies.get("refresh_token").value == ""
+
 
 # 3. TokenRefreshView 테스트
 @pytest.mark.django_db
@@ -235,9 +233,7 @@ def test_password_reset_confirm_invalid(api_client, user):
     confirm_url = reverse("password-reset-confirm", args=["bad_uid", "bad_token"])
 
     # ⚠️ 참고: 실제로 UserService.reset_password() 내부에서 ValueError가 발생하면
-    # 뷰가 이를 HTTP_401_UNAUTHORIZED로 응답해야 합니다.
-    # 이를 확인하는 테스트를 작성합니다.
-
+    # 뷰가 이를 HTTP_401_UNAUTHORIZED로 응답
     data = {
         "new_password": "NewValidPassword1!",
         "new_password_confirm": "NewValidPassword1!",
@@ -247,6 +243,7 @@ def test_password_reset_confirm_invalid(api_client, user):
     # 뷰에 try-except ValueError 로직을 추가했다면 401을 기대합니다.
     assert res.status_code == status.HTTP_401_UNAUTHORIZED
     assert "유효하지 않은" in res.json().get("detail", "")
+
 
 @pytest.mark.django_db
 def test_password_reset_confirm_mismatch(api_client, user):
