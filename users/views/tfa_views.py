@@ -1,3 +1,7 @@
+import base64
+import qrcode
+from io import BytesIO
+
 from django.conf import settings
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -17,11 +21,18 @@ class TwoFactorSetupView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def _get_user_service(self):
-        """서비스 객체를 생성하여 반환합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service)
+
+    def _generate_qr_code_base64(self, otp_uri):
+        """OTP URI를 QR코드 이미지 base64 문자열로 변환"""
+        qr = qrcode.make(otp_uri)
+        buffered = BytesIO()
+        qr.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        return img_str
 
     def post(self, request):
         user_service = self._get_user_service()
@@ -35,7 +46,7 @@ class TwoFactorSetupView(APIView):
             )
 
         otp_uri = device.config_url
-        qr_code_base64 = None
+        qr_code_base64 = self._generate_qr_code_base64(otp_uri) if otp_uri else None
 
         if device.confirmed:
             return Response(
@@ -64,7 +75,6 @@ class TwoFactorConfirmView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def _get_user_service(self):
-        """서비스 객체를 생성하여 반환합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
@@ -75,18 +85,31 @@ class TwoFactorConfirmView(APIView):
         user = request.user
         code = request.data.get("code")
 
-        if user_service.confirm_2fa(user, code):
-            return Response({"detail": "2FA 등록이 완료되었습니다."})
-        return Response(
-            {"detail": "잘못된 인증 코드"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        if not code:
+            return Response(
+                {"detail": "인증 코드가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            confirmed = user_service.confirm_2fa(user, code)
+            if confirmed:
+                return Response({"detail": "2FA 등록이 완료되었습니다."})
+            else:
+                return Response(
+                    {"detail": "잘못된 인증 코드"}, status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            return Response(
+                {"detail": f"2FA 등록 중 오류: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class TwoFactorVerifyView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def _get_services(self):
-        """서비스 및 레포지토리 객체들을 생성하여 반환합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
@@ -101,6 +124,12 @@ class TwoFactorVerifyView(APIView):
 
         email = request.data.get("email")
         code = serializer.validated_data["code"]
+
+        if not email:
+            return Response(
+                {"detail": "이메일이 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             user = user_service.verify_2fa(email, code)
@@ -118,15 +147,18 @@ class TwoFactorVerifyView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-            # 쿠키 설정 로직
+            # 보안 쿠키 설정
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+            max_age_access = int(access_token_lifetime.total_seconds())
+            max_age_refresh = int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+
             response.set_cookie(
                 "access_token",
                 access_token,
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(access_token_lifetime.total_seconds()),
+                max_age=max_age_access,
             )
             response.set_cookie(
                 "refresh_token",
@@ -134,14 +166,11 @@ class TwoFactorVerifyView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
+                max_age=max_age_refresh,
             )
             return response
 
         except (UserNotFoundException, ValueError) as e:
-            # 2FA 장치 없음 오류도 ValueError로 처리되어 detail에 담깁니다.
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response(
@@ -152,8 +181,6 @@ class TwoFactorVerifyView(APIView):
 
 class TwoFactorLoginView(APIView):
     """
-    django-two-factor-auth의 2FA 로그인 프로세스 완료를 위한 뷰입니다.
-    내장된 two_factor:login 뷰를 사용하므로 API로 별도 구현 안 함.
+    django-two-factor-auth의 내장 로그인 뷰를 사용하므로 API에서 별도 구현 X
     """
-
-    # 내장 뷰가 처리하므로 비워둠.
+    pass
