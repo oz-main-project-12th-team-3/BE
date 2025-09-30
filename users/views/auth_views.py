@@ -5,7 +5,7 @@ from django_otp import user_has_device
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from two_factor.utils import user_has_device
+from django_otp import user_has_device
 
 from ..authentication import JWTAuthentication
 from ..exceptions import (
