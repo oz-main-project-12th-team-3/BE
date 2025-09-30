@@ -1,11 +1,10 @@
 import secrets
-from datetime import datetime, timedelta
-from datetime import timezone as dt_timezone
+from datetime import timedelta
 
 import jwt
 import pytest
 from django.conf import settings
-from django.utils import timezone
+from django.utils import timezone  # ⭐ timezone 모듈만 사용
 
 from users.exceptions import TokenAuthenticationFailed
 from users.models import Token, User
@@ -83,9 +82,11 @@ def test_refresh_user_tokens_mismatched_token(user, service):
 
 @pytest.mark.django_db
 def test_get_validated_payload_success_and_fail(service):
+    # ⭐ 수정: timezone.now() 사용
+    now = timezone.now()
     payload = {
         "user_id": 1,
-        "exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1),
+        "exp": now + timedelta(minutes=1),
     }
     token = jwt.encode(
         payload,
@@ -95,8 +96,9 @@ def test_get_validated_payload_success_and_fail(service):
     result = service._get_validated_payload(token)
     assert result["user_id"] == 1
 
+    # ⭐ 수정: timezone.now() 사용
     expired_token = jwt.encode(
-        {"user_id": 1, "exp": datetime.now(dt_timezone.utc) - timedelta(seconds=1)},
+        {"user_id": 1, "exp": now - timedelta(seconds=1)},
         settings.SIMPLE_JWT["SIGNING_KEY"],
         algorithm=settings.SIMPLE_JWT["ALGORITHM"],
     )
@@ -139,8 +141,9 @@ def test_is_valid_access_token_success(user, service):
 
 @pytest.mark.django_db
 def test_is_valid_access_token_no_user_id(service):
+    # ⭐ 수정: timezone.now() 사용
     token = jwt.encode(
-        {"exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1)},
+        {"exp": timezone.now() + timedelta(minutes=1)},
         settings.SIMPLE_JWT["SIGNING_KEY"],
         algorithm=settings.SIMPLE_JWT["ALGORITHM"],
     )
@@ -150,9 +153,10 @@ def test_is_valid_access_token_no_user_id(service):
 
 @pytest.mark.django_db
 def test_is_valid_access_token_user_not_found(service):
+    # ⭐ 수정: timezone.now() 사용
     payload = {
         "user_id": 99999,
-        "exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1),
+        "exp": timezone.now() + timedelta(minutes=1),
     }
     token = jwt.encode(
         payload,
@@ -167,9 +171,10 @@ def test_is_valid_access_token_user_not_found(service):
 def test_is_valid_access_token_password_time_mismatch(user, service):
     user.password_changed_at = timezone.now()
     user.save()
+    # ⭐ 수정: timezone.now() 사용
     payload = {
         "user_id": user.id,
-        "exp": datetime.now(dt_timezone.utc) + timedelta(minutes=1),
+        "exp": timezone.now() + timedelta(minutes=1),
         "pwd_changed_at": (
             user.password_changed_at - timedelta(seconds=10)
         ).isoformat(),
