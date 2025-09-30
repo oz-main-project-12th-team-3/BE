@@ -72,31 +72,27 @@ class UserLoginView(APIView):
 
         login(request, user)  # Django 세션 로그인
 
-        # 2FA 등록 여부 확인
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+
         if user_has_device(user):
-            # 2FA가 활성화 되어 있으면 임시 토큰 생성 후 2FA 페이지로 안내
-            user_repo = UserRepository()
-            token_repo = TokenRepository()
-            token_service = TokenService(user_repo, token_repo)
-
-            temp_access_token, temp_refresh_token, temp_lifetime = (
-                token_service.generate_temporary_tokens(user)
-            )
-
-            response = Response(
-                {
-                    "detail": "2FA 인증이 필요합니다.",
-                    "tfa_required": True,
-                    "tfa_login_url": reverse("two_factor:login"),
-                    "temp_access_token": temp_access_token,
-                    # 필요 시 임시 토큰도 응답에 포함
-                },
-                status=status.HTTP_200_OK,
-            )
+            # 2FA 등록 유저는 임시 토큰 발급 후 2FA 인증 단계로
+            temp_access_token, temp_refresh_token, temp_lifetime = token_service.generate_temporary_tokens(user)
+            response_data = {
+                "detail": "2FA 인증이 필요합니다.",
+                "user_id": user.id,
+                "email": user.email,
+                "expires_in": int(temp_lifetime.total_seconds()),
+                "access_token": None,
+                "tfa_required": True,
+                "tfa_step": "verify",
+                "temporary_access_token": temp_access_token,
+                "temporary_refresh_token": temp_refresh_token,
+            }
+            response = Response(response_data, status=status.HTTP_200_OK)
 
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
-
-            # 임시 토큰 쿠키 설정
             response.set_cookie(
                 "access_token",
                 temp_access_token,
@@ -111,51 +107,43 @@ class UserLoginView(APIView):
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
+                max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
             )
-
             return response
 
-        else:
-            # 2FA 미등록 사용자 로그인 처리
-            token_service = TokenService(UserRepository(), TokenRepository())
-            access_token, refresh_token, access_token_lifetime = (
-                token_service.generate_tokens(user)
-            )
-            response = Response(
-                {
-                    "detail": "로그인 성공",
-                    "user_id": user.id,
-                    "email": user.email,
-                    "access_token": access_token,
-                    "tfa_required": False,
-                },
-                status=status.HTTP_200_OK,
-            )
-            secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+        # 2FA 미등록 유저 - 정식 토큰 발급
+        access_token, refresh_token, access_token_lifetime = token_service.generate_tokens(user)
+        response_data = {
+            "detail": "로그인 성공",
+            "user_id": user.id,
+            "email": user.email,
+            "expires_in": int(access_token_lifetime.total_seconds()),
+            "access_token": access_token,
+            "tfa_required": False,
+            "tfa_step": "none",
+            "temporary_access_token": None,
+            "temporary_refresh_token": None,
+        }
+        response = Response(response_data, status=status.HTTP_200_OK)
 
-            response.set_cookie(
-                "access_token",
-                access_token,
-                httponly=True,
-                secure=secure_cookie,
-                samesite="Strict",
-                max_age=int(access_token_lifetime.total_seconds()),
-            )
-            response.set_cookie(
-                "refresh_token",
-                refresh_token,
-                httponly=True,
-                secure=secure_cookie,
-                samesite="Strict",
-                max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
-            )
-
-            return response
+        secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+        response.set_cookie(
+            "access_token",
+            access_token,
+            httponly=True,
+            secure=secure_cookie,
+            samesite="Strict",
+            max_age=int(access_token_lifetime.total_seconds()),
+        )
+        response.set_cookie(
+            "refresh_token",
+            refresh_token,
+            httponly=True,
+            secure=secure_cookie,
+            samesite="Strict",
+            max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+        )
+        return response
 
 class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
