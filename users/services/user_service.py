@@ -38,34 +38,47 @@ class UserService:
         confirmed_device = self.user_repo.get_user_confirmed_2fa_device(user)
         pending_device = self.user_repo.get_user_unconfirmed_2fa_device(user)
 
-        # 2FA 활성화 안됨 - 바로 로그인 성공 및 정식 토큰 발급
+        # 1. 2FA 장치가 전혀 없음 - 바로 정식 로그인 성공
         if not confirmed_device and not pending_device:
             return user, True, False, None, None
 
-        # 미확정 2FA 기기 - 임시 토큰 발급 후 2FA 검증 대기 상태
+        # 2. 미확정 (Pending) 기기가 있는 경우 (회원가입 직후)
+        #    🚨 뷰에서 tfa_required=True를 받도록 임시 토큰 반환을 최우선으로 처리합니다.
         if pending_device:
-            temp_access_token, temp_refresh_token, _ = (
-                self.token_service.generate_temporary_tokens(user)
-            )
-            if code and pending_device.verify_token(code):
+            # 2A 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
+            if not code:
+                temp_access_token, temp_refresh_token, _ = (
+                    self.token_service.generate_temporary_tokens(user)
+                )
+                # tfa_required=True를 반환하여 뷰가 임시 토큰을 응답하도록 유도
+                return user, False, True, temp_access_token, temp_refresh_token
+
+            # 2A 코드가 있는 경우 -> 인증 시도
+            if pending_device.verify_token(code):
                 pending_device.confirmed = True
                 pending_device.save()
-                return user, True, False, None, None  # 2FA 완료 후 정식 토큰 발급 가능
+                return user, True, False, None, None  # 2FA 완료 -> 정식 토큰 발급 가능
+            else:
+                raise ValueError("잘못된 2FA 인증 코드입니다.")
 
-            return (
-                user,
-                False,
-                True,
-                temp_access_token,
-                temp_refresh_token,
-            )  # 2FA 인증 미완료 & 임시 토큰 전달
-
-        # 확정된 기기 있을 때 2FA 코드 검사
+        # 3. 확정된 (Confirmed) 기기가 있는 경우
+        #    🚨 Pending과 동일하게, 코드가 없으면 임시 토큰 반환을 최우선으로 처리합니다.
         if confirmed_device:
-            if code and confirmed_device.verify_token(code):
-                return user, True, False, None, None
-            return user, False, False, None, None
+            # 2A 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
+            if not code:
+                temp_access_token, temp_refresh_token, _ = (
+                    self.token_service.generate_temporary_tokens(user)
+                )
+                # tfa_required=True를 반환하여 뷰가 임시 토큰을 응답하도록 유도
+                return user, False, True, temp_access_token, temp_refresh_token
 
+            # 2A 코드가 있는 경우 -> 인증 시도
+            if confirmed_device.verify_token(code):
+                return user, True, False, None, None  # 정식 토큰 발급 가능
+            else:
+                raise ValueError("잘못된 2FA 인증 코드입니다.")
+
+        # 안전장치 (도달할 일 없음)
         return user, True, False, None, None
 
     def check_email_exists(self, email):
