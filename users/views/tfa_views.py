@@ -148,3 +148,12 @@ class TwoFactorVerifyView(APIView):
                 {"detail": f"2FA 인증 중 오류: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class TwoFactorLoginView(APIView):
+    """
+    django-two-factor-auth의 2FA 로그인 프로세스 완료를 위한 뷰입니다.
+    내장된 two_factor:login 뷰를 사용하므로 API로 별도 구현 안 함.
+    """
+
+    # 내장 뷰가 처리하므로 비워둠.
