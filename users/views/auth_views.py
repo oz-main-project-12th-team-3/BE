@@ -49,7 +49,7 @@ class UserRegisterView(APIView):
                 "detail": "회원가입이 성공적으로 완료되었습니다.",
                 "user_id": user.id,
                 "email": user.email,
-                "2fa_setup_required": enable_2fa,
+                "tfa_setup_required": enable_2fa,
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
         except ValueError as e:
