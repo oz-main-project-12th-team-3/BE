@@ -58,12 +58,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install wheel setuptools
-        
+
         # Install main dependencies
         if [ -f requirements.txt ]; then
           pip install -r requirements.txt
         fi
-        
+
         # Install dev dependencies if they exist
         if [ -f requirements-dev.txt ]; then
           pip install -r requirements-dev.txt
@@ -76,7 +76,6 @@ jobs:
           pip install pip-audit safety
         fi
 
-    # 💡 two_factor URL 패치 (Bash/YAML 구문 오류 최종 수정)
     - name: 🩹 Patch two_factor URLs
       run: |
         echo "🔍 Patching two_factor URLs to fix urls.E004 SystemCheckError..."
@@ -85,7 +84,6 @@ import re
 import sys
 from pathlib import Path
 
-# site-packages 경로 설정 (GitHub Actions 환경)
 site_packages_dir = Path(sys.prefix) / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
 file_path = site_packages_dir / 'two_factor' / 'urls.py'
 
@@ -102,7 +100,6 @@ except Exception as e:
     print(f"Error reading file: {e}", file=sys.stderr)
     sys.exit(1)
 
-# 1. 'urlpatterns = (... , 'two_factor')' 패턴 제거
 pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
 
 def replace_tuple(match):
@@ -110,7 +107,6 @@ def replace_tuple(match):
 
 content = re.sub(pattern, replace_tuple, content, flags=re.DOTALL)
 
-# 2. app_name 정의 추가
 if 'app_name = "two_factor"' not in content:
     content = 'app_name = "two_factor"\\n' + content
 
@@ -180,8 +176,6 @@ EOF
       if: ${{ !inputs.skip-tests }}
       run: |
         echo "🧪 Running tests with coverage..."
-        
-        # Check if Django project
         if python -c "import django" 2>/dev/null; then
           echo "📱 Detected Django project"
           export DJANGO_SETTINGS_MODULE=config.settings
@@ -226,7 +220,7 @@ EOF
         fi
 
     - name: ☁️ SonarCloud Analysis
-      uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
+      uses: SonarSource/sonarqube-scan-action@fd88b7dccbaefd23d8f36f73b59db7a3d246602
       if: github.event_name == 'pull_request' || github.event_name == 'push'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -259,18 +253,15 @@ EOF
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
-          
+
           let comment = '## 🔎 Code Quality Report\n\n';
-          
-          // Add job status
+
           const jobStatus = '${{ job.status }}';
           const statusEmoji = jobStatus === 'success' ? '✅' : jobStatus === 'failure' ? '❌' : '⚠️';
           comment += `${statusEmoji} **Overall Status:** ${jobStatus}\n\n`;
-          
-          // Add Python version info
+
           comment += `🐍 **Python Version:** ${{ matrix.python-version }}\n\n`;
-          
-          // Add steps summary - 올바른 step outcome 참조 방법
+
           comment += '### Steps Summary:\n';
           comment += `- 🧹 Code formatting: ${{ steps.code-formatting-check.outcome || 'skipped' }}\n`;
           comment += `- 🧽 Linting: ${{ steps.lint-with-ruff.outcome || 'skipped' }}\n`;
@@ -278,18 +269,17 @@ EOF
           comment += `- 🔍 Type checking: ${{ steps.type-checking.outcome || 'skipped' }}\n`;
           comment += `- 🧪 Tests: ${{ steps.run-tests-with-coverage.outcome || 'skipped' }}\n`;
           comment += `- 🔒 Security audit: ${{ steps.security-audit-with-pip-audit.outcome || 'skipped' }}\n\n`;
-          
-          // Find existing comment
+
           const comments = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
           });
-          
-          const botComment = comments.data.find(comment => 
+
+          const botComment = comments.data.find(comment =>
             comment.user.type === 'Bot' && comment.body.includes('🔎 Code Quality Report')
           );
-          
+
           if (botComment) {
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
