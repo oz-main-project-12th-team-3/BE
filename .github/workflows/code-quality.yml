@@ -2,8 +2,10 @@ name: 🔎 Code Quality Check
 
 on:
   push:
+    # 푸시 이벤트 발생 시 main, develop, 모든 feature 브랜치에서 실행
     branches: [ "main", "develop", "feature", "feature/**" ]
   pull_request:
+    # PR 이벤트 발생 시 모든 브랜치(대상 브랜치 관계없이)에서 실행
     branches: [ "**" ]
   workflow_call:
     inputs:
@@ -28,12 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     name: 🔎 Code Quality Check
     permissions:
-      contents: read
-      pull-requests: write
+      contents: read # 코드 체크아웃 권한
+      pull-requests: write # PR에 상태(Status check) 및 코멘트 작성 권한 (필수)
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"] # Python 3.13 대신 3.12로 변경
+        # 3.13 대신 안정 버전인 3.12를 사용
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
     - name: 📂 Checkout code
@@ -74,18 +77,17 @@ jobs:
           pip install pip-audit safety
         fi
 
-# 💡 새로운 Step 추가: two_factor URL 패치
+    # 💡 two_factor URL 패치 (Bash/YAML 구문 오류 최종 수정)
     - name: 🩹 Patch two_factor URLs
       run: |
         echo "🔍 Patching two_factor URLs to fix urls.E004 SystemCheckError..."
-        # 쉘 스크립트 블록 내에서 파이썬 실행 부분을 명확히 분리
+        # python - <<EOF 다음은 줄바꿈으로 명확히 분리해야 YAML/Bash 오류가 발생하지 않음
         python - <<EOF
 import re
 import sys
 from pathlib import Path
 
 # site-packages 경로 설정 (GitHub Actions 환경)
-# sys.prefix를 사용하여 현재 가상 환경의 경로를 기준으로 site-packages를 찾습니다.
 site_packages_dir = Path(sys.prefix) / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
 file_path = site_packages_dir / 'two_factor' / 'urls.py'
 
@@ -93,8 +95,7 @@ print(f"Targeting file: {file_path}")
 
 if not file_path.exists():
     print(f"Error: two_factor/urls.py not found at {file_path}. Skipping patch.", file=sys.stderr)
-    # CI 파이프라인에서 오류 없이 다음 단계로 진행하기 위해 sys.exit(0) 대신 일반적인 흐름 유지
-    sys.exit(0) # exit 0 대신 sys.exit(0)를 사용하여 파이썬에서 정상 종료
+    sys.exit(0)
 
 try:
     with open(file_path, 'r') as f:
@@ -104,7 +105,6 @@ except Exception as e:
     sys.exit(1)
 
 # 1. 'urlpatterns = (... , 'two_factor')' 패턴 제거
-# (이전: r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)")
 pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
 
 def replace_tuple(match):
@@ -123,7 +123,7 @@ try:
 except Exception as e:
     print(f"Error writing file: {e}", file=sys.stderr)
     sys.exit(1)
-EOF # EOF 토큰이 단독으로 한 줄에 위치해야 합니다.
+EOF
 
     - name: 📊 Cache test results
       uses: actions/cache@v4
@@ -231,7 +231,7 @@ EOF # EOF 토큰이 단독으로 한 줄에 위치해야 합니다.
       uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
       if: github.event_name == 'pull_request' || github.event_name == 'push'
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: https://sonarcloud.io
       with:
