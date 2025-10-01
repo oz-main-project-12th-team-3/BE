@@ -78,7 +78,7 @@ def test_register_success(api_client, mocker, mock_user_service):
     res = api_client.post(url, data, format="json")
     assert res.status_code == status.HTTP_201_CREATED
     assert res.json()["email"] == "new1@ex.com"
-    assert res.json()["tfa_setup_required"] is False
+    assert res.json()["tfa_required"] is False
 
     # 2. 성공 (2FA=True 분기 커버)
     mock_user_service.create_user.return_value = MagicMock(id=2, email="new2@ex.com")
@@ -86,7 +86,7 @@ def test_register_success(api_client, mocker, mock_user_service):
     data["enable_2fa"] = True
     res2 = api_client.post(url, data, format="json")
     assert res2.status_code == status.HTTP_201_CREATED
-    assert res2.json()["tfa_setup_required"] is True
+    assert res2.json()["tfa_required"] is True
 
 
 @pytest.mark.django_db
