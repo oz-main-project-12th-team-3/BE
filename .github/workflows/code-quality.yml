@@ -74,10 +74,11 @@ jobs:
           pip install pip-audit safety
         fi
 
-    # 💡 새로운 Step 추가: two_factor URL 패치
+# 💡 새로운 Step 추가: two_factor URL 패치
     - name: 🩹 Patch two_factor URLs
       run: |
         echo "🔍 Patching two_factor URLs to fix urls.E004 SystemCheckError..."
+        # 쉘 스크립트 블록 내에서 파이썬 실행 부분을 명확히 분리
         python - <<EOF
 import re
 import sys
@@ -93,16 +94,17 @@ print(f"Targeting file: {file_path}")
 if not file_path.exists():
     print(f"Error: two_factor/urls.py not found at {file_path}. Skipping patch.", file=sys.stderr)
     # CI 파이프라인에서 오류 없이 다음 단계로 진행하기 위해 sys.exit(0) 대신 일반적인 흐름 유지
-    exit 0
+    sys.exit(0) # exit 0 대신 sys.exit(0)를 사용하여 파이썬에서 정상 종료
 
 try:
     with open(file_path, 'r') as f:
         content = f.read()
 except Exception as e:
     print(f"Error reading file: {e}", file=sys.stderr)
-    exit 1
+    sys.exit(1)
 
 # 1. 'urlpatterns = (... , 'two_factor')' 패턴 제거
+# (이전: r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)")
 pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
 
 def replace_tuple(match):
@@ -120,8 +122,8 @@ try:
     print(f"Successfully patched {file_path}")
 except Exception as e:
     print(f"Error writing file: {e}", file=sys.stderr)
-    exit 1
-EOF
+    sys.exit(1)
+EOF # EOF 토큰이 단독으로 한 줄에 위치해야 합니다.
 
     - name: 📊 Cache test results
       uses: actions/cache@v4
