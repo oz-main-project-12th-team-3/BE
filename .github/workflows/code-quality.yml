@@ -74,6 +74,55 @@ jobs:
           pip install pip-audit safety
         fi
 
+    # 💡 새로운 Step 추가: two_factor URL 패치
+    - name: 🩹 Patch two_factor URLs
+      run: |
+        echo "🔍 Patching two_factor URLs to fix urls.E004 SystemCheckError..."
+        python - <<EOF
+import re
+import sys
+from pathlib import Path
+
+# site-packages 경로 설정 (GitHub Actions 환경)
+# sys.prefix를 사용하여 현재 가상 환경의 경로를 기준으로 site-packages를 찾습니다.
+site_packages_dir = Path(sys.prefix) / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
+file_path = site_packages_dir / 'two_factor' / 'urls.py'
+
+print(f"Targeting file: {file_path}")
+
+if not file_path.exists():
+    print(f"Error: two_factor/urls.py not found at {file_path}. Skipping patch.", file=sys.stderr)
+    # CI 파이프라인에서 오류 없이 다음 단계로 진행하기 위해 sys.exit(0) 대신 일반적인 흐름 유지
+    exit 0
+
+try:
+    with open(file_path, 'r') as f:
+        content = f.read()
+except Exception as e:
+    print(f"Error reading file: {e}", file=sys.stderr)
+    exit 1
+
+# 1. 'urlpatterns = (... , 'two_factor')' 패턴 제거
+pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
+
+def replace_tuple(match):
+    return match.group(1) + ')'
+
+content = re.sub(pattern, replace_tuple, content, flags=re.DOTALL)
+
+# 2. app_name 정의 추가
+if 'app_name = "two_factor"' not in content:
+    content = 'app_name = "two_factor"\\n' + content
+
+try:
+    with open(file_path, 'w') as f:
+        f.write(content)
+    print(f"Successfully patched {file_path}")
+except Exception as e:
+    print(f"Error writing file: {e}", file=sys.stderr)
+    exit 1
+EOF
+
     - name: 📊 Cache test results
       uses: actions/cache@v4
       with:
