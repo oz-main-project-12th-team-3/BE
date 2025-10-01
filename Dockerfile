@@ -5,8 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # 빌드에 필요한 시스템 의존성 설치
-# libpq-dev: PostgreSQL 클라이언트 라이브러리 (psycopg2 빌드용)
-# gcc: C 컴파일러 (Python 패키지 빌드용)
+# libpq-dev, gcc (패키지 빌드용), postgresql-client (pg_isready 명령 사용용)
+# wget은 런타임에 필요하므로 런타임 스테이지에서 설치
 RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev gcc && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,8 +31,11 @@ FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# 런타임에 필요한 최소 의존성 설치 (PostgreSQL 연결을 위해 libpq-dev 필요)
-RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev && rm -rf /var/lib/apt/lists/*
+# 런타임에 필요한 최소 의존성 설치 (DB 대기 및 healthcheck를 위해 필수)
+# libpq-dev: DB 연결 라이브러리 (psycopg2 사용)
+# postgresql-client: pg_isready 명령어 사용 가능하도록
+# wget: web 서비스 healthcheck (docker-compose.yml에서 사용)
+RUN apt-get update && apt-get install -y --no-install-recommends libpq-dev postgresql-client wget && rm -rf /var/lib/apt/lists/*
 
 # 일반 사용자 생성
 RUN useradd --no-create-home appuser
@@ -46,7 +49,11 @@ COPY requirements.txt .
 # 시스템 Python 환경에 직접 의존성 설치
 RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
 
-# 💡 two_factor 패키지 내부 URLs 문제 패치
+# 💡 start.sh 스크립트 복사 및 실행 권한 부여 (DB 대기 및 마이그레이션 자동화)
+COPY start.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/start.sh
+
+# 💡 two_factor 패치 로직 (사용자가 제공한 코드를 안전하게 복사)
 #    목표: `urlpatterns = (path(...), 'two_factor')` 형태를
 #    `urlpatterns = (path(...),)` 형태로 변환하고 `app_name`을 별도로 정의하여 `urls.E004` 오류 해결
 RUN python3 - <<EOF
@@ -60,9 +67,9 @@ site_packages_dir = Path('/usr/local/lib') / f'python{sys.version_info.major}.{s
 file_path = site_packages_dir / 'two_factor' / 'urls.py'
 
 if not file_path.exists():
+    # 패치가 필요한 파일이 없으면 빌드 실패 (설치가 제대로 안 되었음을 의미)
     print(f"Error: two_factor/urls.py not found at {file_path}", file=sys.stderr)
-    # 설치 경로는 Dockerfile에 하드코딩되어 있으므로, 문제가 있으면 실패해야 함
-    # sys.exit(1) # 실제 운영 환경에서는 안전을 위해 오류 시 빌드 실패가 좋음
+    sys.exit(1)
 
 with open(file_path, 'r') as f:
     content = f.read()
@@ -76,8 +83,7 @@ def replace_tuple(match):
 
 content = re.sub(pattern, replace_tuple, content, flags=re.DOTALL)
 
-# 2. app_name 정의 추가 (이전에는 튜플의 마지막 요소로 사용됨)
-# 주의: 이미 app_name이 정의되어 있을 가능성이 낮으므로, 단순 추가로 처리
+# 2. app_name 정의 추가
 if 'app_name = "two_factor"' not in content:
     content = 'app_name = "two_factor"\\n' + content
 
@@ -102,5 +108,5 @@ USER appuser
 # 컨테이너 외부에 노출할 포트
 EXPOSE 8000
 
-# 애플리케이션 실행 명령
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+# CMD는 start.sh 스크립트가 덮어쓰므로 생략
+# CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
