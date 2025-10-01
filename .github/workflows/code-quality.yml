@@ -35,8 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.13 대신 안정 버전인 3.12를 사용
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.13"]
 
     steps:
     - name: 📂 Checkout code
@@ -81,7 +80,6 @@ jobs:
     - name: 🩹 Patch two_factor URLs
       run: |
         echo "🔍 Patching two_factor URLs to fix urls.E004 SystemCheckError..."
-        # python - <<EOF 다음은 줄바꿈으로 명확히 분리해야 YAML/Bash 오류가 발생하지 않음
         python - <<EOF
 import re
 import sys
@@ -235,7 +233,6 @@ EOF
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: https://sonarcloud.io
       with:
-        # Project-specific parameters (replace with your actual values)
         projectBaseDir: .
         args: >
           -Dsonar.projectKey=oz-main-project-12th-team-3_BE
