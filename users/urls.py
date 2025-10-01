@@ -14,11 +14,7 @@ from .views.tfa_views import (
     TwoFactorSetupView,
     TwoFactorVerifyView,
 )
-from .views.user_views import (
-    PasswordChangeView,
-    UserDeleteView,
-    UserProfileView,
-)
+from .views.user_views import PasswordChangeView, UserDeleteView, UserProfileView
 
 urlpatterns = [
     path("auth/signup/", UserRegisterView.as_view(), name="user-register"),

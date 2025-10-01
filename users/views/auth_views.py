@@ -6,10 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..authentication import JWTAuthentication
-from ..exceptions import (
-    PasswordMismatchException,
-    TokenAuthenticationFailed,
-)
+from ..exceptions import PasswordMismatchException, TokenAuthenticationFailed
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import (

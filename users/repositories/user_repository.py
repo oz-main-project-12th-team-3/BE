@@ -3,10 +3,7 @@ from datetime import datetime, timedelta, timezone
 from django.conf import settings
 from django.db import transaction
 
-from ..exceptions import (
-    AccountLockedException,
-    UserNotFoundException,
-)
+from ..exceptions import AccountLockedException, UserNotFoundException
 from ..models import User, UserProfile
 
 if not settings.IS_TEST_ENV:

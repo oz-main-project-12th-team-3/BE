@@ -6,10 +6,7 @@ from ..authentication import JWTAuthentication
 from ..exceptions import PasswordMismatchException
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
-from ..serializers import (
-    PasswordChangeSerializer,
-    UserProfileSerializer,
-)
+from ..serializers import PasswordChangeSerializer, UserProfileSerializer
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
