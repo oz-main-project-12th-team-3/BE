@@ -1,4 +1,4 @@
-name: Code Quality Check
+name: 🔎 Code Quality Check
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.13"]
+        python-version: ["3.10", "3.11", "3.12"] # Python 3.13 대신 3.12로 변경
 
     steps:
     - name: 📂 Checkout code
@@ -164,7 +164,6 @@ EOF
         else
           echo "⚠️ mypy not installed, skipping type checking"
         fi
-
 
     - name: 🧪 Run Migrations
       id: run-migrations
