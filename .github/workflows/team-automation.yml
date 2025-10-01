@@ -44,10 +44,10 @@ jobs:
           const contentId = context.payload.issue.node_id;
 
           try {
-            // Add issue to project
+            // Add issue to project - 'addProjectV2ItemById'로 수정
             const addResponse = await github.graphql(`
               mutation($projectId: ID!, $contentId: ID!) {
-                addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
+                addProjectV2ItemById(projectId: $projectId, contentId: $contentId) {
                   item {
                     id
                   }
@@ -55,7 +55,8 @@ jobs:
               }
             `, { projectId, contentId });
 
-            const itemId = addResponse.addProjectV2Item.item.id;
+            // 응답 객체 경로도 'addProjectV2ItemById'로 수정
+            const itemId = addResponse.addProjectV2ItemById.item.id;
 
             // Update status field
             await github.graphql(`
@@ -127,10 +128,10 @@ jobs:
           const contentId = pullRequest.node_id;
           
           try {
-            // Add PR to project
+            // Add PR to project - 'addProjectV2ItemById'로 수정
             const addResponse = await github.graphql(`
               mutation($projectId: ID!, $contentId: ID!) {
-                addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
+                addProjectV2ItemById(projectId: $projectId, contentId: $contentId) {
                   item {
                     id
                   }
@@ -138,7 +139,8 @@ jobs:
               }
             `, { projectId, contentId });
             
-            const itemId = addResponse.addProjectV2Item.item.id;
+            // 응답 객체 경로도 'addProjectV2ItemById'로 수정
+            const itemId = addResponse.addProjectV2ItemById.item.id;
             console.log('✅ PR added to project. Item ID:', itemId);
             
             // Update status field
