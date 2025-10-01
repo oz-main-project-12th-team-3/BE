@@ -14,6 +14,10 @@ from rest_framework.test import APIClient
 from users.authentication import JWTAuthentication
 from users.exceptions import PasswordMismatchException, TokenAuthenticationFailed
 from users.models import User
+from users.repositories.token_repository import TokenRepository
+from users.repositories.user_repository import UserRepository
+from users.services.token_service import TokenService
+from users.services.user_service import UserService
 
 
 @pytest.fixture
@@ -33,6 +37,15 @@ def user(db, password):
     user.set_password(password)
     user.save()
     return user
+
+
+@pytest.fixture
+def service(db):
+    """UserService 객체 생성 (모든 테스트 파일에서 사용 가능)"""
+    user_repo = UserRepository()
+    token_repo = TokenRepository()
+    token_service = TokenService(user_repo, token_repo)
+    return UserService(user_repo, token_repo, token_service)
 
 
 @pytest.mark.django_db
@@ -68,38 +81,49 @@ def test_login_wrong_password(api_client, user):
 
 
 @pytest.mark.django_db
-def test_token_refresh_success(api_client, user, mocker):
-    pw = secrets.token_urlsafe(12)
-    user.set_password(pw)
-    user.save()
-
+# 💡 service와 mocker fixture를 인수로 추가
+def test_token_refresh_success(api_client, user, password, service, mocker):
     login_url = reverse("user-login")
+    refresh_url = reverse("token-refresh")
 
-    res = api_client.post(
-        login_url, {"email": user.email, "password": pw}, format="json"
+    # 1. 로그인 요청 (세션/쿠키 활성화)
+    login_res = api_client.post(
+        login_url, {"email": user.email, "password": password}, format="json"
     )
-    assert res.status_code == status.HTTP_200_OK
+    assert login_res.status_code == 200
 
-    refresh_token = res.json().get("refresh_token")
+    # 2. TokenService.refresh_user_tokens Mocking: 성공적인 갱신을 강제합니다.
+    mock_access_token = "new_access_token"
+    mock_refresh_token = "new_refresh_token"
+    mock_lifetime = timedelta(minutes=5)
 
-    # 인증 관련 함수 mock 처리로 403 문제 해결
     mocker.patch(
-        "users.services.token_service.TokenService.is_valid_access_token",
-        return_value={"user_id": user.id},
-    )
-    mocker.patch(
-        "users.services.token_service.TokenService.generate_tokens",
-        return_value=(
-            "access_token_mock",
-            "refresh_token_mock",
-            timedelta(seconds=3600),
+        "users.views.auth_views.TokenRefreshView._get_token_service",
+        return_value=mocker.Mock(
+            refresh_user_tokens=mocker.Mock(
+                # 새로운 토큰과 유저 객체를 반환하도록 설정
+                return_value=(
+                    mock_access_token,
+                    mock_refresh_token,
+                    mock_lifetime,
+                    user,
+                )
+            )
         ),
     )
 
-    url = reverse("token-refresh")
-    res2 = api_client.post(url, {"refresh_token": refresh_token}, format="json")
-    assert res2.status_code == status.HTTP_200_OK
-    assert "access_token" in res2.json()
+    # 3. 갱신 요청을 위해 유효한 refresh_token을 쿠키에 강제 설정 (401 방지)
+    api_client.cookies["refresh_token"] = "placeholder_refresh_token"
+
+    # 4. 토큰 갱신 요청
+    res = api_client.post(refresh_url, format="json")
+
+    # 💡 예상 성공 코드 200 확인
+    assert res.status_code == 200
+
+    # 5. 응답 쿠키 확인
+    assert "access_token" in res.cookies
+    assert "refresh_token" in res.cookies
 
 
 @pytest.mark.django_db

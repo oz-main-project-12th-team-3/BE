@@ -1,7 +1,5 @@
 from rest_framework import serializers
-
 from .models import PaymentHistory, Plan, Subscription
-
 
 class PlanSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,12 +15,8 @@ class PlanSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-
 class SubscriptionSerializer(serializers.ModelSerializer):
-    plan_name = serializers.CharField(
-        source="plan.name",
-        read_only=True,
-    )
+    plan_name = serializers.CharField(source="plan.name", read_only=True)
 
     class Meta:
         model = Subscription
@@ -50,13 +44,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-
 class PaymentHistorySerializer(serializers.ModelSerializer):
-    plan_name = serializers.CharField(
-        source="plan.name",
-        read_only=True,
-        allow_null=True,
-    )
+    plan_name = serializers.CharField(source="plan.name", read_only=True, allow_null=True)
 
     class Meta:
         model = PaymentHistory

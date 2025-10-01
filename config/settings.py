@@ -10,6 +10,11 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import sys
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
 # -----------------------------
 # 기본 경로 설정
 # -----------------------------
@@ -26,12 +31,15 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
 DEBUG = os.environ.get("DEBUG", "0") == "1"
 
 # CI/Test 환경에서는 2FA 앱을 비활성화
-IS_TEST_ENV = os.environ.get("RUNNING_TESTS") == "1"
+IS_TEST_ENV = "test" in sys.argv
 
 if os.environ.get("RUNNING_TESTS"):
     ALLOWED_HOSTS = ["testserver"]
 else:
     ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    # Add the Elastic Beanstalk hostname to the allowed hosts
+    if not DEBUG:
+        ALLOWED_HOSTS.append(".elasticbeanstalk.com")
 
 
 # -----------------------------
@@ -67,7 +75,7 @@ if not IS_TEST_ENV:
             "django_otp",
             "django_otp.plugins.otp_totp",
             "django_otp.plugins.otp_static",
-            # "two_factor",
+            "two_factor",
         ]
     )
 
@@ -119,14 +127,16 @@ TEMPLATES = [
 
 
 # -----------------------------
-# 2FA 관련 설정 (비활성화)
+# 2FA 관련 설정
 # -----------------------------
-# TWO_FACTOR_FORMS = {
-#     "setup": "two_factor.forms.TOTPDeviceForm",
-# }
-# LOGIN_URL = "two_factor:login"
-# LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "two_factor:login"  # 로그인 시작 URL, 커스텀 로그인 사용 시 이 URL 연결
+LOGIN_REDIRECT_URL = "/"  # 로그인 성공 후 리다이렉트할 URL
+LOGOUT_REDIRECT_URL = "two_factor:login"
 
+# 2FA 폼 설정 (기본 TOTP 폼 사용)
+TWO_FACTOR_FORMS = {
+    "setup": "two_factor.forms.TOTPDeviceForm",
+}
 
 # -----------------------------
 # WSGI / ASGI
@@ -182,21 +192,13 @@ AUTH_USER_MODEL = "users.User"
 # -----------------------------
 # REST Framework 설정
 # -----------------------------
-if os.environ.get("RUNNING_TESTS"):
-    REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": (
-            "rest_framework.authentication.SessionAuthentication",
-        ),
-        "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    }
-else:
-    REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": (
-            "rest_framework_simplejwt.authentication.JWTAuthentication",
-        ),
-        "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-        "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    }
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
 
 
 # -----------------------------
