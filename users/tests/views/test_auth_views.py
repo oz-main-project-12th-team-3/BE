@@ -9,7 +9,10 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from users.exceptions import PasswordMismatchException, TokenAuthenticationFailed, EmailAlreadyExistsException
+from users.exceptions import (
+    PasswordMismatchException,
+    TokenAuthenticationFailed,
+)
 from users.models import User
 from users.services.user_service import (
     UserService,
@@ -68,7 +71,6 @@ def test_register_success(api_client, mocker, mock_user_service):
     )
 
     # 2. 🔑핵심 수정: 시리얼라이저의 이메일 중복 검사(check_email_exists) 통과 보장
-    #    (mock_user_service fixture가 이미 False를 반환하도록 설정되었다면 이 코드는 생략 가능)
     mock_user_service.check_email_exists.return_value = False
 
     # 3. create_user 성공 리턴값 설정
@@ -84,6 +86,7 @@ def test_register_success(api_client, mocker, mock_user_service):
 
     # 4. 상태 코드 확인
     assert res.status_code == status.HTTP_201_CREATED
+
 
 @pytest.mark.django_db
 def test_register_failure_serializer_validation(
@@ -116,6 +119,8 @@ def test_register_failure_serializer_validation(
     error_detail = res.json()
     assert "email" in error_detail
     assert "이미 등록된 이메일 주소입니다." in error_detail["email"][0]
+
+
 @pytest.mark.django_db
 def test_register_failure_value_error(api_client, mocker, mock_user_service):
     """회원가입 실패 테스트 (UserService의 try-except ValueError 분기 커버)"""
@@ -126,7 +131,7 @@ def test_register_failure_value_error(api_client, mocker, mock_user_service):
         return_value=mock_user_service,
     )
 
-    # 시리얼라이저 통과 후 create_user에서 ValueError 발생 유도 (예: 닉네임 정책 위반 등)
+    # 시리얼라이저 통과 후 create_user에서 ValueError 발생 유도
     # 시리얼라이저의 check_email_exists는 False를 반환해야 통과합니다.
     mock_user_service.check_email_exists.return_value = False
     mock_user_service.create_user.side_effect = ValueError(

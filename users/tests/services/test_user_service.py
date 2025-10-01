@@ -98,6 +98,7 @@ def mock_2fa_repo(mocker, user):
 # 1. User CRUD & Email Check
 # ----------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 def test_create_user(service):
     """사용자 생성 성공 및 이메일 중복 체크 테스트"""
@@ -116,6 +117,7 @@ def test_create_user(service):
     # 📌 수정된 부분: ValueError 대신 EmailAlreadyExistsException을 사용합니다.
     with pytest.raises(EmailAlreadyExistsException):
         service.create_user(email, password_val, "nick", enable_2fa=False)
+
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(

@@ -63,6 +63,7 @@ def test_register_success_and_duplicate(api_client):
     assert "email" in error_detail
     assert "이미 등록된 이메일 주소입니다." in error_detail["email"][0]
 
+
 @pytest.mark.django_db
 def test_login_success(api_client, user, password):
     url = reverse("user-login")
