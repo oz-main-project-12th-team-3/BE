@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main", "develop", "feature", "feature/**" ]
   pull_request:
-    branches: [ "main", "develop", "feature", "feature/**" ]
+    branches: [ "**" ]
   workflow_call:
     inputs:
       python-version:
