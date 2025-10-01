@@ -11,8 +11,16 @@ class UserRegisterSerializer(serializers.Serializer):
         required=False, allow_blank=True, validators=[profanity_validator]
     )
     enable_2fa = serializers.BooleanField(default=False)
+
     # 프론트에서 구현
     # password_confirm = serializers.CharField(write_only=True)
+    def validate_email(self, value):
+        user_service = self.context.get("user_service")
+
+        if user_service and user_service.check_email_exists(value):
+            raise serializers.ValidationError("이미 등록된 이메일 주소입니다.")
+
+        return value
 
     def validate(self, data):
         # 윗 사항에 따라 주석처리/ 비밀번호 일치 검증

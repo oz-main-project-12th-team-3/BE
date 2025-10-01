@@ -5,7 +5,11 @@ from django.core.mail import send_mail
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
-from ..exceptions import PasswordMismatchException, UserNotFoundException
+from ..exceptions import (
+    EmailAlreadyExistsException,
+    PasswordMismatchException,
+    UserNotFoundException,
+)
 from ..repositories.user_repository import UserRepository
 
 
@@ -17,7 +21,7 @@ class UserService:
 
     def create_user(self, email, password, nickname, enable_2fa):
         if self.user_repo.check_email_exists(email):
-            raise ValueError("이미 사용중인 이메일입니다.")
+            raise EmailAlreadyExistsException()
         return self.user_repo.create_user(email, password, nickname, enable_2fa)
 
     def authenticate_user(self, email, password):
