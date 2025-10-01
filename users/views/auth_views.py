@@ -35,7 +35,9 @@ class UserRegisterView(APIView):
 
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
-        serializer = UserRegisterSerializer(data=request.data)
+        serializer = UserRegisterSerializer(
+            data=request.data, context={"user_service": user_service}
+        )
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data.get("email")
