@@ -57,22 +57,53 @@ jobs:
         python -m pip install --upgrade pip
         pip install wheel setuptools
         
-        # Install main dependencies
         if [ -f requirements.txt ]; then
           pip install -r requirements.txt
         fi
         
-        # Install dev dependencies if they exist
         if [ -f requirements-dev.txt ]; then
           pip install -r requirements-dev.txt
         elif [ -f dev-requirements.txt ]; then
           pip install -r dev-requirements.txt
         else
-          # Install common testing and linting tools
           pip install pytest pytest-django pytest-cov pytest-xvfb
           pip install ruff black isort mypy
           pip install pip-audit safety
         fi
+
+    # 추가: two_factor 패치 스크립트 실행 단계
+    - name: 🔧 Patch two_factor urls.py
+      run: |
+        python3 - <<EOF
+        import re
+        import sys
+        from pathlib import Path
+
+        site_packages_dir = Path('/home/runner/.local/lib/python${{ matrix.python-version }}/site-packages')
+        file_path = site_packages_dir / 'two_factor' / 'urls.py'
+
+        if not file_path.exists():
+            print(f"Error: two_factor/urls.py not found at {file_path}", file=sys.stderr)
+            sys.exit(1)
+
+        with open(file_path, 'r') as f:
+            content = f.read()
+
+        pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
+
+        def replace_tuple(match):
+            return match.group(1) + ')'
+
+        content = re.sub(pattern, replace_tuple, content, flags=re.DOTALL)
+
+        if 'app_name = "two_factor"' not in content:
+            content = 'app_name = "two_factor"\\n' + content
+
+        with open(file_path, 'w') as f:
+            f.write(content)
+
+        print(f"Successfully patched {file_path}")
+        EOF
 
     - name: 📊 Cache test results
       uses: actions/cache@v4
@@ -116,7 +147,6 @@ jobs:
           echo "⚠️ mypy not installed, skipping type checking"
         fi
 
-
     - name: 🧪 Run Migrations
       id: run-migrations
       if: ${{ !inputs.skip-tests }}
@@ -133,7 +163,6 @@ jobs:
       run: |
         echo "🧪 Running tests with coverage..."
         
-        # Check if Django project
         if python -c "import django" 2>/dev/null; then
           echo "📱 Detected Django project"
           export DJANGO_SETTINGS_MODULE=config.settings
@@ -181,11 +210,10 @@ jobs:
       uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
       if: github.event_name == 'pull_request' || github.event_name == 'push'
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: https://sonarcloud.io
       with:
-        # Project-specific parameters (replace with your actual values)
         projectBaseDir: .
         args: >
           -Dsonar.projectKey=oz-main-project-12th-team-3_BE
@@ -214,16 +242,10 @@ jobs:
           const fs = require('fs');
           
           let comment = '## 🔎 Code Quality Report\n\n';
-          
-          // Add job status
           const jobStatus = '${{ job.status }}';
           const statusEmoji = jobStatus === 'success' ? '✅' : jobStatus === 'failure' ? '❌' : '⚠️';
           comment += `${statusEmoji} **Overall Status:** ${jobStatus}\n\n`;
-          
-          // Add Python version info
           comment += `🐍 **Python Version:** ${{ matrix.python-version }}\n\n`;
-          
-          // Add steps summary - 올바른 step outcome 참조 방법
           comment += '### Steps Summary:\n';
           comment += `- 🧹 Code formatting: ${{ steps.code-formatting-check.outcome || 'skipped' }}\n`;
           comment += `- 🧽 Linting: ${{ steps.lint-with-ruff.outcome || 'skipped' }}\n`;
@@ -232,17 +254,16 @@ jobs:
           comment += `- 🧪 Tests: ${{ steps.run-tests-with-coverage.outcome || 'skipped' }}\n`;
           comment += `- 🔒 Security audit: ${{ steps.security-audit-with-pip-audit.outcome || 'skipped' }}\n\n`;
           
-          // Find existing comment
           const comments = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
           });
-          
+
           const botComment = comments.data.find(comment => 
             comment.user.type === 'Bot' && comment.body.includes('🔎 Code Quality Report')
           );
-          
+
           if (botComment) {
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
@@ -297,4 +318,4 @@ jobs:
           **Repository:** ${{ github.repository }}
           **Branch:** ${{ github.ref_name }}
           **Commit:** ${{ github.sha }}
-          **Actor:** ${{ github.actor }}"
+          **Actor:** ${{ github.actor }}
