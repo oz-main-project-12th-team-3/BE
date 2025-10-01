@@ -329,8 +329,8 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # 발신 이메일 주소 기본값
 
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'OZ-Digital-Human API',
-    'DESCRIPTION': 'API documentation for the OZ Digital Human project.',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    "TITLE": "OZ-Digital-Human API",
+    "DESCRIPTION": "API documentation for the OZ Digital Human project.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
