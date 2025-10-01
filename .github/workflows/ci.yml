@@ -1,0 +1,33 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ main, fix ]
+  pull_request:
+    branches: [ main, fix ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # 테스트용 GEMINI API 키 설정
+      GEMINI_API_KEY: test_key_for_tests
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: |
+          echo "🧪 Running tests with coverage..."
+          pytest --cov
+
