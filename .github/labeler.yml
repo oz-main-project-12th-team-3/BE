@@ -1,40 +1,40 @@
 # PR 자동 라벨링
 '🎯 backend':
-  - paths:
-    - 'ai/**/*'
-    - 'chat/**/*'
-    - 'users/**/*'
-    - 'config/**/*'
-    - '**/*.py'
-    - '**/models/**/*'
-    - '**/views/**/*'
-    - '**/serializers/**/*'
+  # 'paths:' 키워드 제거
+  - 'ai/**/*'
+  - 'chat/**/*'
+  - 'users/**/*'
+  - 'config/**/*'
+  - '**/*.py'
+  - '**/models/**/*'
+  - '**/views/**/*'
+  - '**/serializers/**/*'
 
 '📝 documentation':
-  - paths:
-    - '**/*.md'
-    - 'docs/**/*'
-    - 'README*'
+  # 'paths:' 키워드 제거
+  - '**/*.md'
+  - 'docs/**/*'
+  - 'README*'
 
 '🔧 configuration':
-  - paths:
-    - '.github/**/*'
-    - '**/*.json'
-    - '**/*.yml'
-    - '**/*.yaml'
-    - 'Dockerfile'
-    - 'docker-compose.*'
-    - 'pyproject.toml'
-    - 'pytest.ini'
-    - 'requirements.txt'
+  # 'paths:' 키워드 제거
+  - '.github/**/*'
+  - '**/*.json'
+  - '**/*.yml'
+  - '**/*.yaml'
+  - 'Dockerfile'
+  - 'docker-compose.*'
+  - 'pyproject.toml'
+  - 'pytest.ini'
+  - 'requirements.txt'
 
 '🧪 tests':
-  - paths:
-    - '**/*.test.*'
-    - '**/tests/**/*'
+  # 'paths:' 키워드 제거
+  - '**/*.test.*'
+  - '**/tests/**/*'
 
 '🚀 deployment':
-  - paths:
-    - 'k8s/**/*'
-    - 'deployment/**/*'
-    - '.github/workflows/deploy*'
+  # 'paths:' 키워드 제거
+  - 'k8s/**/*'
+  - 'deployment/**/*'
+  - '.github/workflows/deploy*'
