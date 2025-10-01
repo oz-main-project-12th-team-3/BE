@@ -51,7 +51,6 @@ def service(db):
 @pytest.mark.django_db
 def test_register_success_and_duplicate(api_client):
     url = reverse("user-register")
-    # 💡 비밀번호가 secrets로 랜덤 생성되고 있어 안전합니다.
     pw = secrets.token_urlsafe(12)
     data = {"email": "new@example.com", "password": pw, "nickname": "NN"}
     res = api_client.post(url, data, format="json")
@@ -59,8 +58,10 @@ def test_register_success_and_duplicate(api_client):
 
     res2 = api_client.post(url, data, format="json")
     assert res2.status_code == status.HTTP_400_BAD_REQUEST
-    assert "이미 사용중인 이메일" in res2.json().get("detail", "")
 
+    error_detail = res2.json()
+    assert "email" in error_detail
+    assert "이미 등록된 이메일 주소입니다." in error_detail["email"][0]
 
 @pytest.mark.django_db
 def test_login_success(api_client, user, password):

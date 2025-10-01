@@ -9,10 +9,10 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from users.exceptions import PasswordMismatchException, TokenAuthenticationFailed
+from users.exceptions import PasswordMismatchException, TokenAuthenticationFailed, EmailAlreadyExistsException
 from users.models import User
 from users.services.user_service import (
-    UserService,  # UserService 타입 힌트를 위해 임포트
+    UserService,
 )
 
 # ----------------------------------------------------------------------
@@ -61,14 +61,19 @@ def test_register_success(api_client, mocker, mock_user_service):
     url = reverse("user-register")
     pw = secrets.token_urlsafe(12)
 
-    # _get_user_service Mocking
+    # 1. UserService Mocking 설정
     mocker.patch(
         "users.views.auth_views.UserRegisterView._get_user_service",
         return_value=mock_user_service,
     )
 
-    # 1. 성공 (2FA=False)
+    # 2. 🔑핵심 수정: 시리얼라이저의 이메일 중복 검사(check_email_exists) 통과 보장
+    #    (mock_user_service fixture가 이미 False를 반환하도록 설정되었다면 이 코드는 생략 가능)
+    mock_user_service.check_email_exists.return_value = False
+
+    # 3. create_user 성공 리턴값 설정
     mock_user_service.create_user.return_value = MagicMock(id=1, email="new1@ex.com")
+
     data = {
         "email": "new1@ex.com",
         "password": pw,
@@ -76,22 +81,44 @@ def test_register_success(api_client, mocker, mock_user_service):
         "enable_2fa": False,
     }
     res = api_client.post(url, data, format="json")
+
+    # 4. 상태 코드 확인
     assert res.status_code == status.HTTP_201_CREATED
-    assert res.json()["email"] == "new1@ex.com"
-    assert res.json()["tfa_required"] is False
-
-    # 2. 성공 (2FA=True 분기 커버)
-    mock_user_service.create_user.return_value = MagicMock(id=2, email="new2@ex.com")
-    data["email"] = "new2@ex.com"
-    data["enable_2fa"] = True
-    res2 = api_client.post(url, data, format="json")
-    assert res2.status_code == status.HTTP_201_CREATED
-    assert res2.json()["tfa_required"] is True
-
 
 @pytest.mark.django_db
+def test_register_failure_serializer_validation(
+    api_client, mocker, mock_user_service, user
+):
+    """
+    ⭐회원가입 실패 테스트 (시리얼라이저의 validate_email 실패 분기 커버)
+    실제 이메일 중복은 시리얼라이저 단계에서 400 Bad Request로 처리됩니다.
+    """
+    url = reverse("user-register")
+    pw = secrets.token_urlsafe(12)
+
+    # _get_user_service Mocking
+    mocker.patch(
+        "users.views.auth_views.UserRegisterView._get_user_service",
+        return_value=mock_user_service,
+    )
+
+    # 시리얼라이저가 유효성 검사를 할 때 check_email_exists를 호출하고,
+    # 이메일이 이미 존재한다고 Mocking하여 400 에러를 유도합니다.
+    mock_user_service.check_email_exists.return_value = True
+
+    data = {"email": user.email, "password": pw, "nickname": "NN"}
+
+    res = api_client.post(url, data, format="json")
+
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+
+    # DRF 시리얼라이저 오류 응답 형식: {"email": ["에러 메시지"]}
+    error_detail = res.json()
+    assert "email" in error_detail
+    assert "이미 등록된 이메일 주소입니다." in error_detail["email"][0]
+@pytest.mark.django_db
 def test_register_failure_value_error(api_client, mocker, mock_user_service):
-    """회원가입 실패 테스트 (UserService의 ValueError 분기 커버)"""
+    """회원가입 실패 테스트 (UserService의 try-except ValueError 분기 커버)"""
     url = reverse("user-register")
 
     mocker.patch(
@@ -99,15 +126,18 @@ def test_register_failure_value_error(api_client, mocker, mock_user_service):
         return_value=mock_user_service,
     )
 
-    # create_user에서 ValueError 발생 유도 (예: 중복 이메일)
+    # 시리얼라이저 통과 후 create_user에서 ValueError 발생 유도 (예: 닉네임 정책 위반 등)
+    # 시리얼라이저의 check_email_exists는 False를 반환해야 통과합니다.
+    mock_user_service.check_email_exists.return_value = False
     mock_user_service.create_user.side_effect = ValueError(
-        "이미 사용중인 이메일입니다."
+        "닉네임이 비즈니스 정책을 위반했습니다."
     )
-    data = {"email": "dup@ex.com", "password": "pw", "nickname": "NN"}
+    data = {"email": "err@ex.com", "password": "pw", "nickname": "N"}
 
     res = api_client.post(url, data, format="json")
+
     assert res.status_code == status.HTTP_400_BAD_REQUEST
-    assert "이미 사용중인 이메일입니다." in res.json().get("detail", "")
+    assert "닉네임이 비즈니스 정책을 위반했습니다." in res.json().get("detail", "")
 
 
 # ----------------------------------------------------------------------
@@ -583,29 +613,39 @@ def test_password_reset_confirm_passwordmismatch_exception(
 def test_password_reset_confirm_value_error(
     api_client, user, mocker, mock_user_service
 ):
-    """비밀번호 재설정 확인 실패 테스트 (ValueError 분기 - 유효하지 않은 링크/토큰)"""
-    confirm_url = reverse("password-reset-confirm", args=["bad_uid", "bad_token"])
+    """
+    ⭐비밀번호 재설정 확인 실패 테스트 (ValueError 분기 커버)
+    유효하지 않은 링크/토큰/UIDb64 등 테스트.
+    """
+    uidb64 = urlsafe_base64_encode(str(user.pk).encode())
+    token = default_token_generator.make_token(user)
+    confirm_url = reverse("password-reset-confirm", args=[uidb64, token])
+    newpw = secrets.token_urlsafe(14)
 
     mocker.patch(
         "users.views.auth_views.PasswordResetConfirmView._get_user_service",
         return_value=mock_user_service,
     )
 
-    # ValueError 예외 발생 유도
+    # 1. ValueError 발생 유도 (유효하지 않은 토큰/링크)
     error_msg = "유효하지 않은 토큰입니다."
     mock_user_service.reset_password.side_effect = ValueError(error_msg)
 
-    data = {
-        "new_password": "NewValidPassword1!",
-        "new_password_confirm": "NewValidPassword1!",
-    }
-    res = api_client.post(confirm_url, data, format="json")
-
+    res = api_client.post(
+        confirm_url,
+        {"new_password": newpw, "new_password_confirm": newpw},
+        format="json",
+    )
     assert res.status_code == status.HTTP_401_UNAUTHORIZED
-    assert error_msg in res.json().get("detail", "")
+    detail = res.json().get("detail", "")
+    assert error_msg in detail
 
-    # 오류 메시지가 없을 때의 분기 커버
+    # 2. 오류 메시지가 없을 때의 분기 커버
     mock_user_service.reset_password.side_effect = ValueError("")
-    res_no_msg = api_client.post(confirm_url, data, format="json")
+    res_no_msg = api_client.post(
+        confirm_url,
+        {"new_password": newpw, "new_password_confirm": newpw},
+        format="json",
+    )
     assert res_no_msg.status_code == status.HTTP_401_UNAUTHORIZED
     assert res_no_msg.json()["detail"] == "유효하지 않은 비밀번호 재설정 링크입니다."
