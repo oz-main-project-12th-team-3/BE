@@ -1,6 +1,5 @@
 # PR 자동 라벨링
 '🎯 backend':
-  # 'paths:' 키워드 제거
   - 'ai/**/*'
   - 'chat/**/*'
   - 'users/**/*'
@@ -11,13 +10,11 @@
   - '**/serializers/**/*'
 
 '📝 documentation':
-  # 'paths:' 키워드 제거
   - '**/*.md'
   - 'docs/**/*'
   - 'README*'
 
 '🔧 configuration':
-  # 'paths:' 키워드 제거
   - '.github/**/*'
   - '**/*.json'
   - '**/*.yml'
@@ -29,12 +26,10 @@
   - 'requirements.txt'
 
 '🧪 tests':
-  # 'paths:' 키워드 제거
   - '**/*.test.*'
   - '**/tests/**/*'
 
 '🚀 deployment':
-  # 'paths:' 키워드 제거
   - 'k8s/**/*'
   - 'deployment/**/*'
   - '.github/workflows/deploy*'
