@@ -34,9 +34,7 @@ coverage.xml
 .github/
 
 # Docker
-.dockerignore
-Dockerfile
-docker-compose.yml
+
 
 # 기타
 *.log
