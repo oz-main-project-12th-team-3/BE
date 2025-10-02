@@ -1,9 +1,16 @@
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+
+def health_check(request):
+    return JsonResponse({"status": "healthy"})
+
+
 urlpatterns = [
+    path("health/", health_check, name="health_check"),
     path("admin/", admin.site.urls),
     path("api/", include("two_factor_wrapper.urls")),
     path("api/", include("users.urls")),
