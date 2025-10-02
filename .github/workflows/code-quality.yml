@@ -73,43 +73,6 @@ jobs:
           pip install pip-audit safety
         fi
 
-    # 추가: two_factor 패치 스크립트 실행 단계
-    - name: 🔧 Patch two_factor urls.py
-      run: |
-        python3 - <<EOF
-        import re
-        import sys
-        import sysconfig
-        from pathlib import Path
-        
-        site_packages_dir = Path(sysconfig.get_paths()["purelib"])
-        file_path = site_packages_dir / 'two_factor' / 'urls.py'
-        
-        print(f"Looking for two_factor urls.py at: {file_path}")
-        
-        if not file_path.exists():
-            print(f"Warning: {file_path} not found, skipping patch", file=sys.stderr)
-            sys.exit(0)
-        
-        with open(file_path, "r") as f:
-            content = f.read()
-        
-        pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
-        
-        def replace_tuple(match):
-            return match.group(1) + ')'
-        
-        content = re.sub(pattern, replace_tuple, content, flags=re.DOTALL)
-        
-        if 'app_name = "two_factor"' not in content:
-            content = 'app_name = "two_factor"\\n' + content
-        
-        with open(file_path, "w") as f:
-            f.write(content)
-        
-        print(f"Successfully patched {file_path}")
-        EOF
-
     - name: 📊 Cache test results
       uses: actions/cache@v4
       with:
