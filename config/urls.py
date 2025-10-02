@@ -6,7 +6,8 @@ from two_factor.urls import urlpatterns as two_factor_urls
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/", include(two_factor_urls)),
+    path("api/", include("two_factor_wrapper.urls")),
+
     path("api/", include("users.urls")),
     path("api/", include("chat.urls")),
     path("api/", include("schedule.urls")),

@@ -10,34 +10,50 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('notifications', '0001_initial'),
+        ("notifications", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='notification',
-            name='recipient',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='notifications', to=settings.AUTH_USER_MODEL),
+            model_name="notification",
+            name="recipient",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="notifications",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='notification',
-            name='sender',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sent_notifications', to=settings.AUTH_USER_MODEL),
+            model_name="notification",
+            name="sender",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="sent_notifications",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='notification',
-            name='notification_type',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='notifications.notificationtype'),
+            model_name="notification",
+            name="notification_type",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                to="notifications.notificationtype",
+            ),
         ),
         migrations.AddField(
-            model_name='schedulenotification',
-            name='notification',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='notifications.notification'),
+            model_name="schedulenotification",
+            name="notification",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                to="notifications.notification",
+            ),
         ),
         migrations.AddField(
-            model_name='schedulenotification',
-            name='user',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            model_name="schedulenotification",
+            name="user",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL
+            ),
         ),
     ]

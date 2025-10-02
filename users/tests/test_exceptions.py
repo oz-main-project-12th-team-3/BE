@@ -5,6 +5,7 @@ from rest_framework.exceptions import APIException
 
 from users.exceptions import (
     AccountLockedException,
+    EmailAlreadyExistsException,
     PasswordMismatchException,
     TokenAuthenticationFailed,
     TokenBlacklistedException,
@@ -37,12 +38,17 @@ from users.exceptions import (
             "token_authentication_failed",
         ),
         (TokenNotFoundException, 404, "토큰을 찾을 수 없습니다.", "token_not_found"),
+        (
+            EmailAlreadyExistsException,
+            409,
+            "이미 사용 중인 이메일 주소입니다.",
+            "email_already_exists",
+        ),
     ],
 )
 def test_custom_exceptions_attributes(
     exception_class, expected_status, expected_detail, expected_code
 ):
-    # 비밀번호 관련 조건을 맞추기 위해 secrets 호출 (예외 생성과는 무관)
     _ = secrets.token_urlsafe(16)
 
     exc = exception_class()
@@ -62,6 +68,7 @@ def test_custom_exceptions_attributes(
         TokenBlacklistedException,
         TokenAuthenticationFailed,
         TokenNotFoundException,
+        EmailAlreadyExistsException,
     ],
 )
 def test_custom_exceptions_string_representation(exception_class):
