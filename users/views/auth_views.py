@@ -1,6 +1,7 @@
+from datetime import timedelta
+
 from django.conf import settings
-from django.contrib.auth import authenticate, login
-from django_otp import user_has_device
+from django.contrib.auth import login
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -34,7 +35,9 @@ class UserRegisterView(APIView):
 
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
-        serializer = UserRegisterSerializer(data=request.data)
+        serializer = UserRegisterSerializer(
+            data=request.data, context={"user_service": user_service}
+        )
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data.get("email")
@@ -48,7 +51,7 @@ class UserRegisterView(APIView):
                 "detail": "회원가입이 성공적으로 완료되었습니다.",
                 "user_id": user.id,
                 "email": user.email,
-                "2fa_setup_required": enable_2fa,
+                "tfa_required": enable_2fa,
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
         except ValueError as e:
@@ -61,25 +64,40 @@ class UserLoginView(APIView):
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
+        code = request.data.get("code")  # 2FA 코드가 있다면 사용
 
-        user = authenticate(request, username=email, password=password)
-        if user is None:
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+        user_service = UserService(
+            user_repo, token_repo, token_service
+        )  # ⭐ UserService 객체 생성
+
+        # 1. UserService를 통해 로그인 인증 및 2FA 상태 판단/토큰 발급 로직 실행
+        try:
+            (
+                user,
+                login_success,  # 인증 성공 여부 (비밀번호, 잠금, 2FA 포함)
+                tfa_required,  # 2FA 인증이 추가로 필요한지 여부
+                temp_access_token,
+                temp_refresh_token,
+            ) = user_service.login_with_optional_2fa(email, password, code)
+        except Exception as e:
+            # authenticate_user 내에서 발생하는 오류 처리 (비번 불일치, 계정 잠금 등)
+            detail_message = str(e) if str(e) else "로그인 정보가 올바르지 않습니다."
             return Response(
-                {"detail": "로그인 정보가 올바르지 않습니다."},
+                {"detail": detail_message},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
         login(request, user)  # Django 세션 로그인
 
-        user_repo = UserRepository()
-        token_repo = TokenRepository()
-        token_service = TokenService(user_repo, token_repo)
-
-        if user_has_device(user):
+        # 2. 2FA 필요 여부에 따라 응답 분기
+        if tfa_required:
             # 2FA 등록 유저는 임시 토큰 발급 후 2FA 인증 단계로
-            temp_access_token, temp_refresh_token, temp_lifetime = (
-                token_service.generate_temporary_tokens(user)
-            )
+            temp_lifetime = timedelta(
+                minutes=5
+            )  # 임시 토큰 만료 시간 (TokenService와 동일)
             response_data = {
                 "detail": "2FA 인증이 필요합니다.",
                 "user_id": user.id,
@@ -91,9 +109,10 @@ class UserLoginView(APIView):
                 "temporary_access_token": temp_access_token,
                 "temporary_refresh_token": temp_refresh_token,
             }
-            response = Response(response_data, status=status.HTTP_200_OK)
 
+            response = Response(response_data, status=status.HTTP_200_OK)
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+
             response.set_cookie(
                 "access_token",
                 temp_access_token,
@@ -114,7 +133,8 @@ class UserLoginView(APIView):
             )
             return response
 
-        # 2FA 미등록 유저 - 정식 토큰 발급
+        # 3. 2FA 미등록 유저 또는 2FA 인증 완료 (정식 토큰 발급)
+        # login_with_optional_2fa에서 2FA 인증까지 완료시 사용
         access_token, refresh_token, access_token_lifetime = (
             token_service.generate_tokens(user)
         )
@@ -129,9 +149,10 @@ class UserLoginView(APIView):
             "temporary_access_token": None,
             "temporary_refresh_token": None,
         }
-        response = Response(response_data, status=status.HTTP_200_OK)
 
+        response = Response(response_data, status=status.HTTP_200_OK)
         secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+
         response.set_cookie(
             "access_token",
             access_token,

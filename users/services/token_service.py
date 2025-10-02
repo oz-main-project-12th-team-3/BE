@@ -28,9 +28,11 @@ class TokenService:
             "exp": now + ACCESS_TOKEN_LIFETIME,
             "iat": now,
             # 비밀번호 변경 시간은 이미 DB에 Aware 객체로 저장, isoformat() 사용
-            "pwd_changed_at": user.password_changed_at.isoformat()
-            if user.password_changed_at
-            else None,
+            "pwd_changed_at": (
+                user.password_changed_at.isoformat()
+                if user.password_changed_at
+                else None
+            ),
         }
         access_token = jwt.encode(
             access_token_payload,
@@ -71,9 +73,11 @@ class TokenService:
             "user_id": user.id,
             "exp": now + temp_access_lifetime,
             "iat": now,
-            "pwd_changed_at": user.password_changed_at.isoformat()
-            if user.password_changed_at
-            else None,
+            "pwd_changed_at": (
+                user.password_changed_at.isoformat()
+                if user.password_changed_at
+                else None
+            ),
             "is_temporary": True,
         }
         access_token = jwt.encode(

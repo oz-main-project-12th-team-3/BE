@@ -7,10 +7,9 @@ Full list of settings: https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
-
-import sys
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -76,6 +75,7 @@ if not IS_TEST_ENV:
             "django_otp.plugins.otp_totp",
             "django_otp.plugins.otp_static",
             "two_factor",
+            "two_factor_wrapper",
         ]
     )
 

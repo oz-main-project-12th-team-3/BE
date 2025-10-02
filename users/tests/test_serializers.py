@@ -1,5 +1,6 @@
 import secrets
 from datetime import timedelta
+from unittest.mock import MagicMock
 
 import pytest
 from django.utils import timezone
@@ -19,20 +20,66 @@ from users.serializers import (
 )
 
 
-@pytest.mark.django_db
-def test_user_register_serializer_validate_with_and_without_nickname():
-    """닉네임 유무에 따른 UserRegisterSerializer 검증 테스트"""
+@pytest.fixture
+def mock_user_service():
+    """UserService를 모킹하여 check_email_exists 메서드를 제어합니다."""
+    service = MagicMock()
+    # 기본적으로 이메일이 존재하지 않는다고 가정합니다.
+    service.check_email_exists.return_value = False
+    return service
+
+
+def test_user_register_serializer_valid_data(mock_user_service):
+    """유효한 데이터와 닉네임 유무에 따른 UserRegisterSerializer 검증 테스트"""
+    # 1. 닉네임 포함 (성공)
     pw = secrets.token_urlsafe(10)
     data = {"email": "new@example.com", "password": pw, "nickname": "Nick"}
-    ser = UserRegisterSerializer(data=data)
-    assert ser.is_valid()
+    ser = UserRegisterSerializer(data=data, context={"user_service": mock_user_service})
+
+    assert ser.is_valid(raise_exception=True)
     assert ser.validated_data["nickname"] == "Nick"
 
-    data2 = {"email": "new2@example.com", "password": pw}
-    ser2 = UserRegisterSerializer(data=data2)
-    assert ser2.is_valid()
+    # check_email_exists가 호출되었는지 확인
+    mock_user_service.check_email_exists.assert_called_once_with("new@example.com")
+
+    # Mock 호출 횟수 초기화 (두 번째 테스트를 위해)
+    mock_user_service.check_email_exists.reset_mock()
+
+    # 2. 닉네임 없음 (성공)
+    pw2 = secrets.token_urlsafe(10)
+    data2 = {"email": "new2@example.com", "password": pw2}
+    ser2 = UserRegisterSerializer(
+        data=data2, context={"user_service": mock_user_service}
+    )
+
+    assert ser2.is_valid(raise_exception=True)
     # nickname이 없을 때 자동으로 None 설정되는지 확인
     assert ser2.validated_data["nickname"] is None
+
+    # check_email_exists가 두 번째 이메일로 호출되었는지 확인
+    mock_user_service.check_email_exists.assert_called_once_with("new2@example.com")
+
+
+def test_user_register_serializer_email_already_exists(mock_user_service):
+    """이메일 중복 시 ValidationError가 발생하는지 검증 테스트"""
+    # 이메일이 이미 존재한다고 설정
+    mock_user_service.check_email_exists.return_value = True
+
+    pw = secrets.token_urlsafe(10)
+    duplicate_email = "exists@example.com"
+    data = {"email": duplicate_email, "password": pw, "nickname": "Test"}
+
+    ser = UserRegisterSerializer(data=data, context={"user_service": mock_user_service})
+
+    # ValidationError가 발생하는지 확인
+    with pytest.raises(ValidationError) as excinfo:
+        ser.is_valid(raise_exception=True)
+
+    # 정확한 에러 메시지가 반환되었는지 확인
+    assert "이미 등록된 이메일 주소입니다." in str(excinfo.value.detail["email"][0])
+
+    # check_email_exists가 호출되었는지 확인
+    mock_user_service.check_email_exists.assert_called_once_with(duplicate_email)
 
 
 def test_user_login_serializer_valid():
