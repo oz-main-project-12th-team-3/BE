@@ -68,5 +68,5 @@ USER appuser
 # 컨테이너 외부에 노출할 포트
 EXPOSE 8000
 
-# CMD는 start.sh 스크립트가 덮어쓰므로 생략
-# CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+# ✅ CMD 추가 (start.sh가 있다면 이것을 실행)
+CMD ["/usr/local/bin/start.sh"]
