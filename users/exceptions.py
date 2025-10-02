@@ -35,3 +35,9 @@ class TokenNotFoundException(APIException):
     status_code = 404
     default_detail = "토큰을 찾을 수 없습니다."
     default_code = "token_not_found"
+
+
+class EmailAlreadyExistsException(APIException):
+    status_code = 409  # Conflict 상태 코드 사용
+    default_detail = "이미 사용 중인 이메일 주소입니다."
+    default_code = "email_already_exists"

@@ -53,46 +53,6 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.t
 COPY start.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/start.sh
 
-# 💡 two_factor 패치 로직 (사용자가 제공한 코드를 안전하게 복사)
-#    목표: `urlpatterns = (path(...), 'two_factor')` 형태를
-#    `urlpatterns = (path(...),)` 형태로 변환하고 `app_name`을 별도로 정의하여 `urls.E004` 오류 해결
-RUN python3 - <<EOF
-import re
-import sys
-from pathlib import Path
-
-# 파이썬 버전 기반으로 site-packages 경로를 찾음
-# /usr/local/lib/python3.10/site-packages
-site_packages_dir = Path('/usr/local/lib') / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
-file_path = site_packages_dir / 'two_factor' / 'urls.py'
-
-if not file_path.exists():
-    # 패치가 필요한 파일이 없으면 빌드 실패 (설치가 제대로 안 되었음을 의미)
-    print(f"Error: two_factor/urls.py not found at {file_path}", file=sys.stderr)
-    sys.exit(1)
-
-with open(file_path, 'r') as f:
-    content = f.read()
-
-# 1. 'urlpatterns = (... , 'two_factor')' 패턴을 찾습니다.
-pattern = r"(urlpatterns\s*=\s*\((.+?)),\s*['\"]two_factor['\"]\s*\)"
-
-def replace_tuple(match):
-    # 'two_factor' 문자열만 제거하고 튜플을 닫습니다.
-    return match.group(1) + ')'
-
-content = re.sub(pattern, replace_tuple, content, flags=re.DOTALL)
-
-# 2. app_name 정의 추가
-if 'app_name = "two_factor"' not in content:
-    content = 'app_name = "two_factor"\\n' + content
-
-with open(file_path, 'w') as f:
-    f.write(content)
-
-print(f"Successfully patched {file_path}")
-EOF
-
 # 어플리케이션 코드 복사
 COPY --chown=appuser:appuser . .
 
