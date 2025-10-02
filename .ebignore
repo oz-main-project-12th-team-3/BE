@@ -34,10 +34,11 @@ coverage.xml
 .github/
 
 # Docker
-
+.dockerignore
+docker-compose.yml
 
 # 기타
 *.log
 .DS_Store
-db.sqlite3
+db.sqlite3.yml
 media/
