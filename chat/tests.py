@@ -174,7 +174,7 @@ class TestChatConsumer:
 
         connected, close_code = await communicator.connect()
         assert not connected
-        assert close_code == 401
+        assert close_code == 403
 
     def test_receive_and_save_message(self, mocker):
         asyncio.run(self._test_receive_and_save_message(mocker))

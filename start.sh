@@ -20,7 +20,13 @@ echo "Running database migrations..."
 python manage.py migrate --noinput
 
 # -----------------------------------------------------
-# 3. 애플리케이션 서버 실행
+# 3. 정적 파일 수집
+# -----------------------------------------------------
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
+
+# -----------------------------------------------------
+# 4. 애플리케이션 서버 실행
 # -----------------------------------------------------
 echo "Starting Daphne ASGI server..."
 exec daphne -b 0.0.0.0 -p 8000 config.asgi:application
