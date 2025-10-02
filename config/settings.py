@@ -35,7 +35,9 @@ IS_TEST_ENV = "test" in sys.argv
 if os.environ.get("RUNNING_TESTS"):
     ALLOWED_HOSTS = ["testserver"]
 else:
-    ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,web").split(
+        ","
+    )
     # Add the Elastic Beanstalk hostname to the allowed hosts
     if not DEBUG:
         ALLOWED_HOSTS.append(".elasticbeanstalk.com")
@@ -113,7 +115,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        'DIRS': [os.path.join(BASE_DIR, 'frontend', 'dist')],
+        "DIRS": [os.path.join(BASE_DIR, "frontend", "dist")],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -268,7 +270,7 @@ STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'frontend', 'dist'),
+    os.path.join(BASE_DIR, "frontend", "dist"),
 ]
 
 
