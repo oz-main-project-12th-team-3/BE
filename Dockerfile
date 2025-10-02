@@ -53,14 +53,28 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.t
 COPY start.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/start.sh
 
-# 어플리케이션 코드 복사
-COPY --chown=appuser:appuser . .
+# 어플리케이션 코드 복사 (보안 강화를 위해 명시적으로 지정)
+COPY --chown=appuser:appuser ./ai /app/ai/
+COPY --chown=appuser:appuser ./chat /app/chat/
+COPY --chown=appuser:appuser ./config /app/config/
+COPY --chown=appuser:appuser ./frontend /app/frontend/
+COPY --chown=appuser:appuser ./notifications /app/notifications/
+COPY --chown=appuser:appuser ./payments /app/payments/
+COPY --chown=appuser:appuser ./schedule /app/schedule/
+COPY --chown=appuser:appuser ./search /app/search/
+COPY --chown=appuser:appuser ./two_factor_wrapper /app/two_factor_wrapper/
+COPY --chown=appuser:appuser ./users /app/users/
+COPY --chown=appuser:appuser ./manage.py /app/manage.py
+COPY --chown=appuser:appuser ./pyproject.toml /app/pyproject.toml
 
 # 정적 파일 수집
 RUN python3 manage.py collectstatic --noinput
 
 # 앱 경로 권한 부여
 RUN chown -R appuser:appuser /app
+
+# 보안 강화: 애플리케이션 파일 및 디렉토리에서 쓰기 권한 제거
+RUN chmod -R a-w /app
 
 # 비루트 사용자로 실행 권한 변경
 USER appuser
