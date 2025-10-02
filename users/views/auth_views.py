@@ -35,7 +35,9 @@ class UserRegisterView(APIView):
 
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
-        serializer = UserRegisterSerializer(data=request.data)
+        serializer = UserRegisterSerializer(
+            data=request.data, context={"user_service": user_service}
+        )
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data.get("email")
@@ -49,7 +51,7 @@ class UserRegisterView(APIView):
                 "detail": "회원가입이 성공적으로 완료되었습니다.",
                 "user_id": user.id,
                 "email": user.email,
-                "2fa_setup_required": enable_2fa,
+                "tfa_required": enable_2fa,
             }
             return Response(response_data, status=status.HTTP_201_CREATED)
         except ValueError as e:

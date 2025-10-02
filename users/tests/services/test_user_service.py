@@ -110,8 +110,12 @@ def test_create_user(service):
     user.refresh_from_db()
     assert user.user_profile.nickname == "nick"
 
-    # 2. 이메일 중복 시 ValueError 발생
-    with pytest.raises(ValueError, match="이미 사용중인 이메일입니다."):
+    # 2. 이메일 중복 시 EmailAlreadyExistsException 발생 (수정 필요)
+    # from users.exceptions import EmailAlreadyExistsException 를 import 했는지 확인
+    from users.exceptions import EmailAlreadyExistsException
+
+    # 📌 수정된 부분: ValueError 대신 EmailAlreadyExistsException을 사용합니다.
+    with pytest.raises(EmailAlreadyExistsException):
         service.create_user(email, password_val, "nick", enable_2fa=False)
 
 

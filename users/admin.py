@@ -63,6 +63,8 @@ class UserAdmin(BaseUserAdmin):
         ),
     )
 
+    readonly_fields = BaseUserAdmin.readonly_fields + ("created_at", "updated_at")
+
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
