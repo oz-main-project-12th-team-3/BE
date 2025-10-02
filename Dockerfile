@@ -76,6 +76,9 @@ RUN chown -R appuser:appuser /app
 # 보안 강화: 애플리케이션 파일 및 디렉토리에서 쓰기 권한 제거
 RUN chmod -R a-w /app
 
+# collectstatic을 위해 staticfiles 디렉토리에 쓰기 권한 부여
+RUN chmod -R u+w /app/staticfiles
+
 # 비루트 사용자로 실행 권한 변경
 USER appuser
 
