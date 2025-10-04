@@ -40,7 +40,9 @@ class UserRegisterSerializer(serializers.Serializer):
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    tfa_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    tfa_code = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, default=""
+    )
 
 
 class CheckEmailSerializer(serializers.Serializer):
@@ -80,7 +82,15 @@ class PasswordChangeSerializer(serializers.Serializer):
     #     return data
 
 
-class TwoFactorAuthSerializer(serializers.Serializer):
+class TfaSetupConfirmSerializer(serializers.Serializer):
+    """TfaApiView에서 2FA 설정을 최종 확인할 때 사용"""
+
+    code = serializers.CharField(write_only=True, required=True, max_length=6)
+
+
+class TfaVerifySerializer(serializers.Serializer):
+    """TfaApiView에서 2FA 로그인을 시도할 때 사용"""
+
     code = serializers.CharField(write_only=True, required=True, max_length=6)
 
 

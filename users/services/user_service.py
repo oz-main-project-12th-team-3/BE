@@ -145,6 +145,34 @@ class UserService:
         else:
             raise ValueError("잘못된 인증 코드입니다.")
 
+    def verify_2fa_by_user(self, user, code):
+        """
+        인증된 User 객체를 기반으로 2FA 코드를 검증. (TfaApiView.post/verify 단계 사용)
+        """
+        device = self.user_repo.get_user_confirmed_2fa_device(user)
+
+        # NOTE: pending device (setup 단계)는 confirm_2fa가 처리.
+
+        if not device:
+            # TfaApiView는 이미 임시 토큰으로 접근했으므로,
+            # 2FA가 필요한 사용자임을 전제하지만 안전장치
+            return False
+
+        if device.verify_token(code):
+            # 2FA 성공
+            return True
+        else:
+            # 2FA 실패 시 (TfaVerificationFailedException 발생)
+            # TfaApiView에서 TfaVerificationFailedException으로 처리.
+            return False
+
+    def disable_2fa(self, user):
+        """
+        사용자의 모든 2FA 장치를 삭제하여 2FA를 비활성화.
+        """
+        self.user_repo.delete_all_2fa_devices(user)
+        return True
+
     def send_password_reset_email(self, email, domain, protocol="https"):
         try:
             user = self.user_repo.get_user_by_email(email)

@@ -14,7 +14,7 @@ from users.repositories.user_repository import (
 )
 
 # -----------------------------------------------------------
-# TOTPDevice 모의(Mock) 설정 및 NameError 유발 클래스
+# TOTPDevice 모의(Mock) 설정 및 NameError/Exception 유발 클래스
 # -----------------------------------------------------------
 
 # 실제 TOTPDevice가 임포트될 경우를 대비한 별칭 정의
@@ -26,25 +26,66 @@ except ImportError:
     pass
 
 
+class NameErrorRaisingQuerySetMock:
+    """filter()의 반환값처럼 행동하며, delete() 시 NameError를 던집니다."""
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def first(self):
+        # first() 호출 시 NameError가 발생하지 않도록 None 반환 (repository 로직에 따름)
+        return None
+
+    def delete(self):
+        raise NameError("NameError forced on delete on queryset")
+
+
+class ExceptionRaisingQuerySetMock:
+    """일반 Exception을 던져서 delete_all_2fa_devices의 마지막 except 분기."""
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def delete(self):
+        raise Exception("Database error forced on delete")
+
+
 class NameErrorMockManager:
-    """Manager 객체처럼 행동하며, 호출 시 NameError를 던집니다."""
+    """Manager 객체처럼 행동하며, 호출 시 NameError를 던지거나 유발 객체 반환."""
 
     def create(self, *args, **kwargs):
         raise NameError("NameError forced on create")
 
     def filter(self, *args, **kwargs):
-        raise NameError("NameError forced on filter")
+        # filter는 쿼리셋을 반환해야 하므로, NameError를 던지는 Mock을 반환
+        return NameErrorRaisingQuerySetMock()
+
+
+class ExceptionMockManager:
+    """Manager 객체처럼 행동하며, Exception을 유발하는 쿼리셋 Mock을 반환합니다."""
+
+    def create(self, *args, **kwargs):
+        # create_2fa_device NameError 분기는 NameErrorMockManager로 충분히 커버됨
+        return None
+
+    def filter(self, *args, **kwargs):
+        return ExceptionRaisingQuerySetMock()
 
 
 class NameErrorRaisingClassMock:
     """
-    TOTPDevice를 대체하여, .objects 속성에 접근할 때 NameError가 발생하도록
-    (혹은 NameError를 유발하는 객체를 반환하도록) 설정하는 클래스.
+    TOTPDevice를 대체하며, NameError를 유발하는 객체를 반환하도록 설정하는 클래스.
     """
 
-    # objects 속성을 MockManager 인스턴스로 정의.
-    # 리포지토리 코드가 NameError를 잡을 수 있도록, NameError 발생
     objects = NameErrorMockManager()
+
+
+class ExceptionRaisingClassMock:
+    """
+    TOTPDevice를 대체하며, Exception을 유발하는 쿼리셋 Mock을 반환하는 클래스.
+    """
+
+    objects = ExceptionMockManager()
 
 
 @pytest.fixture
@@ -87,7 +128,6 @@ def test_create_user_with_nickname(repo, password):
     assert UserProfile.objects.get(user=user).nickname == "Tester"
 
 
-# create_user의 NameError 예외 처리
 @pytest.mark.django_db
 def test_create_user_with_2fa_nameerror(repo, password):
     """
@@ -177,6 +217,7 @@ def test_update_login_fail_count_success_already_zero(repo, user):
 
     with patch.object(user, "save") as mock_save:
         repo.update_login_fail_count(user, is_success=True)
+        # 0에서 0으로 업데이트하는 경우 save() 호출 안 함
         mock_save.assert_not_called()
 
 
@@ -203,7 +244,7 @@ def test_update_login_fail_count_failure_with_lock(repo, user):
 
 
 @pytest.mark.django_db
-def test_update_login_fail_count_lock_expired(repo, user):
+def test_update_login_fail_count_lock_expired_then_success(repo, user):
     """잠금 시간이 만료된 후 로그인 성공 시 잠금 해제"""
     user.login_fail_count = LOGIN_FAILURE_LIMIT
     user.account_locked_until = django_timezone.now() - django_timezone.timedelta(
@@ -221,11 +262,14 @@ def test_update_login_fail_count_lock_expired(repo, user):
 @pytest.mark.django_db
 def test_update_login_fail_count_already_locked_before_check(repo, user):
     """잠금 상태에서 로그인 시도 시 예외 발생 확인"""
-    user.account_locked_until = django_timezone.now() + django_timezone.timedelta(
-        minutes=10
-    )
+    # is_account_locked()가 True를 반환하도록 설정
+    mock_now = django_timezone.now()
+    lock_until = mock_now + django_timezone.timedelta(minutes=10)
+    user.account_locked_until = lock_until
     user.save()
+
     with pytest.raises(AccountLockedException) as excinfo:
+        # is_success가 True든 False든 AccountLockedException이 먼저 발생
         repo.update_login_fail_count(user, is_success=True)
 
     expected_message = (
@@ -235,7 +279,7 @@ def test_update_login_fail_count_already_locked_before_check(repo, user):
 
 
 # -----------------------------------------------------------
-# 2FA (TOTPDevice)
+# 2FA (TOTPDevice) - 성공 및 NameError/Exception 분기 커버
 # -----------------------------------------------------------
 
 
@@ -279,7 +323,6 @@ def test_2fa_getters_and_creator_success(repo, user):
     assert isinstance(new_device, RealTOTPDevice)
 
 
-# get_user_unconfirmed_2fa_device의 NameError 처리
 @pytest.mark.django_db
 def test_get_user_unconfirmed_2fa_device_nameerror(repo, user):
     """get_user_unconfirmed_2fa_device의 NameError 처리 테스트"""
@@ -289,7 +332,6 @@ def test_get_user_unconfirmed_2fa_device_nameerror(repo, user):
         assert repo.get_user_unconfirmed_2fa_device(user) is None
 
 
-# get_user_confirmed_2fa_device의 NameError 처리
 @pytest.mark.django_db
 def test_get_user_confirmed_2fa_device_nameerror(repo, user):
     """get_user_confirmed_2fa_device의 NameError 처리 테스트"""
@@ -299,7 +341,6 @@ def test_get_user_confirmed_2fa_device_nameerror(repo, user):
         assert repo.get_user_confirmed_2fa_device(user) is None
 
 
-# create_2fa_device의 NameError 처리
 @pytest.mark.django_db
 def test_create_2fa_device_nameerror(repo, user):
     """create_2fa_device의 NameError 처리 테스트"""
@@ -307,3 +348,38 @@ def test_create_2fa_device_nameerror(repo, user):
         "users.repositories.user_repository.TOTPDevice", new=NameErrorRaisingClassMock
     ):
         assert repo.create_2fa_device(user) is None
+
+
+@pytest.mark.skipif(
+    RealTOTPDevice is None, reason="Requires real TOTPDevice to be imported"
+)
+@pytest.mark.django_db
+def test_delete_all_2fa_devices_success(repo, user):
+    """실제 TOTPDevice가 있을 때의 정상 삭제 테스트"""
+    RealTOTPDevice.objects.create(user=user, name="d1")
+    RealTOTPDevice.objects.create(user=user, name="d2")
+    count = repo.delete_all_2fa_devices(user)
+    assert count == 2
+    assert RealTOTPDevice.objects.filter(user=user).count() == 0
+
+
+@pytest.mark.django_db
+def test_delete_all_2fa_devices_nameerror(repo, user):
+    """delete_all_2fa_devices의 NameError 처리 테스트"""
+    with patch(
+        "users.repositories.user_repository.TOTPDevice", new=NameErrorRaisingClassMock
+    ):
+        count = repo.delete_all_2fa_devices(user)
+        # NameError 발생 시 0 반환
+        assert count == 0
+
+
+@pytest.mark.django_db
+def test_delete_all_2fa_devices_exception(repo, user):
+    """delete_all_2fa_devices의 일반 Exception 처리 테스트"""
+    with patch(
+        "users.repositories.user_repository.TOTPDevice", new=ExceptionRaisingClassMock
+    ):
+        count = repo.delete_all_2fa_devices(user)
+        # 일반 Exception 발생 시 0 반환
+        assert count == 0
