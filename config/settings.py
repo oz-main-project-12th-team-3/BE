@@ -35,12 +35,19 @@ IS_TEST_ENV = "test" in sys.argv
 if os.environ.get("RUNNING_TESTS"):
     ALLOWED_HOSTS = ["testserver"]
 else:
-    ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,web").split(
-        ","
+    allowed_hosts_str = os.environ.get(
+        "ALLOWED_HOSTS", 
+        "localhost,127.0.0.1"
     )
-    # Add the Elastic Beanstalk hostname to the allowed hosts
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(",")]
+    
+    # Elastic Beanstalk 환경
     if not DEBUG:
-        ALLOWED_HOSTS.append(".elasticbeanstalk.com")
+        ALLOWED_HOSTS.extend([
+            ".elasticbeanstalk.com",
+            "172.31.1.200",  # Nginx health check IP
+            "172.17.0.1",    # Docker internal IP
+        ])
 
 
 # -----------------------------
