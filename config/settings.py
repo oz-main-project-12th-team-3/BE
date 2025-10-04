@@ -45,9 +45,10 @@ else:
     if not DEBUG:
         ALLOWED_HOSTS.extend([
             ".elasticbeanstalk.com",
+            ".ozaisecretary.com", # Allow main domain and subdomains
+            "ozaisecretary.com",  # Allow root domain
             "172.31.1.200",  # Nginx health check IP
             "172.17.0.1",    # Docker internal IP
-            "52.78.204.88",  # CloudFront IP
         ])
 
 
