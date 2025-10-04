@@ -48,30 +48,50 @@ class UserRegisterView(APIView):
         try:
             user = user_service.create_user(email, password, nickname, enable_2fa)
 
-            access_token, refresh_token, access_token_lifetime = (
-                user_service.token_service.generate_tokens(user)
-            )
+            #  2FA 활성화 여부에 따라 토큰 발급 분기
+            if enable_2fa:
+                # 1. 2FA 활성화 시: 임시 토큰 발급 및 2FA 검증 단계 강제
+                access_token_to_set, refresh_token_to_set, access_token_lifetime = (
+                    user_service.token_service.generate_temporary_tokens(user)
+                )
 
-            response_data = {
-                "detail": "회원가입이 성공적으로 완료되었습니다.",
-                "user_id": user.id,
-                "email": user.email,
-                "expires_in": int(access_token_lifetime.total_seconds()),
-                "access_token": access_token,
-                "tfa_required": enable_2fa,
-                "tfa_step": "none",
-                "temporary_access_token": None,
-                "temporary_refresh_token": None,
-            }
+                response_data = {
+                    "detail": "회원가입 및 2FA 설정이 완료되었습니다. 2FA 검증이 필요합니다.",
+                    "user_id": user.id,
+                    "email": user.email,
+                    "expires_in": int(access_token_lifetime.total_seconds()),
+                    "access_token": None,
+                    "tfa_required": True,
+                    "tfa_step": "verify",  # 2FA 검증이 필요함을 명시
+                    "temporary_access_token": access_token_to_set,
+                    "temporary_refresh_token": refresh_token_to_set,
+                }
+            else:
+                # 2. 2FA 비활성화 시: 정식 토큰 발급 (기존 로직)
+                access_token_to_set, refresh_token_to_set, access_token_lifetime = (
+                    user_service.token_service.generate_tokens(user)
+                )
 
+                response_data = {
+                    "detail": "회원가입이 성공적으로 완료되었습니다.",
+                    "user_id": user.id,
+                    "email": user.email,
+                    "expires_in": int(access_token_lifetime.total_seconds()),
+                    "access_token": access_token_to_set,
+                    "tfa_required": False,
+                    "tfa_step": "none",
+                    "temporary_access_token": None,
+                    "temporary_refresh_token": None,
+                }
+
+            # 쿠키 설정 로직 통일 (분기된 토큰 사용)
             response = Response(response_data, status=status.HTTP_201_CREATED)
-
             secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
 
             # 토큰을 httponly, secure 쿠키에 저장하여 클라이언트에서 인증 유지
             response.set_cookie(
                 "access_token",
-                access_token,
+                access_token_to_set,
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
@@ -79,7 +99,7 @@ class UserRegisterView(APIView):
             )
             response.set_cookie(
                 "refresh_token",
-                refresh_token,
+                refresh_token_to_set,
                 httponly=True,
                 secure=secure_cookie,
                 samesite="Strict",
