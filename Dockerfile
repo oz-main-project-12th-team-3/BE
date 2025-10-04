@@ -70,14 +70,17 @@ COPY --chown=appuser:appuser ./pyproject.toml /app/pyproject.toml
 # 정적 파일 수집
 RUN python3 manage.py collectstatic --noinput
 
+# 미디어 디렉토리 생성
+RUN mkdir -p /app/media
+
 # 앱 경로 권한 부여
 RUN chown -R appuser:appuser /app
 
 # 보안 강화: 애플리케이션 파일 및 디렉토리에서 쓰기 권한 제거
 RUN chmod -R a-w /app
 
-# collectstatic을 위해 staticfiles 디렉토리에 쓰기 권한 부여
-RUN chmod -R u+w /app/staticfiles
+# collectstatic을 위해 staticfiles 디렉토리와 media 디렉토리에 쓰기 권한 부여
+RUN chmod -R u+w /app/staticfiles /app/media
 
 # 비루트 사용자로 실행 권한 변경
 USER appuser

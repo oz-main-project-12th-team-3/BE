@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path, re_path
@@ -29,6 +31,10 @@ urlpatterns = [
     # Catch-all for frontend
     re_path(r"^.*$", TemplateView.as_view(template_name="index.html")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
 
 # if not settings.IS_TEST_ENV:
 #     urlpatterns.append(path("two_factor/", include("two_factor.urls")))

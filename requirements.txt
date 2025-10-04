@@ -14,6 +14,7 @@ asgiref==3.9.1
     #   channels-redis
     #   daphne
     #   django
+    #   django-cors-headers
 attrs==25.3.0
     # via
     #   jsonschema
@@ -77,6 +78,7 @@ django==5.2.6
     # via
     #   -r requirements.in
     #   channels
+    #   django-cors-headers
     #   django-extensions
     #   django-filter
     #   django-formtools
@@ -88,6 +90,8 @@ django==5.2.6
     #   djoser
     #   drf-spectacular
     #   social-auth-app-django
+django-cors-headers==4.4.0
+    # via -r requirements.in
 django-extensions==4.1
     # via -r requirements.in
 django-filter==25.1
