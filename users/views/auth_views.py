@@ -48,18 +48,18 @@ class UserRegisterView(APIView):
         try:
             user = user_service.create_user(email, password, nickname, enable_2fa)
 
-            #  2FA 활성화 여부에 따라 토큰 발급 분기
+            # 2FA 활성화 시 'setup' 단계로 분기
             if enable_2fa:
-                # 1. 2FA 활성화 시: 임시 토큰 발급 및 2FA 검증 단계 강제
+                # 1. 2FA 활성화 시: 임시 토큰 발급 및 2FA 설정 단계 강제
                 access_token_to_set, refresh_token_to_set, access_token_lifetime = (
                     user_service.token_service.generate_temporary_tokens(user)
                 )
 
                 # E501 수정: 문자열을 괄호로 묶어 줄바꿈
                 detail_message = (
-                    "회원가입 및 2FA 설정이 완료되었습니다. " "2FA 검증이 필요합니다."
+                    "회원가입이 완료되었습니다. 2FA 설정을 "
+                    "진행해야 완전한 로그인이 가능합니다."
                 )
-
                 response_data = {
                     "detail": detail_message,
                     "user_id": user.id,
@@ -67,7 +67,7 @@ class UserRegisterView(APIView):
                     "expires_in": int(access_token_lifetime.total_seconds()),
                     "access_token": None,
                     "tfa_required": True,
-                    "tfa_step": "verify",  # 2FA 검증이 필요함을 명시
+                    "tfa_step": "setup",  # 2fa setup 단계
                     "temporary_access_token": access_token_to_set,
                     "temporary_refresh_token": refresh_token_to_set,
                 }

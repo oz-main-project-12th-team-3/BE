@@ -64,8 +64,12 @@ def setup_register_mocks(mocker, mock_user_service, enable_2fa, access_lifetime)
         "users.views.auth_views.UserRegisterView._get_user_service",
         return_value=mock_user_service,
     )
-    mock_user_service.check_email_exists.return_value = False
+    # create_user에서 2FA 활성화 시 User 객체가 반환되어야 함
     mock_user_service.create_user.return_value = MagicMock(id=1, email="new1@ex.com")
+
+    # CheckEmailSerializer의 유효성 검사 통과를 위해 기본값 설정
+    # (실제 중복 테스트는 별도 케이스에서 진행)
+    mock_user_service.check_email_exists.return_value = False
 
     # 토큰 생성 Mock 설정
     mock_token_service = mocker.Mock()
@@ -112,6 +116,7 @@ def test_register_success_no_2fa(api_client, mocker, mock_user_service):
     res_data = response.json()
     assert res_data["detail"] == "회원가입이 성공적으로 완료되었습니다."
     assert res_data["tfa_required"] is False
+    assert res_data["tfa_step"] == "none"  # tfa_step: "none" 확인
     assert res_data["access_token"] == token_mock[0]
 
     # 쿠키 검증
@@ -121,7 +126,7 @@ def test_register_success_no_2fa(api_client, mocker, mock_user_service):
 
 @pytest.mark.django_db
 def test_register_success_with_2fa(api_client, mocker, mock_user_service):
-    """회원가입 성공 테스트: 2FA 활성화 (임시 토큰 발급 및 검증 단계 요구)"""
+    """회원가입 성공 테스트: 2FA 활성화 (임시 토큰 발급 및 설정 단계 요구)"""
     url = reverse("user-register")
     pw = secrets.token_urlsafe(12)
     access_lifetime = timedelta(minutes=5)  # 임시 토큰의 짧은 만료 시간 가정
@@ -147,11 +152,11 @@ def test_register_success_with_2fa(api_client, mocker, mock_user_service):
     res_data = response.json()
     assert (
         res_data["detail"]
-        == "회원가입 및 2FA 설정이 완료되었습니다. 2FA 검증이 필요합니다."
+        == "회원가입이 완료되었습니다. 2FA 설정을 진행해야 완전한 로그인이 가능합니다."
     )
     assert res_data["tfa_required"] is True
-    assert res_data["tfa_step"] == "verify"
-    assert res_data["access_token"] is None  # 정식 액세스 토큰은 발급되지 않음
+    assert res_data["tfa_step"] == "setup"  # 'setup'으로 변경
+    assert res_data["access_token"] is None
     assert res_data["temporary_access_token"] == token_mock[0]
     assert res_data["expires_in"] == int(access_lifetime.total_seconds())
 
@@ -165,7 +170,7 @@ def test_register_failure_serializer_validation(
     api_client, mocker, mock_user_service, user
 ):
     """
-    ⭐회원가입 실패 테스트 (시리얼라이저의 validate_email 실패 분기 커버)
+    회원가입 실패 테스트 (시리얼라이저의 validate_email 실패 분기 커버)
     실제 이메일 중복은 시리얼라이저 단계에서 400 Bad Request로 처리됩니다.
     """
     url = reverse("user-register")
