@@ -41,3 +41,9 @@ class EmailAlreadyExistsException(APIException):
     status_code = 409  # Conflict 상태 코드 사용
     default_detail = "이미 사용 중인 이메일 주소입니다."
     default_code = "email_already_exists"
+
+
+class TfaVerificationFailedException(APIException):
+    status_code = 401
+    default_detail = "2차 인증 코드(OTP)가 올바르지 않습니다."
+    default_code = "tfa_verification_failed"

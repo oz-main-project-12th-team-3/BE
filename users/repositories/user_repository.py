@@ -126,3 +126,18 @@ class UserRepository:
             return TOTPDevice.objects.create(user=user, name="default")
         except NameError:
             return None
+
+    def delete_all_2fa_devices(self, user):
+        """
+        사용자와 연결된 모든 2FA (TOTP) 기기를 삭제합니다. (2FA 해제)
+        """
+        try:
+            # TOTPDevice 쿼리셋을 필터링하여 일괄 삭제
+            count, _ = TOTPDevice.objects.filter(user=user).delete()
+            return count
+        except NameError:
+            # TOTPDevice가 임포트되지 않은 경우 (예: 테스트 환경)
+            return 0
+        except Exception:
+            # 다른 DB 예외 처리
+            return 0

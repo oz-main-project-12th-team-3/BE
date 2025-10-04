@@ -9,15 +9,23 @@ from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APIRequestFactory
 
-from users.authentication import JWTAuthentication
+# -- Import Test Targets & Dependencies --
+from users.authentication import (
+    JWTAuthentication,
+    TemporaryJWTAuthentication,
+)
 from users.exceptions import PasswordMismatchException, TokenAuthenticationFailed
 from users.models import User
 from users.repositories.token_repository import TokenRepository
 from users.repositories.user_repository import UserRepository
 from users.services.token_service import TokenService
 from users.services.user_service import UserService
+
+# -----------------------------------------------------------
+# 1. CORE FIXTURES (수정 없음)
+# -----------------------------------------------------------
 
 
 @pytest.fixture
@@ -27,7 +35,6 @@ def api_client():
 
 @pytest.fixture
 def password():
-    # 💡 이미 secrets를 사용하고 있어 안전합니다.
     return secrets.token_urlsafe(12)
 
 
@@ -41,11 +48,49 @@ def user(db, password):
 
 @pytest.fixture
 def service(db):
-    """UserService 객체 생성 (모든 테스트 파일에서 사용 가능)"""
+    """UserService 객체 생성"""
     user_repo = UserRepository()
     token_repo = TokenRepository()
     token_service = TokenService(user_repo, token_repo)
     return UserService(user_repo, token_repo, token_service)
+
+
+@pytest.fixture
+def mock_token_service(mocker):
+    """TokenService Mock 객체를 제공합니다."""
+    return mocker.Mock(spec=TokenService)
+
+
+@pytest.fixture
+def mock_user_repo(mocker, user):
+    """UserRepository Mock 객체를 제공하며, get_user_by_id는 user를 반환합니다."""
+    mock_repo = mocker.Mock(spec=UserRepository)
+    mock_repo.get_user_by_id.return_value = user
+    return mock_repo
+
+
+@pytest.fixture
+def create_auth_instance(mock_token_service, mock_user_repo):
+    """
+    JWTAuthentication 또는 TemporaryJWTAuthentication 인스턴스에
+    Mock 객체를 주입하여 생성하는 헬퍼 함수
+    """
+
+    def _create_auth(auth_class):
+        auth = auth_class()
+        # **가장 안정적인 의존성 주입 방식**: 인스턴스화 후 속성 덮어쓰기
+        auth.user_repo = mock_user_repo
+        auth.token_service = mock_token_service
+        # token_repo는 로직상 사용되지 않지만 안전을 위해 Mock 처리
+        auth.token_repo = MagicMock(spec=TokenRepository)
+        return auth
+
+    return _create_auth
+
+
+# -----------------------------------------------------------
+# 2. VUE/LOGIN/PASSWORD TESTS (수정 없음)
+# -----------------------------------------------------------
 
 
 @pytest.mark.django_db
@@ -83,27 +128,24 @@ def test_login_wrong_password(api_client, user):
 
 
 @pytest.mark.django_db
-# 💡 service와 mocker fixture를 인수로 추가
 def test_token_refresh_success(api_client, user, password, service, mocker):
     login_url = reverse("user-login")
     refresh_url = reverse("token-refresh")
 
-    # 1. 로그인 요청 (세션/쿠키 활성화)
     login_res = api_client.post(
         login_url, {"email": user.email, "password": password}, format="json"
     )
     assert login_res.status_code == 200
 
-    # 2. TokenService.refresh_user_tokens Mocking: 성공적인 갱신을 강제합니다.
     mock_access_token = "new_access_token"
     mock_refresh_token = "new_refresh_token"
     mock_lifetime = timedelta(minutes=5)
 
+    # NOTE: Mocking 경로가 정확해야 합니다.
     mocker.patch(
         "users.views.auth_views.TokenRefreshView._get_token_service",
         return_value=mocker.Mock(
             refresh_user_tokens=mocker.Mock(
-                # 새로운 토큰과 유저 객체를 반환하도록 설정
                 return_value=(
                     mock_access_token,
                     mock_refresh_token,
@@ -114,16 +156,11 @@ def test_token_refresh_success(api_client, user, password, service, mocker):
         ),
     )
 
-    # 3. 갱신 요청을 위해 유효한 refresh_token을 쿠키에 강제 설정 (401 방지)
     api_client.cookies["refresh_token"] = "placeholder_refresh_token"
 
-    # 4. 토큰 갱신 요청
     res = api_client.post(refresh_url, format="json")
 
-    # 💡 예상 성공 코드 200 확인
     assert res.status_code == 200
-
-    # 5. 응답 쿠키 확인
     assert "access_token" in res.cookies
     assert "refresh_token" in res.cookies
 
@@ -140,7 +177,6 @@ def test_token_refresh_fail(api_client):
 
 @pytest.mark.django_db
 def test_password_reset(monkeypatch, api_client, user):
-    # 직접 모듈 getattr 하여 patch, 기존 설정이 없더라도 에러 안남
     monkeypatch.setattr(
         django.conf.settings, "PROJECT_NAME", "TestProject", raising=False
     )
@@ -155,7 +191,6 @@ def test_password_reset(monkeypatch, api_client, user):
     uidb64 = urlsafe_base64_encode(str(user.pk).encode())
     token = default_token_generator.make_token(user)
     reset_url = reverse("password-reset-confirm", args=[uidb64, token])
-    # 💡 비밀번호를 secrets로 랜덤 생성합니다.
     new_password = secrets.token_urlsafe(12)
 
     res2 = api_client.post(
@@ -172,8 +207,6 @@ def test_password_reset_confirm_fail(api_client, user):
     token = "invalid-token"
     url = reverse("password-reset-confirm", args=[uidb64, token])
 
-    # 💡 새로운 비밀번호를 secrets로 랜덤 생성하여 유효성 검사를 통과시키고,
-    # 비밀번호 불일치 시나리오만 남깁니다.
     new_password = secrets.token_urlsafe(12)
     mismatch_password = secrets.token_urlsafe(12)
 
@@ -210,83 +243,235 @@ def test_password_change_mismatch(api_client, user, mocker):
     assert "error" in res.json() or "detail" in res.json() or "message" in res.json()
 
 
-@pytest.mark.django_db
-def test_authenticate_with_valid_token(db):
-    # 💡 비밀번호를 secrets로 랜덤 생성합니다.
-    random_password = secrets.token_urlsafe(12)
-    user = User.objects.create_user(
-        email="auth_test@example.com", password=random_password
+# -----------------------------------------------------------
+# 3. JWTAuthentication TESTS
+# -----------------------------------------------------------
+
+
+class TestJWTAuthentication:
+    auth_class = JWTAuthentication
+    factory = APIRequestFactory()
+
+    @pytest.mark.parametrize(
+        "header, expected_token",
+        [
+            ("Bearer valid_header_token", "valid_header_token"),
+            ("bearer valid_header_token", "valid_header_token"),
+        ],
     )
-    auth = JWTAuthentication()
-    valid_token = "valid.token.value"
+    def test_auth_success_header(
+        self, create_auth_instance, mock_token_service, user, header, expected_token
+    ):
+        """Authorization 헤더를 통한 정식 토큰 인증 성공"""
+        auth = create_auth_instance(self.auth_class)
 
-    auth.token_service.is_valid_access_token = MagicMock(
-        return_value={"user_id": user.pk}
-    )
-    auth.user_repo.get_user_by_id = MagicMock(return_value=user)
+        mock_token_service.is_valid_access_token.return_value = {
+            "user_id": user.pk,
+            "is_temporary": False,
+        }
 
-    class MockRequest:
-        headers = {"Authorization": "Bearer " + valid_token}
-        COOKIES = {}
+        request = self.factory.get("/", HTTP_AUTHORIZATION=header)
+        # authenticate가 (user, auth_value) 튜플을 반환하는지 확인
+        result = auth.authenticate(request)
 
-    result = auth.authenticate(MockRequest())
-    assert result[0] == user
-    assert result[1] is None
+        assert result is not None
+        result_user, auth_value = result
+        assert result_user == user
+        assert auth_value is None
+        mock_token_service.is_valid_access_token.assert_called_with(expected_token)
+
+    def test_auth_success_cookie(self, create_auth_instance, mock_token_service, user):
+        """쿠키를 통한 정식 토큰 인증 성공 (HTTP_COOKIE 헤더 사용)"""
+        auth = create_auth_instance(self.auth_class)
+
+        mock_token_service.is_valid_access_token.return_value = {
+            "user_id": user.pk,
+            "is_temporary": False,
+        }
+        token = "valid_cookie_token"
+
+        # APIRequestFactory에 쿠키를 전달하는 올바른 방법: HTTP_COOKIE 헤더 사용
+        request = self.factory.get(
+            "/", HTTP_COOKIE=f"access_token={token}; other_cookie=value"
+        )
+
+        result = auth.authenticate(request)
+
+        assert result is not None
+        result_user, auth_value = result
+        assert result_user == user
+        assert auth_value is None
+        mock_token_service.is_valid_access_token.assert_called_with(token)
+
+    def test_auth_returns_none_no_token(self, create_auth_instance):
+        """헤더에도 쿠키에도 토큰이 없을 때 None 반환"""
+        auth = create_auth_instance(self.auth_class)
+        request = self.factory.get("/")
+        assert auth.authenticate(request) is None
+
+    @pytest.mark.parametrize("header", ["InvalidHeader", "Basic token"])
+    def test_auth_returns_none_invalid_header_format(
+        self, create_auth_instance, header
+    ):
+        """헤더 형식이 'Bearer '로 시작하지 않을 때 AuthenticationFailed 발생"""
+        auth = create_auth_instance(self.auth_class)
+        request = self.factory.get("/", HTTP_AUTHORIZATION=header)
+
+        # 현재 뷰 로직: Bearer가 아니거나 파트가 2개가 아니면 AuthenticationFailed 발생
+        with pytest.raises(AuthenticationFailed, match="Bearer 토큰이어야 합니다."):
+            auth.authenticate(request)
+
+    def test_auth_failure_invalid_bearer_header(self, create_auth_instance):
+        """헤더가 'Bearer'로 시작하지만 토큰 값이 없을 때 AuthenticationFailed 발생"""
+        auth = create_auth_instance(self.auth_class)
+        # "Bearer" 뒤에 토큰이 없는 경우 (parts 배열의 길이가 1이 됨)
+        request = self.factory.get("/", HTTP_AUTHORIZATION="Bearer")
+
+        with pytest.raises(AuthenticationFailed, match="Bearer 토큰이어야 합니다."):
+            auth.authenticate(request)
+
+    def test_auth_failure_reject_temporary_token(
+        self, create_auth_instance, mock_token_service, user
+    ):
+        """JWTAuthentication에서 임시 토큰 거부"""
+        auth = create_auth_instance(self.auth_class)
+        request = self.factory.get("/", HTTP_AUTHORIZATION="Bearer temp_token")
+
+        mock_token_service.is_valid_access_token.return_value = {
+            "user_id": user.pk,
+            "is_temporary": True,
+        }
+
+        with pytest.raises(
+            AuthenticationFailed,
+            match="임시 토큰으로는 일반 엔드포인트에 접근할 수 없습니다.",
+        ):
+            auth.authenticate(request)
+
+    def test_auth_failure_token_authentication_failed(
+        self, create_auth_instance, mock_token_service
+    ):
+        """TokenAuthenticationFailed 예외 처리 검증"""
+        auth = create_auth_instance(self.auth_class)
+        request = self.factory.get("/", HTTP_AUTHORIZATION="Bearer invalid_token")
+
+        error_msg = "토큰 만료됨"
+        # Mocking
+        mock_token_service.is_valid_access_token.side_effect = (
+            TokenAuthenticationFailed(error_msg)
+        )
+
+        # 예외 발생 검증
+        with pytest.raises(AuthenticationFailed, match=error_msg):
+            auth.authenticate(request)
+
+    def test_auth_failure_other_exception(
+        self, create_auth_instance, mock_token_service
+    ):
+        """기타 일반 Exception 처리 검증"""
+        auth = create_auth_instance(self.auth_class)
+        request = self.factory.get("/", HTTP_AUTHORIZATION="Bearer error_token")
+
+        error_msg = "DB 오류"
+        # Mocking
+        mock_token_service.is_valid_access_token.side_effect = Exception(error_msg)
+
+        # 예외 발생 검증
+        with pytest.raises(AuthenticationFailed, match=f"인증 오류: {error_msg}"):
+            auth.authenticate(request)
 
 
-def test_authenticate_with_no_token():
-    auth = JWTAuthentication()
-
-    class MockRequest:
-        headers = {}
-        COOKIES = {}
-
-    assert auth.authenticate(MockRequest()) is None
+# -----------------------------------------------------------
+# 4. TemporaryJWTAuthentication TESTS
+# -----------------------------------------------------------
 
 
-def test_authenticate_with_invalid_header():
-    auth = JWTAuthentication()
+class TestTemporaryJWTAuthentication:
+    auth_class = TemporaryJWTAuthentication
+    factory = APIRequestFactory()
 
-    class MockRequest:
-        headers = {"Authorization": "InvalidHeader"}
-        COOKIES = {}
+    def test_auth_success_temporary_token_cookie(
+        self, create_auth_instance, mock_token_service, user
+    ):
+        """쿠키를 통한 임시 토큰 인증 성공 (HTTP_COOKIE 헤더 사용)"""
+        auth = create_auth_instance(self.auth_class)
 
-    with pytest.raises(AuthenticationFailed) as e:
-        auth.authenticate(MockRequest())
-    assert "Bearer 토큰이어야 합니다." in str(e.value)
+        mock_token_service.is_valid_access_token.return_value = {
+            "user_id": user.pk,
+            "is_temporary": True,
+        }
+        token = "valid_temp_cookie_token"
 
+        # APIRequestFactory에 쿠키를 전달하는 올바른 방법: HTTP_COOKIE 헤더 사용
+        request = self.factory.get("/", HTTP_COOKIE=f"access_token={token}")
 
-def test_authenticate_token_authentication_failed(monkeypatch):
-    auth = JWTAuthentication()
-    token = "some.token"
+        # authenticate가 (User, None)을 반환하는지 확인
+        result = auth.authenticate(request)
 
-    class MockRequest:
-        headers = {"Authorization": f"Bearer {token}"}
-        COOKIES = {}
+        assert result is not None
+        result_user, auth_value = result
+        assert result_user == user
+        assert auth_value is None
+        mock_token_service.is_valid_access_token.assert_called_with(token)
 
-    def mock_is_valid_access_token(_):
-        raise TokenAuthenticationFailed("토큰 유효성 검사 실패")
+    def test_auth_returns_none_no_cookie(self, create_auth_instance):
+        """쿠키에 토큰이 없을 때 None 반환"""
+        auth = create_auth_instance(self.auth_class)
+        request = self.factory.get("/")  # 쿠키 없음
+        assert auth.authenticate(request) is None
 
-    auth.token_service.is_valid_access_token = mock_is_valid_access_token
+    def test_auth_failure_reject_regular_token(
+        self, create_auth_instance, mock_token_service, user
+    ):
+        """TemporaryJWTAuthentication에서 정식 토큰 거부"""
+        auth = create_auth_instance(self.auth_class)
+        token = "regular_token"
+        request = self.factory.get("/", HTTP_COOKIE=f"access_token={token}")
 
-    with pytest.raises(AuthenticationFailed) as e:
-        auth.authenticate(MockRequest())
-    assert "토큰 유효성 검사 실패" in str(e.value)
+        mock_token_service.is_valid_access_token.return_value = {
+            "user_id": user.pk,
+            "is_temporary": False,  # is_temporary=False이므로 실패해야 함
+        }
 
+        # 예외 발생 검증
+        with pytest.raises(
+            AuthenticationFailed,
+            match="정식 토큰으로는 2FA 엔드포인트에 접근할 수 없습니다.",
+        ):
+            auth.authenticate(request)
 
-def test_authenticate_unexpected_exception(monkeypatch):
-    auth = JWTAuthentication()
-    token = "other.token"
+    def test_auth_failure_token_authentication_failed(
+        self, create_auth_instance, mock_token_service
+    ):
+        """TokenAuthenticationFailed 예외 처리 검증"""
+        auth = create_auth_instance(self.auth_class)
+        token = "invalid_token"
+        request = self.factory.get("/", HTTP_COOKIE=f"access_token={token}")
 
-    class MockRequest:
-        headers = {"Authorization": f"Bearer {token}"}
-        COOKIES = {}
+        error_msg = "임시 토큰 만료"
+        # Mocking
+        mock_token_service.is_valid_access_token.side_effect = (
+            TokenAuthenticationFailed(error_msg)
+        )
 
-    def mock_is_valid_access_token(_):
-        raise Exception("예기치 않은 에러")
+        # 예외 발생 검증
+        with pytest.raises(AuthenticationFailed, match=error_msg):
+            auth.authenticate(request)
 
-    auth.token_service.is_valid_access_token = mock_is_valid_access_token
+    def test_auth_failure_other_exception(
+        self, create_auth_instance, mock_token_service
+    ):
+        """기타 일반 Exception 처리 검증"""
+        auth = create_auth_instance(self.auth_class)
+        token = "error_token"
+        request = self.factory.get("/", HTTP_COOKIE=f"access_token={token}")
 
-    with pytest.raises(AuthenticationFailed) as e:
-        auth.authenticate(MockRequest())
-    assert "인증 오류: 예기치 않은 에러" in str(e.value)
+        error_msg = "Redis 연결 오류"
+        # Mocking
+        mock_token_service.is_valid_access_token.side_effect = Exception(error_msg)
+
+        # 예외 발생 검증
+        with pytest.raises(
+            AuthenticationFailed, match=f"임시 토큰 인증 오류: {error_msg}"
+        ):
+            auth.authenticate(request)
