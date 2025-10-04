@@ -70,7 +70,7 @@ def test_register_success(api_client, mocker, mock_user_service):
         return_value=mock_user_service,
     )
 
-    # 2. 🔑핵심 수정: 시리얼라이저의 이메일 중복 검사(check_email_exists) 통과 보장
+    # 2. 시리얼라이저의 이메일 중복 검사(check_email_exists) 통과 보장
     mock_user_service.check_email_exists.return_value = False
 
     # 3. create_user 성공 리턴값 설정
@@ -82,10 +82,26 @@ def test_register_success(api_client, mocker, mock_user_service):
         "nickname": "NN1",
         "enable_2fa": False,
     }
-    res = api_client.post(url, data, format="json")
 
-    # 4. 상태 코드 확인
-    assert res.status_code == status.HTTP_201_CREATED
+    # 토큰 생성 Mock
+    mock_token_service = mocker.Mock()
+    mock_user_service.token_service = mock_token_service
+
+    # 토큰 생성 Mock 설정
+    token_mock = ("mock_access_token", "mock_refresh_token", timedelta(hours=1))
+    mock_user_service.token_service.generate_tokens.return_value = token_mock
+
+    response = api_client.post(url, data, format="json")
+    assert response.status_code == status.HTTP_201_CREATED
+    res_data = response.json()
+    assert res_data["detail"] == "회원가입이 성공적으로 완료되었습니다."
+    assert res_data["user_id"] == 1
+    assert res_data["access_token"] == "mock_access_token"
+    assert res_data["expires_in"] == int(timedelta(hours=1).total_seconds())
+
+    # 쿠키 검증
+    assert response.cookies["access_token"].value == "mock_access_token"
+    assert response.cookies["refresh_token"].value == "mock_refresh_token"
 
 
 @pytest.mark.django_db
