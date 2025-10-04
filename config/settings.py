@@ -32,25 +32,8 @@ DEBUG = os.environ.get("DEBUG", "0") == "1"
 # CI/Test 환경에서는 2FA 앱을 비활성화
 IS_TEST_ENV = "test" in sys.argv
 
-if os.environ.get("RUNNING_TESTS"):
-    ALLOWED_HOSTS = ["testserver"]
-else:
-    allowed_hosts_str = os.environ.get(
-        "ALLOWED_HOSTS", 
-        "localhost,127.0.0.1"
-    )
-    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(",")]
-    
-    # Elastic Beanstalk 환경
-    if not DEBUG:
-        ALLOWED_HOSTS.extend([
-            ".elasticbeanstalk.com",
-            ".ozaisecretary.com", # Allow main domain and subdomains
-            "ozaisecretary.com",  # Allow root domain
-            ".elb.amazonaws.com", # Allow ELB health checks
-            "172.31.1.200",  # Nginx health check IP
-            "172.17.0.1",    # Docker internal IP
-        ])
+# Temporarily allow all hosts for debugging health checks
+ALLOWED_HOSTS = ['*']
 
 
 # -----------------------------
