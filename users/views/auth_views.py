@@ -140,6 +140,7 @@ class UserLoginView(APIView):
                 user,
                 login_success,  # 인증 성공 여부 (비밀번호, 잠금, 2FA 포함)
                 tfa_required,  # 2FA 인증이 추가로 필요한지 여부
+                tfa_step,
                 temp_access_token,
                 temp_refresh_token,
             ) = user_service.login_with_optional_2fa(email, password, code)
@@ -166,7 +167,7 @@ class UserLoginView(APIView):
                 "expires_in": int(temp_lifetime.total_seconds()),
                 "access_token": None,
                 "tfa_required": True,
-                "tfa_step": "verify",
+                "tfa_step": tfa_step,
                 "temporary_access_token": temp_access_token,
                 "temporary_refresh_token": temp_refresh_token,
             }

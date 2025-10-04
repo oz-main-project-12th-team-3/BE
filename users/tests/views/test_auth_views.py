@@ -44,7 +44,8 @@ def user(db, password):
 @pytest.fixture
 def mock_token_service(mocker):
     """TokenService Mocking Fixture"""
-    return mocker.Mock(spec=UserService)
+    # spec=UserService 대신 실제 TokenService가 속성으로 필요하므로 Mock만 사용
+    return mocker.Mock()
 
 
 @pytest.fixture
@@ -64,11 +65,12 @@ def setup_register_mocks(mocker, mock_user_service, enable_2fa, access_lifetime)
         "users.views.auth_views.UserRegisterView._get_user_service",
         return_value=mock_user_service,
     )
-    # create_user에서 2FA 활성화 시 User 객체가 반환되어야 함
-    mock_user_service.create_user.return_value = MagicMock(id=1, email="new1@ex.com")
+    # create_user에서 User 객체가 반환되어야 함
+    mock_user_service.create_user.return_value = MagicMock(
+        id=1, email="new1@ex.com", enable_2fa=enable_2fa
+    )
 
     # CheckEmailSerializer의 유효성 검사 통과를 위해 기본값 설정
-    # (실제 중복 테스트는 별도 케이스에서 진행)
     mock_user_service.check_email_exists.return_value = False
 
     # 토큰 생성 Mock 설정
@@ -263,7 +265,7 @@ def test_login_failure_exception(api_client, mocker, mock_user_service):
 def test_login_success_no_2fa_standard_tokens(
     api_client, user, mocker, mock_user_service
 ):
-    """2FA 미등록 사용자 (tfa_required=False) - 정식 토큰 발급 테스트."""
+    """2FA 미등록 사용자, 2FA 인증 완료 (tfa_required=False): 정식 토큰 발급 테스트."""
     url = reverse("user-login")
 
     mocker.patch("users.views.auth_views.UserService", return_value=mock_user_service)
@@ -277,12 +279,14 @@ def test_login_success_no_2fa_standard_tokens(
         user,  # user
         True,  # login_success
         False,  # tfa_required (핵심)
+        "none",  # tfa_step
         None,  # temp_access_token
         None,  # temp_refresh_token
     )
 
     # 2. TokenService.generate_tokens Mocking (정식 토큰)
     mock_token_service = mocker.Mock()
+    # 뷰 내부에서 TokenService 객체를 생성하므로, 해당 클래스를 Mocking
     mocker.patch("users.views.auth_views.TokenService", return_value=mock_token_service)
     mock_token_service.generate_tokens.return_value = mock_tokens
 
@@ -292,31 +296,42 @@ def test_login_success_no_2fa_standard_tokens(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["tfa_required"] is False
+    assert response.data["tfa_step"] == "none"
     assert response.data["access_token"] == "std_access_token"
+    assert response.data["temporary_access_token"] is None
     mock_token_service.generate_tokens.assert_called_once_with(user)
     assert response.cookies["access_token"].value == "std_access_token"
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("tfa_step_val", ["setup", "verify"])
 def test_login_success_with_2fa_temp_tokens(
-    api_client, user, mocker, mock_user_service
+    api_client, user, mocker, mock_user_service, tfa_step_val
 ):
-    """2FA 등록 사용자 (tfa_required=True) - 임시 토큰 발급 테스트."""
+    """
+    2FA 등록 사용자 (tfa_required=True) - 임시 토큰 발급 테스트.
+    tfa_step='setup' (미확정 기기)과 tfa_step='verify' (확정 기기) 분기.
+    """
     url = reverse("user-login")
 
     mocker.patch("users.views.auth_views.UserService", return_value=mock_user_service)
     mocker.patch("users.views.auth_views.login")
 
-    # temp_lifetime = timedelta(minutes=5)
+    temp_lifetime_seconds = 300  # 5분
 
     # 1. login_with_optional_2fa 반환값 설정 (2FA 필요 분기)
     mock_user_service.login_with_optional_2fa.return_value = (
         user,  # user
         False,  # login_success
         True,  # tfa_required (핵심)
+        tfa_step_val,  # tfa_step (setup 또는 verify)
         "temp_access_token",
         "temp_refresh_token",
     )
+
+    # 뷰에서 generate_tokens가 호출되지 않음을 확인하기 위해 TokenService Mock
+    mock_token_service = mocker.Mock()
+    mocker.patch("users.views.auth_views.TokenService", return_value=mock_token_service)
 
     response = api_client.post(
         url, {"email": user.email, "password": "any"}, format="json"
@@ -324,9 +339,13 @@ def test_login_success_with_2fa_temp_tokens(
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["tfa_required"] is True
+    assert response.data["tfa_step"] == tfa_step_val  # tfa_step 검증
+    assert response.data["access_token"] is None
     assert response.data["temporary_access_token"] == "temp_access_token"
-    assert "access_token" not in response.data or response.data["access_token"] is None
+    assert response.data["expires_in"] == temp_lifetime_seconds
     assert response.cookies["access_token"].value == "temp_access_token"
+    # 2FA 필요 시 정식 토큰 발급 로직이 호출되지 않았는지 확인
+    mock_token_service.generate_tokens.assert_not_called()
 
 
 @pytest.mark.django_db
@@ -345,27 +364,27 @@ def test_login_cookie_debug_mode_coverage(
 
     access_lifetime = timedelta(minutes=5)
 
+    # TokenService Mocking (정식 토큰 분기에서 필요)
+    mock_token_service = mocker.Mock()
+    mocker.patch("users.views.auth_views.TokenService", return_value=mock_token_service)
+
     if not tfa_required:  # 정식 토큰 분기
         mock_tokens = ("std_access", "std_refresh", access_lifetime)
         mock_user_service.login_with_optional_2fa.return_value = (
             user,
             True,
             False,
+            "none",
             None,
             None,
         )
-        mock_token_service = mocker.Mock(
-            generate_tokens=mocker.Mock(return_value=mock_tokens)
-        )
-        mocker.patch(
-            "users.views.auth_views.TokenService", return_value=mock_token_service
-        )
+        mock_token_service.generate_tokens.return_value = mock_tokens
     else:  # 임시 토큰 분기
-        mock_tokens = ("temp_access", "temp_refresh", access_lifetime)
         mock_user_service.login_with_optional_2fa.return_value = (
             user,
             False,
             True,
+            "verify",
             "temp_access",
             "temp_refresh",
         )
@@ -585,27 +604,17 @@ def test_password_reset_request(api_client, user, mocker, mock_user_service):
 
     # --- 1. http 요청 테스트 (기본) ---
     # request 객체의 scheme을 'http'로 강제 (APIClient 기본 동작)
-    with mocker.patch.object(api_client, "post", wraps=api_client.post) as mock_post:
-        # post가 호출될 때 생성되는 request 객체의 scheme 속성을 Mocking
-        def side_effect(*args, **kwargs):
-            response = mock_post.mock_calls[0].return_value
-            # APIClient는 요청 전에 request 객체를 생성하고 dispatch()로 넘깁니다.
-            # is_secure()의 판단 기준인 scheme을 http로 확실하게 만듭니다.
-            request = response.renderer_context["request"]
-            request.scheme = "http"
-            return response
+    res_http = api_client.post(req_url, {"email": user.email}, format="json")
+    assert res_http.status_code == status.HTTP_200_OK
 
-        res_http = api_client.post(req_url, {"email": user.email}, format="json")
-        assert res_http.status_code == status.HTTP_200_OK
+    mock_user_service.send_password_reset_email.assert_called_once()
+    # 호출 인자 검증
+    # APIClient의 post는 기본적으로 http 스킴으로 요청을 보냅니다.
+    assert (
+        mock_user_service.send_password_reset_email.call_args_list[0].args[2] == "http"
+    )
 
-        mock_user_service.send_password_reset_email.assert_called_once()
-        # 호출 인자 검증
-        assert (
-            mock_user_service.send_password_reset_email.call_args_list[0].args[2]
-            == "http"
-        )
-
-        mock_user_service.send_password_reset_email.reset_mock()
+    mock_user_service.send_password_reset_email.reset_mock()
 
     # --- 2. https 요청 테스트 ---
 
@@ -615,7 +624,7 @@ def test_password_reset_request(api_client, user, mocker, mock_user_service):
         format="json",
         **{
             "wsgi.url_scheme": "https"
-        },  # 이 환경 변수를 주입하여 request.scheme을 제어합니다.
+        },  # 이 환경 변수를 주입하여 request.scheme 및 is_secure()를 제어합니다.
     )
     assert res_https.status_code == status.HTTP_200_OK
 
@@ -696,7 +705,7 @@ def test_password_reset_confirm_value_error(
     api_client, user, mocker, mock_user_service
 ):
     """
-    ⭐비밀번호 재설정 확인 실패 테스트 (ValueError 분기 커버)
+    비밀번호 재설정 확인 실패 테스트 (ValueError 분기 커버)
     유효하지 않은 링크/토큰/UIDb64 등 테스트.
     """
     uidb64 = urlsafe_base64_encode(str(user.pk).encode())
