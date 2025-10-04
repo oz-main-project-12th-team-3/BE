@@ -58,50 +58,106 @@ def mock_user_service(mocker):
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.django_db
-def test_register_success(api_client, mocker, mock_user_service):
-    """회원가입 성공 테스트 (2FA 비활성화/활성화 분기 모두 커버)"""
-    url = reverse("user-register")
-    pw = secrets.token_urlsafe(12)
-
-    # 1. UserService Mocking 설정
+def setup_register_mocks(mocker, mock_user_service, enable_2fa, access_lifetime):
+    """회원가입 테스트를 위한 Mock 설정 공통화"""
     mocker.patch(
         "users.views.auth_views.UserRegisterView._get_user_service",
         return_value=mock_user_service,
     )
-
-    # 2. 시리얼라이저의 이메일 중복 검사(check_email_exists) 통과 보장
     mock_user_service.check_email_exists.return_value = False
-
-    # 3. create_user 성공 리턴값 설정
     mock_user_service.create_user.return_value = MagicMock(id=1, email="new1@ex.com")
 
-    data = {
-        "email": "new1@ex.com",
-        "password": pw,
-        "nickname": "NN1",
-        "enable_2fa": False,
-    }
-
-    # 토큰 생성 Mock
+    # 토큰 생성 Mock 설정
     mock_token_service = mocker.Mock()
     mock_user_service.token_service = mock_token_service
 
-    # 토큰 생성 Mock 설정
-    token_mock = ("mock_access_token", "mock_refresh_token", timedelta(hours=1))
-    mock_user_service.token_service.generate_tokens.return_value = token_mock
+    # 2FA 활성화 여부에 따라 다른 토큰 생성 메서드를 Mocking
+    if enable_2fa:
+        token_mock = ("mock_temp_access", "mock_temp_refresh", access_lifetime)
+        mock_user_service.token_service.generate_temporary_tokens.return_value = (
+            token_mock
+        )
+    else:
+        token_mock = ("mock_access_token", "mock_refresh_token", access_lifetime)
+        mock_user_service.token_service.generate_tokens.return_value = token_mock
+
+    return token_mock, mock_token_service
+
+
+@pytest.mark.django_db
+def test_register_success_no_2fa(api_client, mocker, mock_user_service):
+    """회원가입 성공 테스트: 2FA 비활성화 (정식 토큰 발급)"""
+    url = reverse("user-register")
+    pw = secrets.token_urlsafe(12)
+    access_lifetime = timedelta(hours=1)
+
+    token_mock, mock_token_service = setup_register_mocks(
+        mocker, mock_user_service, enable_2fa=False, access_lifetime=access_lifetime
+    )
+
+    data = {
+        "email": "new_no2fa@ex.com",
+        "password": pw,
+        "nickname": "NN_NO2FA",
+        "enable_2fa": False,
+    }
 
     response = api_client.post(url, data, format="json")
+
+    # 정식 토큰 발급 메서드가 호출되었는지 확인
+    mock_token_service.generate_tokens.assert_called_once()
+    mock_token_service.generate_temporary_tokens.assert_not_called()
+
     assert response.status_code == status.HTTP_201_CREATED
     res_data = response.json()
     assert res_data["detail"] == "회원가입이 성공적으로 완료되었습니다."
-    assert res_data["user_id"] == 1
-    assert res_data["access_token"] == "mock_access_token"
-    assert res_data["expires_in"] == int(timedelta(hours=1).total_seconds())
+    assert res_data["tfa_required"] is False
+    assert res_data["access_token"] == token_mock[0]
 
     # 쿠키 검증
-    assert response.cookies["access_token"].value == "mock_access_token"
-    assert response.cookies["refresh_token"].value == "mock_refresh_token"
+    assert response.cookies["access_token"].value == token_mock[0]
+    assert response.cookies["refresh_token"].value == token_mock[1]
+
+
+@pytest.mark.django_db
+def test_register_success_with_2fa(api_client, mocker, mock_user_service):
+    """회원가입 성공 테스트: 2FA 활성화 (임시 토큰 발급 및 검증 단계 요구)"""
+    url = reverse("user-register")
+    pw = secrets.token_urlsafe(12)
+    access_lifetime = timedelta(minutes=5)  # 임시 토큰의 짧은 만료 시간 가정
+
+    token_mock, mock_token_service = setup_register_mocks(
+        mocker, mock_user_service, enable_2fa=True, access_lifetime=access_lifetime
+    )
+
+    data = {
+        "email": "new_with2fa@ex.com",
+        "password": pw,
+        "nickname": "NN_WITH2FA",
+        "enable_2fa": True,
+    }
+
+    response = api_client.post(url, data, format="json")
+
+    # 임시 토큰 발급 메서드 호출 확인
+    mock_token_service.generate_temporary_tokens.assert_called_once()
+    mock_token_service.generate_tokens.assert_not_called()
+
+    assert response.status_code == status.HTTP_201_CREATED
+    res_data = response.json()
+    assert (
+        res_data["detail"]
+        == "회원가입 및 2FA 설정이 완료되었습니다. 2FA 검증이 필요합니다."
+    )
+    assert res_data["tfa_required"] is True
+    assert res_data["tfa_step"] == "verify"
+    assert res_data["access_token"] is None  # 정식 액세스 토큰은 발급되지 않음
+    assert res_data["temporary_access_token"] == token_mock[0]
+    assert res_data["expires_in"] == int(access_lifetime.total_seconds())
+
+    # 쿠키 검증 (임시 토큰이 설정됨)
+    assert response.cookies["access_token"].value == token_mock[0]
+    assert response.cookies["refresh_token"].value == token_mock[1]
 
 
 @pytest.mark.django_db
