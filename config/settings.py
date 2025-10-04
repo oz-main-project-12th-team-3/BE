@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
+    "corsheaders",
     # local apps
     "users",
     "chat",
@@ -86,6 +87,7 @@ if not IS_TEST_ENV:
 # 미들웨어
 # -----------------------------
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -99,6 +101,21 @@ if not IS_TEST_ENV:
     MIDDLEWARE.insert(
         5, "django_otp.middleware.OTPMiddleware"
     )  # Insert after auth middleware
+
+
+# -----------------------------
+# CORS 설정
+# -----------------------------
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://oz-digital-human-env.eba-dipavmms.ap-northeast-2.elasticbeanstalk.com",
+    "https://ozaisecretary.com",
+    "https://www.ozaisecretary.com",
+]
+CORS_ALLOW_CREDENTIALS = True
 
 
 AUTHENTICATION_BACKENDS = [
@@ -180,11 +197,11 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "mydatabase"),
-            "USER": os.environ.get("DB_USER", "myuser"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "mypassword"),
-            "HOST": os.environ.get("DB_HOST", "db"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
+            "NAME": os.environ.get("RDS_DB_NAME", "postgres"),
+            "USER": os.environ.get("RDS_USERNAME", "postgres"),
+            "PASSWORD": os.environ.get("RDS_PASSWORD", "password"),
+            "HOST": os.environ.get("RDS_HOSTNAME", "db"),
+            "PORT": os.environ.get("RDS_PORT", 5432),
         }
     }
 
@@ -272,6 +289,12 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "frontend", "dist"),
 ]
+
+# -----------------------------
+# 미디어 파일
+# -----------------------------
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
 # -----------------------------
