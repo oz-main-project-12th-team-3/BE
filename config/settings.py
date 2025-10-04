@@ -172,16 +172,36 @@ if os.environ.get("RUNNING_TESTS"):
             "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
     }
-else:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [(os.environ.get("REDIS_HOST", "redis"), 6379)]},
-        },
-    }
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
 
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
+else:
+    redis_host = os.environ.get("REDIS_HOST")
+    
+    if redis_host:
+        # Use Redis if REDIS_HOST is available
+        print("✅ Using Redis for Channels and Celery.")
+        CHANNEL_LAYERS = {
+            "default": {
+                "BACKEND": "channels_redis.core.RedisChannelLayer",
+                "CONFIG": {"hosts": [(redis_host, 6379)]},
+            },
+        }
+        CELERY_BROKER_URL = f"redis://{redis_host}:6379/0"
+        CELERY_RESULT_BACKEND = f"redis://{redis_host}:6379/0"
+    else:
+        # Fallback for when Redis is not available
+        print("⚠️ Warning: REDIS_HOST not set. Using InMemoryChannelLayer and django-db for Celery results.")
+        CHANNEL_LAYERS = {
+            "default": {
+                "BACKEND": "channels.layers.InMemoryChannelLayer",
+            },
+        }
+        # Use the database as the message broker for Celery
+        # This requires django-celery-results, which is installed.
+        # Note: This is not recommended for high-throughput production but works for getting started.
+        CELERY_BROKER_URL = "sqla+postgresql://"
+        CELERY_RESULT_BACKEND = "django-db"
 
 # -----------------------------
 # 데이터베이스
@@ -194,16 +214,33 @@ if os.environ.get("RUNNING_TESTS"):
         }
     }
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("RDS_DB_NAME", "postgres"),
-            "USER": os.environ.get("RDS_USERNAME", "postgres"),
-            "PASSWORD": os.environ.get("RDS_PASSWORD", "password"),
-            "HOST": os.environ.get("RDS_HOSTNAME", "db"),
-            "PORT": os.environ.get("RDS_PORT", 5432),
+    # Elastic Beanstalk RDS 또는 로컬 환경
+    db_host = os.environ.get("RDS_HOSTNAME")
+    
+    if db_host:
+        # Elastic Beanstalk with RDS
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.environ.get("RDS_DB_NAME"),
+                "USER": os.environ.get("RDS_USERNAME"),
+                "PASSWORD": os.environ.get("RDS_PASSWORD"),
+                "HOST": db_host,
+                "PORT": os.environ.get("RDS_PORT", "5432"),
+            }
         }
-    }
+    else:
+        # Docker Compose 로컬 환경
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.environ.get("DB_NAME", "postgres"),
+                "USER": os.environ.get("DB_USER", "postgres"),
+                "PASSWORD": os.environ.get("DB_PASSWORD", "password"),
+                "HOST": "db",  # Docker Compose 서비스 이름
+                "PORT": "5432",
+            }
+        }
 
 AUTH_USER_MODEL = "users.User"
 
