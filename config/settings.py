@@ -47,6 +47,7 @@ else:
             ".elasticbeanstalk.com",
             ".ozaisecretary.com", # Allow main domain and subdomains
             "ozaisecretary.com",  # Allow root domain
+            ".elb.amazonaws.com", # Allow ELB health checks
             "172.31.1.200",  # Nginx health check IP
             "172.17.0.1",    # Docker internal IP
         ])
