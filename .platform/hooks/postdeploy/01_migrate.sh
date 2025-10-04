@@ -2,7 +2,7 @@
 echo ">>> 01_migrate.sh is executing!"
 
 echo ">>> Running database migrations..."
-python manage.py migrate --noinput
+python3 manage.py migrate --noinput
 
 echo ">>> Running collectstatic..."
-python manage.py collectstatic --noinput
+python3 manage.py collectstatic --noinput
