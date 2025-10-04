@@ -177,7 +177,7 @@ if os.environ.get("RUNNING_TESTS"):
 
 else:
     redis_host = os.environ.get("REDIS_HOST")
-    
+
     if redis_host:
         # Use Redis if REDIS_HOST is available
         print("✅ Using Redis for Channels and Celery.")
@@ -191,7 +191,9 @@ else:
         CELERY_RESULT_BACKEND = f"redis://{redis_host}:6379/0"
     else:
         # Fallback for when Redis is not available
-        print("⚠️ Warning: REDIS_HOST not set. Using InMemoryChannelLayer and django-db for Celery results.")
+        print(
+            "⚠️ Warning: REDIS_HOST not set. Using InMemoryChannelLayer and django-db for Celery results."
+        )
         CHANNEL_LAYERS = {
             "default": {
                 "BACKEND": "channels.layers.InMemoryChannelLayer",
@@ -216,7 +218,7 @@ if os.environ.get("RUNNING_TESTS"):
 else:
     # Elastic Beanstalk RDS 또는 로컬 환경
     db_host = os.environ.get("RDS_HOSTNAME")
-    
+
     if db_host:
         # Elastic Beanstalk with RDS
         DATABASES = {

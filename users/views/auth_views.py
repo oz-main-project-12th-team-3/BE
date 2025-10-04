@@ -47,13 +47,49 @@ class UserRegisterView(APIView):
 
         try:
             user = user_service.create_user(email, password, nickname, enable_2fa)
+
+            access_token, refresh_token, access_token_lifetime = (
+                user_service.token_service.generate_tokens(user)
+            )
+
             response_data = {
                 "detail": "회원가입이 성공적으로 완료되었습니다.",
                 "user_id": user.id,
                 "email": user.email,
+                "expires_in": int(access_token_lifetime.total_seconds()),
+                "access_token": access_token,
                 "tfa_required": enable_2fa,
+                "tfa_step": "none",
+                "temporary_access_token": None,
+                "temporary_refresh_token": None,
             }
-            return Response(response_data, status=status.HTTP_201_CREATED)
+
+            response = Response(response_data, status=status.HTTP_201_CREATED)
+
+            secure_cookie = settings.SECURE_COOKIE if not settings.DEBUG else False
+
+            # 토큰을 httponly, secure 쿠키에 저장하여 클라이언트에서 인증 유지
+            response.set_cookie(
+                "access_token",
+                access_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(access_token_lifetime.total_seconds()),
+            )
+            response.set_cookie(
+                "refresh_token",
+                refresh_token,
+                httponly=True,
+                secure=secure_cookie,
+                samesite="Strict",
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
+            )
+
+            return response
+
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
