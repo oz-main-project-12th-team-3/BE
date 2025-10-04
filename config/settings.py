@@ -104,9 +104,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://oz-digital-human-env.eba-dipavmms.ap-northeast-2.elasticbeanstalk.com",
     "https://ozaisecretary.com",
     "https://www.ozaisecretary.com",
+    "https://api.ozaisecretary.com", # New backend API domain
 ]
 CORS_ALLOW_CREDENTIALS = True
 
