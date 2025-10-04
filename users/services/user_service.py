@@ -44,7 +44,7 @@ class UserService:
 
         # 1. 2FA 장치가 전혀 없음 - 바로 정식 로그인 성공
         if not confirmed_device and not pending_device:
-            return user, True, False, None, None
+            return user, True, False, "none", None, None
 
         # 2. 미확정 (Pending) 기기가 있는 경우 (회원가입 직후)
         #    🚨 뷰에서 tfa_required=True를 받도록 임시 토큰 반환을 최우선으로 처리
@@ -55,13 +55,20 @@ class UserService:
                     self.token_service.generate_temporary_tokens(user)
                 )
                 # tfa_required=True를 반환하여 뷰가 임시 토큰을 응답하도록 유도
-                return user, False, True, temp_access_token, temp_refresh_token
+                return user, False, True, "setup", temp_access_token, temp_refresh_token
 
             # 2A 코드가 있는 경우 -> 인증 시도
             if pending_device.verify_token(code):
                 pending_device.confirmed = True
                 pending_device.save()
-                return user, True, False, None, None  # 2FA 완료 -> 정식 토큰 발급 가능
+                return (
+                    user,
+                    True,
+                    False,
+                    "none",
+                    None,
+                    None,
+                )  # 2FA 완료 -> 정식 토큰 발급 가능
             else:
                 raise ValueError("잘못된 2FA 인증 코드입니다.")
 
@@ -74,16 +81,23 @@ class UserService:
                     self.token_service.generate_temporary_tokens(user)
                 )
                 # tfa_required=True를 반환하여 뷰가 임시 토큰을 응답하도록 유도
-                return user, False, True, temp_access_token, temp_refresh_token
+                return (
+                    user,
+                    False,
+                    True,
+                    "verify",
+                    temp_access_token,
+                    temp_refresh_token,
+                )
 
             # 2A 코드가 있는 경우 -> 인증 시도
             if confirmed_device.verify_token(code):
-                return user, True, False, None, None  # 정식 토큰 발급 가능
+                return user, True, False, "none", None, None  # 정식 토큰 발급 가능
             else:
                 raise ValueError("잘못된 2FA 인증 코드입니다.")
 
         # 안전장치 (도달할 일 없음)
-        return user, True, False, None, None
+        return user, True, False, "none", None, None
 
     def check_email_exists(self, email):
         return self.user_repo.check_email_exists(email)

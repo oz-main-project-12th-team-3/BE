@@ -401,10 +401,18 @@ def test_verify_2fa(service, user, mocker):
     assert user_authenticated == user
 
 
+# ----------------------------------------------------------------------
+# 5. 2FA Login Flow (login_with_optional_2fa) Test
+# ----------------------------------------------------------------------
+
+
 @pytest.mark.skipif(not TOTPDevice, reason="django_otp or TOTPDevice not available")
 @pytest.mark.django_db
-def test_login_with_optional_2fa_branches(service, user, mocker, password):
-    """2FA 로그인 플로우의 모든 분기 테스트 (커버리지 100% 목표)"""
+def test_login_with_optional_2fa_full_flow(service, user, mocker, password):
+    """
+    login_with_optional_2fa: 2FA 상태와 코드 유무에 따른 모든 분기 테스트
+    (user, login_success, tfa_required, tfa_step, temp_access, temp_refresh)
+    """
     mock_confirmed, mock_unconfirmed, mock_create, mock_device = mock_2fa_repo(
         mocker, user
     )
@@ -412,36 +420,44 @@ def test_login_with_optional_2fa_branches(service, user, mocker, password):
     # authenticate_user 로직은 이미 위에서 테스트했으므로, 여기서는 성공 가정
     mocker.patch.object(service, "authenticate_user", return_value=user)
 
-    mock_temp_tokens = ("temp_access", "temp_refresh", timedelta(minutes=5))
+    MOCK_TEMP_ACCESS = "temp_access_token_mock"
+    MOCK_TEMP_REFRESH = "temp_refresh_token_mock"
+    mock_temp_tokens = (MOCK_TEMP_ACCESS, MOCK_TEMP_REFRESH, timedelta(minutes=5))
     mocker.patch.object(
         service.token_service,
         "generate_temporary_tokens",
         return_value=mock_temp_tokens,
     )
 
-    # Case 1: 2FA 장치 전혀 없음 -> 로그인 성공
-    # (confirmed=None, pending=None)
+    # Case 1: 2FA 장치 전혀 없음 (user.is_2fa_enabled=False 가정) -> **로그인 성공**
+    mock_unconfirmed.return_value = None
+    mock_confirmed.return_value = None
     res = service.login_with_optional_2fa(user.email, password, code=None)
-    assert res == (user, True, False, None, None)
+    # (user, True, False, "none", None, None)
+    assert res == (user, True, False, "none", None, None)
 
     # ------------------------------------------------------------------
-    # Case 2: 미확정 (Pending) 기기 관련 테스트
+    # Case 2: 미확정 (Pending) 기기 존재 (2FA 설정 필요, tfa_step: 'setup')
     # ------------------------------------------------------------------
     mock_unconfirmed.return_value = mock_device  # 미확정 기기 존재
     mock_confirmed.return_value = None
     mock_device.verify_token.reset_mock()
     mock_device.save.reset_mock()
 
-    # 2-A: 코드 없음 -> 임시 토큰 발급 및 2FA 요구
+    # 2-A: 코드 없음 -> 임시 토큰 발급 및 **2FA 설정 요구**
+    service.token_service.generate_temporary_tokens.reset_mock()
     res = service.login_with_optional_2fa(user.email, password, code=None)
-    assert res[1] is False and res[2] is True  # login_success=False, tfa_required=True
-    assert res[3] == "temp_access"
-    service.token_service.generate_temporary_tokens.assert_called()
+    # (user, False, True, "setup", temp_access, temp_refresh)
+    assert res[1] is False and res[2] is True
+    assert res[3] == "setup"  # 🚨 새로운 tfa_step 검증
+    assert res[4] == MOCK_TEMP_ACCESS
+    service.token_service.generate_temporary_tokens.assert_called_once_with(user)
 
-    # 2-B: 코드 있음 + 유효 -> 로그인 성공 및 기기 확정
+    # 2-B: 코드 있음 + 유효 -> **로그인 성공** 및 기기 확정
     mock_device.verify_token.return_value = True
     res = service.login_with_optional_2fa(user.email, password, code="valid")
-    assert res == (user, True, False, None, None)
+    # (user, True, False, "none", None, None)
+    assert res == (user, True, False, "none", None, None)
     mock_device.save.assert_called_once()
     assert mock_device.confirmed is True
 
@@ -451,22 +467,27 @@ def test_login_with_optional_2fa_branches(service, user, mocker, password):
         service.login_with_optional_2fa(user.email, password, code="invalid")
 
     # ------------------------------------------------------------------
-    # Case 3: 확정 (Confirmed) 기기 관련 테스트
+    # Case 3: 확정 (Confirmed) 기기 존재 (2FA 인증 필요, tfa_step: 'verify')
     # ------------------------------------------------------------------
     mock_confirmed.return_value = mock_device  # 확정 기기 존재
     mock_unconfirmed.return_value = None
     mock_device.confirmed = True  # 확정 상태 설정
     mock_device.verify_token.reset_mock()
 
-    # 3-A: 코드 없음 -> 임시 토큰 발급 및 2FA 요구
+    # 3-A: 코드 없음 -> 임시 토큰 발급 및 **2FA 인증 요구**
+    service.token_service.generate_temporary_tokens.reset_mock()
     res = service.login_with_optional_2fa(user.email, password, code=None)
-    assert res[1] is False and res[2] is True  # login_success=False, tfa_required=True
-    assert res[3] == "temp_access"
+    # (user, False, True, "verify", temp_access, temp_refresh)
+    assert res[1] is False and res[2] is True
+    assert res[3] == "verify"  # 🚨 새로운 tfa_step 검증
+    assert res[4] == MOCK_TEMP_ACCESS
+    service.token_service.generate_temporary_tokens.assert_called_once_with(user)
 
-    # 3-B: 코드 있음 + 유효 -> 로그인 성공
+    # 3-B: 코드 있음 + 유효 -> **로그인 성공**
     mock_device.verify_token.return_value = True
     res = service.login_with_optional_2fa(user.email, password, code="valid")
-    assert res == (user, True, False, None, None)
+    # (user, True, False, "none", None, None)
+    assert res == (user, True, False, "none", None, None)
 
     # 3-C: 코드 있음 + 불일치 -> ValueError 예외 발생
     mock_device.verify_token.return_value = False
