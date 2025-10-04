@@ -2,36 +2,15 @@
 # start.sh
 set -e
 
-# 환경변수로 DB 체크 제어 (Elastic Beanstalk에서는 SKIP_DB_CHECK=true 설정)
-SKIP_DB_CHECK=${SKIP_DB_CHECK:-false}
-
-if [ "$SKIP_DB_CHECK" = "false" ]; then
-  echo "Waiting for PostgreSQL to be ready..."
-  
-  DB_HOST=${DB_HOST:-db}
-  DB_PORT=${DB_PORT:-5432}
-  DB_USER=${POSTGRES_USER:-myuser}
-  
-  MAX_TRIES=30
-  TRIES=0
-  
-  while ! pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER}; do
-    TRIES=$((TRIES+1))
-    if [ $TRIES -ge $MAX_TRIES ]; then
-      echo "ERROR: Database not ready after ${MAX_TRIES} seconds"
-      exit 1
-    fi
-    echo "Waiting for database... (${TRIES}/${MAX_TRIES})"
-    sleep 1
-  done
-  
-  echo "PostgreSQL is ready and accessible."
+# Elastic Beanstalk 환경에서는 RDS_HOSTNAME 변수가 존재합니다.
+# 이 변수의 존재 여부로 실제 배포 환경인지 로컬 환경인지 구분합니다.
+if [ -n "$RDS_HOSTNAME" ]; then
+    echo "✅ Production environment detected (RDS_HOSTNAME is set)."
+    echo "Running database migrations..."
+    python manage.py migrate --noinput
 else
-  echo "Skipping database readiness check (SKIP_DB_CHECK=true)"
+    echo "ℹ️ Local environment detected (RDS_HOSTNAME is not set). Skipping migrations."
 fi
-
-echo "Running database migrations..."
-python manage.py migrate --noinput
 
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
