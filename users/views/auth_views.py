@@ -55,8 +55,13 @@ class UserRegisterView(APIView):
                     user_service.token_service.generate_temporary_tokens(user)
                 )
 
+                # E501 수정: 문자열을 괄호로 묶어 줄바꿈
+                detail_message = (
+                    "회원가입 및 2FA 설정이 완료되었습니다. " "2FA 검증이 필요합니다."
+                )
+
                 response_data = {
-                    "detail": "회원가입 및 2FA 설정이 완료되었습니다. 2FA 검증이 필요합니다.",
+                    "detail": detail_message,
                     "user_id": user.id,
                     "email": user.email,
                     "expires_in": int(access_token_lifetime.total_seconds()),
