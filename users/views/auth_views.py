@@ -3,8 +3,8 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import login
 
-# from django.utils.decorators import method_decorator
-# from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,9 +26,10 @@ from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
 
-# @method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(csrf_exempt, name="dispatch")
 class UserRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def _get_user_service(self):
         """요청 시마다 독립적인 UserService 객체를 생성합니다."""
