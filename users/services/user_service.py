@@ -4,17 +4,25 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from ..exceptions import (
     EmailAlreadyExistsException,
     PasswordMismatchException,
     UserNotFoundException,
 )
-from ..repositories.user_repository import UserRepository
 from ..repositories.redis_lock_repository import RedisLockRepository
+from ..repositories.user_repository import UserRepository
+
 
 class UserService:
-    def __init__(self, user_repo: UserRepository, token_repo, token_service, redis_repo: RedisLockRepository):
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        token_repo,
+        token_service,
+        redis_repo: RedisLockRepository,
+    ):
         self.user_repo = user_repo
         self.token_repo = token_repo
         self.token_service = token_service
@@ -150,11 +158,19 @@ class UserService:
         pending_device = self.user_repo.get_user_unconfirmed_2fa_device(user)
         return confirmed_device, pending_device
 
-    def setup_2fa(self, user):
-        device = self.user_repo.get_user_confirmed_2fa_device(user)
-        if not device:
-            device = self.user_repo.create_2fa_device(user)
-        return device
+    def setup_2fa(self, user) -> TOTPDevice:
+        # 1. 확정된 기기가 있으면 그것을 반환
+        confirmed_device = self.user_repo.get_user_confirmed_2fa_device(user)
+        if confirmed_device:
+            return confirmed_device
+
+        # 2. 미확정 기기가 있으면 그것을 반환 (재사용)
+        unconfirmed_device = self.user_repo.get_user_unconfirmed_2fa_device(user)
+        if unconfirmed_device:
+            return unconfirmed_device  # ⬅️ 이 로직이 누락되어 create_2fa_device가 호출된 것입니다.
+
+        # 3. 기기가 전혀 없으면 새로 생성
+        return self.user_repo.create_2fa_device(user)
 
     def confirm_2fa(self, user, code):
         device = self.user_repo.get_user_unconfirmed_2fa_device(user)
@@ -222,6 +238,10 @@ class UserService:
             raise ValueError("유효하지 않은 비밀번호 재설정 링크입니다.")
         if not default_token_generator.check_token(user, token):
             raise ValueError("유효하지 않은 토큰입니다.")
+        if user.check_password(new_password):
+            raise PasswordMismatchException(
+                "새 비밀번호는 기존 비밀번호와 달라야 합니다."
+            )
         self.user_repo.update_user_password(user, new_password)
         self.token_repo.blacklist_all_user_tokens(user)
         return True

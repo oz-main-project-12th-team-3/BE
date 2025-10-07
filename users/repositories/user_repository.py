@@ -3,9 +3,7 @@ from django.db import transaction
 from django.utils import timezone as django_timezone
 
 from ..exceptions import UserNotFoundException
-
 from ..models import User, UserProfile
-
 
 if not settings.IS_TEST_ENV:
     from django_otp.plugins.otp_totp.models import TOTPDevice
@@ -50,8 +48,6 @@ class UserRepository:
         user.set_password(new_password)
         user.password_changed_at = django_timezone.now()
         user.save()
-
-
 
     def check_email_exists(self, email):
         """이메일이 이미 존재하는지 확인합니다."""

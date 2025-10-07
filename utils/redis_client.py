@@ -4,6 +4,7 @@ from django.conf import settings
 # Redis 인스턴스를 싱글톤으로 관리.
 _redis_client = None
 
+
 def get_redis_client():
     """
     Django 설정에서 Redis 연결 정보를 읽어 Redis 클라이언트 인스턴스를 반환합니다.
@@ -13,10 +14,10 @@ def get_redis_client():
         config = settings.REDIS_CLIENT_CONFIG
 
         _redis_client = redis.StrictRedis(
-            host=config['HOST'],
-            port=config['PORT'],
-            db=config['DB'],
-            decode_responses=True # Redis 데이터를 문자열로 디코딩
+            host=config["HOST"],
+            port=config["PORT"],
+            db=config["DB"],
+            decode_responses=True,  # Redis 데이터를 문자열로 디코딩
         )
         # 연결 테스트 (선택 사항)
         try:

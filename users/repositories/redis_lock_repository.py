@@ -2,8 +2,9 @@ from utils.redis_client import get_redis_client
 
 # 로그인 실패 관련 상수
 LOGIN_FAILURE_LIMIT = 5
-FAILURE_COUNT_TTL_SECONDS = 300 # 5분 안에 재시도해야 카운트 유지
-ACCOUNT_LOCK_DURATION_SECONDS = 30 * 60 # 30분 잠금
+FAILURE_COUNT_TTL_SECONDS = 300  # 5분 안에 재시도해야 카운트 유지
+ACCOUNT_LOCK_DURATION_SECONDS = 30 * 60  # 30분 잠금
+
 
 class RedisLockRepository:
     def __init__(self, redis_client=None):
