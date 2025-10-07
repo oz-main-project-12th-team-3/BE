@@ -45,6 +45,19 @@ class UserLoginSerializer(serializers.Serializer):
     )
 
 
+class LoginResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    user_id = serializers.IntegerField()
+    email = serializers.EmailField()
+    expires_in = serializers.IntegerField()
+    access_token = serializers.CharField(allow_null=True)
+    tfa_required = serializers.BooleanField()
+    tfa_step = serializers.CharField()
+    temporary_access_token = serializers.CharField(allow_null=True)
+    temporary_refresh_token = serializers.CharField(allow_null=True)
+    profile_image_url = serializers.CharField(allow_null=True, required=False)
+
+
 class CheckEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(
         required=True,
