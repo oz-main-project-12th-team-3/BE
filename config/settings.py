@@ -222,9 +222,9 @@ else:
 # 캐싱 목적은 아니지만, Redis 클라이언트를 직접 연결하는 데 사용.
 # 이 설정은 `get_redis_client()` 유틸리티에서 사용.
 REDIS_CLIENT_CONFIG = {
-    'HOST': REDIS_HOST,
-    'PORT': REDIS_PORT,
-    'DB': 0, # 로그인 실패 카운트용 DB 인덱스 지정 (0번 사용)
+    "HOST": REDIS_HOST,
+    "PORT": REDIS_PORT,
+    "DB": 0,  # 로그인 실패 카운트용 DB 인덱스 지정 (0번 사용)
 }
 
 # -----------------------------

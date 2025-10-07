@@ -5,19 +5,22 @@ import qrcode
 from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import reverse
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from utils.redis_client import get_redis_client
+
 from ..authentication import JWTAuthentication, TemporaryJWTAuthentication
 from ..exceptions import TfaVerificationFailedException
+from ..repositories.redis_lock_repository import RedisLockRepository
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import TfaSetupConfirmSerializer, TfaVerifySerializer
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
-from ..repositories.redis_lock_repository import RedisLockRepository
-from utils.redis_client import get_redis_client
+
 
 class BaseTfaView(APIView):
     """2FA 뷰를 위한 공통 로직 및 서비스 의존성 관리"""
@@ -68,6 +71,14 @@ class BaseTfaView(APIView):
         return response
 
 
+@extend_schema(
+    responses={
+        200: None,
+        403: OpenApiResponse(description="접근 권한 없음 또는 2FA 필요 없음"),
+    },
+    summary="2FA 내장 페이지 리다이렉트",
+    description="2FA 상태에 따라 django-two-factor-auth 내장 페이지로 리다이렉트",
+)
 class TwoFactorWrapperView(APIView):
     """
     📌 옵션 2: Django-two-factor-auth 내장 페이지로 리다이렉트
@@ -106,6 +117,23 @@ class TfaApiView(BaseTfaView):
     authentication_classes = [TemporaryJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "detail": {"type": "string"},
+                    "otp_uri": {"type": ["string", "null"]},
+                    "qr_code_base64": {"type": ["string", "null"]},
+                },
+            },
+            403: OpenApiResponse(description="2FA 설정 불가 단계"),
+            500: OpenApiResponse(description="서버 내부 오류"),
+        },
+        summary="2FA 설정 정보 조회 (GET)",
+        description="2FA 설정 단계에서 QR 코드 생성 및 반환",
+    )
     # 1. GET: 2FA 설정(setup)을 위한 QR 코드 URI 요청
     def get(self, request):
         """
@@ -220,6 +248,15 @@ class TwoFactorDisableView(BaseTfaView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(description="2FA 해제 성공"),
+            500: OpenApiResponse(description="서버 오류"),
+        },
+        summary="2FA 비활성화",
+        description="사용자의 2FA 설정을 해제",
+    )
     def delete(self, request):
         """사용자의 모든 TOTPDevice를 삭제하여 2FA를 비활성화합니다."""
         user_service, _ = self._get_services()

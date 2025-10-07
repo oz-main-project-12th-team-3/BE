@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.decorators.csrf import csrf_exempt
 
 from .views.auth_views import (
     CheckEmailView,
@@ -19,14 +20,16 @@ from .views.user_views import (
     UserDeleteView,
     UserProfileView,
 )
-from django.views.decorators.csrf import csrf_exempt
+
 urlpatterns = [
     # ------------------ 인증/로그인 기본 경로 ------------------
     path("auth/signup/", csrf_exempt(UserRegisterView.as_view()), name="user-register"),
     path("auth/login/", csrf_exempt(UserLoginView.as_view()), name="user-login"),
     path("auth/logout/", csrf_exempt(LogoutView.as_view()), name="user-logout"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
-    path("auth/email-check/", csrf_exempt(CheckEmailView.as_view()), name="email-check"),
+    path(
+        "auth/email-check/", csrf_exempt(CheckEmailView.as_view()), name="email-check"
+    ),
     # ------------------ 2FA 통합 및 분리 경로 ------------------
     # 1. 커스텀 2FA 페이지용 단일 API
     path("auth/2fa/full/", TfaApiView.as_view(), name="tfa-api"),

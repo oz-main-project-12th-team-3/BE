@@ -2,27 +2,32 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import login
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from utils.redis_client import get_redis_client
 
 from ..authentication import JWTAuthentication
 from ..exceptions import (
     PasswordMismatchException,
     TokenAuthenticationFailed,
 )
+from ..repositories.redis_lock_repository import RedisLockRepository
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import (
     CheckEmailSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    UserLoginSerializer,
     UserRegisterSerializer,
 )
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
-from ..repositories.redis_lock_repository import RedisLockRepository
-from utils.redis_client import get_redis_client
+
+
 class UserRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -35,6 +40,12 @@ class UserRegisterView(APIView):
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
+    @extend_schema(
+        request=UserRegisterSerializer,
+        responses={201: UserRegisterSerializer},
+        summary="유저 회원가입",
+        description="이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다.",
+    )
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
         serializer = UserRegisterSerializer(
@@ -120,9 +131,19 @@ class UserRegisterView(APIView):
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        request=UserLoginSerializer,
+        responses={
+            200: OpenApiResponse(description="로그인 성공"),
+            401: OpenApiResponse(description="로그인 실패"),
+        },
+        summary="유저 로그인",
+        description="이메일, 비밀번호, 선택적 2FA 코드를 통해 로그인 시도합니다.",
+    )
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
@@ -245,6 +266,11 @@ class LogoutView(APIView):
         """요청 시마다 독립적인 TokenRepository 객체를 생성합니다."""
         return TokenRepository()
 
+    @extend_schema(
+        responses={200: OpenApiResponse(description="로그아웃 되었습니다.")},
+        summary="로그아웃 API",
+        description="현재 로그인한 사용자의 토큰을 모두 블랙리스트에 올리고 쿠키를 삭제합니다.",
+    )
     def post(self, request):
         token_repo = self._get_token_repo()
         if request.user:
@@ -267,6 +293,16 @@ class TokenRefreshView(APIView):
         token_repo = TokenRepository()
         return TokenService(user_repo, token_repo)
 
+    @extend_schema(
+        request=None,
+        responses={
+            200: OpenApiResponse(description="토큰 갱신 성공"),
+            401: OpenApiResponse(description="유효하지 않은 리프레시 토큰"),
+            500: OpenApiResponse(description="서버 오류"),
+        },
+        summary="토큰 갱신",
+        description="리프레시 토큰을 받아 새로운 엑세스 토큰과 리프레시 토큰을 발급합니다.",
+    )
     def post(self, request):
         token_service = self._get_token_service()
         refresh_token = (
@@ -321,9 +357,16 @@ class TokenRefreshView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
 class CheckEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        request=CheckEmailSerializer,
+        responses={200: CheckEmailSerializer},
+        summary="이메일 중복 확인",
+        description="이메일이 사용 가능한지 여부를 확인합니다.",
+    )
     def _get_user_service(self):
         """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
@@ -349,6 +392,7 @@ class CheckEmailView(APIView):
             {"available": is_available, "detail": message}, status=status.HTTP_200_OK
         )
 
+
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -359,6 +403,12 @@ class PasswordResetRequestView(APIView):
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service)
 
+    @extend_schema(
+        request=PasswordResetRequestSerializer,
+        responses={200: PasswordResetRequestSerializer},
+        summary="비밀번호 재설정 요청",
+        description="비밀번호 재설정 이메일을 발송합니다.",
+    )
     def post(self, request):
         user_service = self._get_user_service()
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -376,6 +426,12 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        request=PasswordResetConfirmSerializer,
+        responses={200: PasswordResetConfirmSerializer},
+        summary="비밀번호 재설정 확인",
+        description="비밀번호 재설정 링크를 통해 새로운 비밀번호를 설정합니다.",
+    )
     def _get_user_service(self):
         """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
