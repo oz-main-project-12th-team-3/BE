@@ -175,10 +175,17 @@ if os.environ.get("RUNNING_TESTS"):
     CELERY_BROKER_URL = "memory://"
     CELERY_RESULT_BACKEND = "cache+memory://"
 
+    # TEST 환경용 Redis 더미 설정 추가
+    REDIS_HOST = "localhost"
+    REDIS_PORT = 6379
+
 else:
     redis_host = os.environ.get("REDIS_HOST")
 
     if redis_host:
+        # Redis Host 변수를 전역적으로 사용하기 위해 설정
+        REDIS_HOST = redis_host
+        REDIS_PORT = 6379
         # Use Redis if REDIS_HOST is available
         print("✅ Using Redis for Channels and Celery.")
         CHANNEL_LAYERS = {
@@ -194,6 +201,10 @@ else:
         print(
             "⚠️ Warning: REDIS_HOST not set. Using InMemoryChannelLayer and django-db for Celery results."
         )
+        # RedisHost가 없을 때를 대비한 기본값 (개발 환경 등에서 사용)
+        REDIS_HOST = "localhost"
+        REDIS_PORT = 6379
+
         CHANNEL_LAYERS = {
             "default": {
                 "BACKEND": "channels.layers.InMemoryChannelLayer",
@@ -204,6 +215,17 @@ else:
         # Note: This is not recommended for high-throughput production but works for getting started.
         CELERY_BROKER_URL = "sqla+postgresql://"
         CELERY_RESULT_BACKEND = "django-db"
+
+# -----------------------------
+# 직접적인 Redis 연결 정보 설정 (로그인 실패 카운트용)
+# -----------------------------
+# 캐싱 목적은 아니지만, Redis 클라이언트를 직접 연결하는 데 사용.
+# 이 설정은 `get_redis_client()` 유틸리티에서 사용.
+REDIS_CLIENT_CONFIG = {
+    'HOST': REDIS_HOST,
+    'PORT': REDIS_PORT,
+    'DB': 0, # 로그인 실패 카운트용 DB 인덱스 지정 (0번 사용)
+}
 
 # -----------------------------
 # 데이터베이스

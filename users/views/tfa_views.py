@@ -16,7 +16,8 @@ from ..repositories.user_repository import UserRepository
 from ..serializers import TfaSetupConfirmSerializer, TfaVerifySerializer
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
-
+from ..repositories.redis_lock_repository import RedisLockRepository
+from utils.redis_client import get_redis_client
 
 class BaseTfaView(APIView):
     """2FA 뷰를 위한 공통 로직 및 서비스 의존성 관리"""
@@ -25,7 +26,9 @@ class BaseTfaView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
-        user_service = UserService(user_repo, token_repo, token_service)
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
+        user_service = UserService(user_repo, token_repo, token_service, redis_repo)
         return user_service, token_service
 
     def _generate_qr_code_base64(self, otp_uri):

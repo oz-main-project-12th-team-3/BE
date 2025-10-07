@@ -21,8 +21,8 @@ from ..serializers import (
 )
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
-
-
+from ..repositories.redis_lock_repository import RedisLockRepository
+from utils.redis_client import get_redis_client
 class UserRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -31,8 +31,9 @@ class UserRegisterView(APIView):
         """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
+        redis_repo = RedisLockRepository()
         token_service = TokenService(user_repo, token_repo)
-        return UserService(user_repo, token_repo, token_service)
+        return UserService(user_repo, token_repo, token_service, redis_repo)
 
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
@@ -119,7 +120,6 @@ class UserRegisterView(APIView):
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -131,8 +131,10 @@ class UserLoginView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
         user_service = UserService(
-            user_repo, token_repo, token_service
+            user_repo, token_repo, token_service, redis_repo
         )  # ⭐ UserService 객체 생성
 
         # 1. UserService를 통해 로그인 인증 및 2FA 상태 판단/토큰 발급 로직 실행
@@ -319,7 +321,6 @@ class TokenRefreshView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-
 class CheckEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -327,8 +328,9 @@ class CheckEmailView(APIView):
         """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
+        redis_repo = RedisLockRepository()
         token_service = TokenService(user_repo, token_repo)
-        return UserService(user_repo, token_repo, token_service)
+        return UserService(user_repo, token_repo, token_service, redis_repo)
 
     def post(self, request):
         user_service = self._get_user_service()
@@ -346,7 +348,6 @@ class CheckEmailView(APIView):
         return Response(
             {"available": is_available, "detail": message}, status=status.HTTP_200_OK
         )
-
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]

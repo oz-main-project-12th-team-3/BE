@@ -11,13 +11,14 @@ from ..exceptions import (
     UserNotFoundException,
 )
 from ..repositories.user_repository import UserRepository
-
+from ..repositories.redis_lock_repository import RedisLockRepository
 
 class UserService:
-    def __init__(self, user_repo: UserRepository, token_repo, token_service):
+    def __init__(self, user_repo: UserRepository, token_repo, token_service, redis_repo: RedisLockRepository):
         self.user_repo = user_repo
         self.token_repo = token_repo
         self.token_service = token_service
+        self.redis_repo = redis_repo
 
     def create_user(self, email, password, nickname, enable_2fa):
         if self.user_repo.check_email_exists(email):
@@ -26,14 +27,42 @@ class UserService:
 
     def authenticate_user(self, email, password):
         user = self.user_repo.get_user_by_email(email)
+
+        # 1. RedisLockRepository를 사용하여 계정 잠금 상태 확인
+        if self.redis_repo.is_account_locked(user.id):
+            # RedisLockRepository의 상수를 사용해 메시지 생성
+            lock_duration = self.redis_repo.ACCOUNT_LOCK_DURATION_SECONDS // 60
+            raise ValueError(
+                f"계정이 잠겼습니다. {lock_duration}분 후 다시 시도해주세요."
+            )
+
         if not user.is_active:
             raise ValueError("비활성 사용자입니다.")
-        if user.is_account_locked():
-            raise ValueError("계정이 잠겼습니다. 잠시 후 다시 시도해주세요.")
+
         if not check_password(password, user.password):
-            self.user_repo.update_login_fail_count(user, is_success=False)
-            raise PasswordMismatchException("비밀번호가 올바르지 않습니다.")
-        self.user_repo.update_login_fail_count(user, is_success=True)
+            # 🚨 변경: 실패 정보를 받아 메시지를 만듭니다.
+            fail_info = self.redis_repo.record_login_failure(user.id)
+
+            current = fail_info["current_count"]
+            limit = fail_info["limit"]
+            is_locked = fail_info["is_locked"]
+            duration = fail_info["lock_duration_minutes"]
+
+            if is_locked:
+                message = (
+                    f"비밀번호가 올바르지 않습니다. 로그인 실패 횟수({limit}회)를 초과하여 "
+                    f"계정이 {duration}분 동안 잠금 처리되었습니다."
+                )
+            else:
+                remaining = limit - current
+                message = (
+                    f"비밀번호가 올바르지 않습니다. (현재 실패 횟수: {current}/{limit}회). "
+                    f"{remaining}회 추가 실패 시 계정이 잠금 처리됩니다."
+                )
+
+            raise PasswordMismatchException(message)
+
+        self.redis_repo.clear_login_attempts(user.id)
         return user
 
     def login_with_optional_2fa(self, email, password, code=None):

@@ -7,13 +7,12 @@ from .models import Token, User, UserProfile
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     model = User
+    # ❌ login_fail_count, account_locked_until 필드 제거
     list_display = (
         "email",
         "is_staff",
         "is_active",
-        "login_fail_count",
         "password_changed_at",
-        "account_locked_until",
     )
     list_filter = ("is_staff", "is_active")
     ordering = ("email",)
@@ -32,15 +31,16 @@ class UserAdmin(BaseUserAdmin):
                 )
             },
         ),
-        (
-            "Account Status",
-            {
-                "fields": (
-                    "login_fail_count",
-                    "account_locked_until",
-                )
-            },
-        ),
+        # ❌ Account Status 필드셋 제거 (DB 필드가 없으므로)
+        # (
+        #     "Account Status",
+        #     {
+        #         "fields": (
+        #             "login_fail_count",
+        #             "account_locked_until",
+        #         )
+        #     },
+        # ),
         (
             "Important dates",
             {

@@ -12,12 +12,9 @@ from ..serializers import (
 )
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
+from ..repositories.redis_lock_repository import RedisLockRepository
+from utils.redis_client import get_redis_client
 
-# ⚠️ 전역 객체 선언 제거:
-# user_repo = UserRepository()
-# token_repo = TokenRepository()
-# token_service = TokenService(user_repo, token_repo)
-# user_service = UserService(user_repo, token_repo, token_service)
 
 
 class UserProfileView(APIView):
@@ -29,7 +26,9 @@ class UserProfileView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
-        return UserService(user_repo, token_repo, token_service)
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
+        return UserService(user_repo, token_repo, token_service, redis_repo)
 
     def get(self, request):
         user_service = self._get_user_service()

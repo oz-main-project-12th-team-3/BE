@@ -33,9 +33,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    login_fail_count = models.IntegerField(default=0)
     password_changed_at = models.DateTimeField(null=True, blank=True)
-    account_locked_until = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -46,12 +44,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
-
-    def is_account_locked(self):
-        return (
-            self.account_locked_until is not None
-            and self.account_locked_until > timezone.now()
-        )
 
 
 class Token(models.Model):
