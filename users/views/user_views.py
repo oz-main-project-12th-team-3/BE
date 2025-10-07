@@ -104,7 +104,9 @@ class PasswordChangeView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
-        return UserService(user_repo, token_repo, token_service)
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
+        return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(
         request=PasswordChangeSerializer,
@@ -144,7 +146,9 @@ class UserDeleteView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
-        return UserService(user_repo, token_repo, token_service)
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
+        return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(
         request={

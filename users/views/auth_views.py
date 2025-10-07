@@ -34,7 +34,8 @@ class UserRegisterView(APIView):
         """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
-        redis_repo = RedisLockRepository()
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
@@ -42,7 +43,9 @@ class UserRegisterView(APIView):
         request=UserRegisterSerializer,
         responses={201: UserRegisterSerializer},
         summary="유저 회원가입",
-        description="이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다.",
+        description=(
+            "이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다."
+        ),
     )
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
@@ -287,7 +290,9 @@ class LogoutView(APIView):
     @extend_schema(
         responses={200: OpenApiResponse(description="로그아웃 되었습니다.")},
         summary="로그아웃 API",
-        description="현재 로그인한 사용자의 토큰을 모두 블랙리스트에 올리고 쿠키를 삭제합니다.",
+        description=(
+            "현재 로그인한 사용자의 토큰을 모두 블랙리스트에 올리고 쿠키를 삭제합니다."
+        ),
     )
     def post(self, request):
         token_repo = self._get_token_repo()
@@ -319,7 +324,9 @@ class TokenRefreshView(APIView):
             500: OpenApiResponse(description="서버 오류"),
         },
         summary="토큰 갱신",
-        description="리프레시 토큰을 받아 새로운 엑세스 토큰과 리프레시 토큰을 발급합니다.",
+        description=(
+            "리프레시 토큰을 받아 새로운 엑세스 토큰과 리프레시 토큰을 발급합니다."
+        ),
     )
     def post(self, request):
         token_service = self._get_token_service()
@@ -389,7 +396,8 @@ class CheckEmailView(APIView):
         """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
-        redis_repo = RedisLockRepository()
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
@@ -419,7 +427,9 @@ class PasswordResetRequestView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
-        return UserService(user_repo, token_repo, token_service)
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
+        return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(
         request=PasswordResetRequestSerializer,
@@ -455,7 +465,9 @@ class PasswordResetConfirmView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
-        return UserService(user_repo, token_repo, token_service)
+        redis_client = get_redis_client()
+        redis_repo = RedisLockRepository(redis_client=redis_client)
+        return UserService(user_repo, token_repo, token_service, redis_repo)
 
     def post(self, request, uidb64, token):
         user_service = self._get_user_service()
@@ -474,7 +486,7 @@ class PasswordResetConfirmView(APIView):
             return Response(
                 {"detail": detail_message}, status=status.HTTP_401_UNAUTHORIZED
             )
-        except ValueError as e:  # 👈 이 부분을 추가하여 유효하지 않은 링크 오류 처리
+        except ValueError as e:
             detail_message = (
                 str(e) if str(e) else "유효하지 않은 비밀번호 재설정 링크입니다."
             )

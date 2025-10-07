@@ -48,7 +48,6 @@ class UserService:
             raise ValueError("비활성 사용자입니다.")
 
         if not check_password(password, user.password):
-            # 🚨 변경: 실패 정보를 받아 메시지를 만듭니다.
             fail_info = self.redis_repo.record_login_failure(user.id)
 
             current = fail_info["current_count"]
@@ -58,13 +57,15 @@ class UserService:
 
             if is_locked:
                 message = (
-                    f"비밀번호가 올바르지 않습니다. 로그인 실패 횟수({limit}회)를 초과하여 "
+                    f"비밀번호가 올바르지 않습니다. "
+                    f"로그인 실패 횟수({limit}회)를 초과하여 "
                     f"계정이 {duration}분 동안 잠금 처리되었습니다."
                 )
             else:
                 remaining = limit - current
                 message = (
-                    f"비밀번호가 올바르지 않습니다. (현재 실패 횟수: {current}/{limit}회). "
+                    f"비밀번호가 올바르지 않습니다. "
+                    f"(현재 실패 횟수: {current}/{limit}회). "
                     f"{remaining}회 추가 실패 시 계정이 잠금 처리됩니다."
                 )
 
@@ -167,7 +168,7 @@ class UserService:
         # 2. 미확정 기기가 있으면 그것을 반환 (재사용)
         unconfirmed_device = self.user_repo.get_user_unconfirmed_2fa_device(user)
         if unconfirmed_device:
-            return unconfirmed_device  # ⬅️ 이 로직이 누락되어 create_2fa_device가 호출된 것입니다.
+            return unconfirmed_device
 
         # 3. 기기가 전혀 없으면 새로 생성
         return self.user_repo.create_2fa_device(user)
