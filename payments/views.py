@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django.urls import reverse
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -112,7 +112,10 @@ class TossPaymentRequestView(APIView):
             500: OpenApiResponse(description="결제 요청 실패"),
         },
         summary="토스페이먼츠 결제 요청 생성",
-        description="요금제 ID를 받아 토스페이먼츠 결제 요청을 생성하고 결제 페이지 URL을 반환합니다.",
+        description=(
+            "요금제 ID를 받아 토스페이먼츠 결제 요청을 생성하고 "
+            "결제 페이지 URL을 반환합니다."
+        ),
     )
     def post(self, request, *args, **kwargs):
         plan_id = request.data.get("plan_id")
