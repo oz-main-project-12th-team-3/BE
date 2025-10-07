@@ -10,15 +10,13 @@ from rest_framework.views import APIView
 from utils.redis_client import get_redis_client
 
 from ..authentication import JWTAuthentication
-from ..exceptions import (
-    PasswordMismatchException,
-    TokenAuthenticationFailed,
-)
+from ..exceptions import PasswordMismatchException, TokenAuthenticationFailed
 from ..repositories.redis_lock_repository import RedisLockRepository
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import (
     CheckEmailSerializer,
+    LoginResponseSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     UserLoginSerializer,
@@ -148,7 +146,10 @@ class UserLoginView(APIView):
         request=UserLoginSerializer,
         responses={200: LoginResponseSerializer, 401: LoginResponseSerializer},
         summary="유저 로그인",
-        description="이메일, 비밀번호, 선택적 2FA 코드로 로그인, 결과에 따라 2FA 필요 여부 및 토큰 반환",
+        description=(
+            "이메일, 비밀번호, 선택적 2FA 코드로 로그인, "
+            "결과에 따라 2FA 필요 여부 및 토큰 반환"
+        ),
     )
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
@@ -169,7 +170,7 @@ class UserLoginView(APIView):
                 temp_refresh_token,
             ) = user_service.login_with_optional_2fa(email, password, code)
         except Exception as e:
-            detail_message = str(e) if str(e) else "로그인 정보가 올바르지 않습니다."
+            detail_message = str(e) or "로그인 정보가 올바르지 않습니다."
             response_data = {
                 "detail": detail_message,
                 "user_id": None,
@@ -232,9 +233,11 @@ class UserLoginView(APIView):
             return response
 
         else:
-            access_token, refresh_token, access_token_lifetime = (
-                token_service.generate_tokens(user)
-            )
+            (
+                access_token,
+                refresh_token,
+                access_token_lifetime,
+            ) = token_service.generate_tokens(user)
             expires_in = int(access_token_lifetime.total_seconds())
             response_data = {
                 "detail": "로그인 성공",
