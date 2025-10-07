@@ -38,6 +38,7 @@ services:
     # start.sh 스크립트 실행 명령으로 변경
     command: /usr/local/bin/start.sh
     volumes:
+      - ./utils:/app/utils
       - ./config:/app/config
       - ./users:/app/users
       - ./chat:/app/chat
@@ -72,6 +73,7 @@ services:
     build: .
     command:  /usr/local/bin/celery -A config worker -l info
     volumes:
+      - ./utils:/app/utils
       - ./config:/app/config
       - ./users:/app/users
       - ./chat:/app/chat
