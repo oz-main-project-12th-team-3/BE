@@ -2,14 +2,9 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone as django_timezone
 
-from ..exceptions import (
-    AccountLockedException,
-    UserNotFoundException,
-)
-from ..models import User, UserProfile
+from ..exceptions import UserNotFoundException
 
-LOGIN_FAILURE_LIMIT = 5
-ACCOUNT_LOCK_DURATION_MINUTES = 30
+from ..models import User, UserProfile
 
 
 if not settings.IS_TEST_ENV:
@@ -56,40 +51,7 @@ class UserRepository:
         user.password_changed_at = django_timezone.now()
         user.save()
 
-    def update_login_fail_count(self, user, is_success):
-        """
-        로그인 성공/실패에 따라 실패 횟수를 업데이트하고,
-        실패 시 계정 잠금 로직을 실행합니다.
-        """
-        # 1. 계정 잠금 상태 확인
-        if user.is_account_locked():
-            raise AccountLockedException(
-                f"계정이 {ACCOUNT_LOCK_DURATION_MINUTES}분 동안 잠금 처리되었습니다."
-            )
 
-        if is_success:
-            # 2. 성공 시 횟수 초기화
-            if user.login_fail_count > 0:
-                user.login_fail_count = 0
-                user.account_locked_until = None
-                user.save()
-        else:
-            # 3. 실패 시 횟수 증가 및 잠금 처리 확인
-            user.login_fail_count += 1
-            if user.login_fail_count >= LOGIN_FAILURE_LIMIT:
-                user.account_locked_until = (
-                    django_timezone.now()
-                    + django_timezone.timedelta(minutes=ACCOUNT_LOCK_DURATION_MINUTES)
-                )
-                user.save()
-                raise (
-                    AccountLockedException(
-                        f"로그인 실패 횟수 초과로 계정이 "
-                        f"{ACCOUNT_LOCK_DURATION_MINUTES}분 동안 잠금 처리되었습니다."
-                    )
-                )
-            else:
-                user.save()
 
     def check_email_exists(self, email):
         """이메일이 이미 존재하는지 확인합니다."""
