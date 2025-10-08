@@ -26,6 +26,20 @@ RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
 RUN apt-get purge -y --auto-remove gcc && rm -rf /var/lib/apt/lists/*
 
 # ----------------------------------------------------------------------------------
+# 1.5단계: 프론트엔드 빌드 스테이지
+FROM node:18-alpine AS frontend_builder
+
+WORKDIR /app/frontend
+
+# 프론트엔드 의존성 설치
+COPY frontend/package.json frontend/package-lock.json ./ 
+RUN npm install
+
+# 프론트엔드 코드 복사 및 빌드
+COPY frontend/ ./
+RUN npm run build
+
+# ----------------------------------------------------------------------------------
 # 2단계: 런타임 스테이지 - 실제 컨테이너 경량 실행환경
 FROM python:3.10-slim
 
@@ -58,7 +72,6 @@ RUN chmod +x /usr/local/bin/start.sh
 COPY --chown=appuser:appuser ./ai /app/ai/
 COPY --chown=appuser:appuser ./chat /app/chat/
 COPY --chown=appuser:appuser ./config /app/config/
-COPY --chown=appuser:appuser ./frontend /app/frontend/
 COPY --chown=appuser:appuser ./notifications /app/notifications/
 COPY --chown=appuser:appuser ./payments /app/payments/
 COPY --chown=appuser:appuser ./schedule /app/schedule/
@@ -68,6 +81,9 @@ COPY --chown=appuser:appuser ./users /app/users/
 COPY --chown=appuser:appuser ./utils /app/utils/
 COPY --chown=appuser:appuser ./manage.py /app/manage.py
 COPY --chown=appuser:appuser ./pyproject.toml /app/pyproject.toml
+
+# 프론트엔드 빌드 결과 복사
+COPY --from=frontend_builder /app/frontend/dist /app/frontend/dist
 
 # 정적 파일 수집
 RUN python3 manage.py collectstatic --noinput
