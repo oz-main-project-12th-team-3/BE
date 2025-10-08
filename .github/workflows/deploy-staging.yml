@@ -25,6 +25,11 @@ jobs:
       with:
         submodules: true
 
+    - name: 🔄 Initialize and Update Submodules
+      run: |
+        git submodule init
+        git submodule update
+
     - name: 🔑 Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
