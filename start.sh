@@ -7,13 +7,15 @@ set -e
 if [ -n "$RDS_HOSTNAME" ]; then
     echo "✅ Production environment detected (RDS_HOSTNAME is set)."
     echo "Running database migrations..."
-    python3 manage.py migrate --noinput
+    python3 manage.py migrate --noinput || { echo "MIGRATE FAILED"; exit 1; }
+    echo "Migrations completed."
 else
     echo "ℹ️ Local environment detected (RDS_HOSTNAME is not set). Skipping migrations."
 fi
 
 echo "Collecting static files..."
-python3 manage.py collectstatic --noinput
+python3 manage.py collectstatic --noinput || { echo "COLLECTSTATIC FAILED"; exit 1; }
+echo "Collectstatic completed."
 
 echo "Starting Daphne ASGI server..."
 exec daphne -b 0.0.0.0 -p 8000 config.asgi:application
