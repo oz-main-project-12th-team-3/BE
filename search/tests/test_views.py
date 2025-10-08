@@ -47,7 +47,7 @@ class TestSearchLogViews:
         url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert any(log["keyword"] == "DRF" for log in response.data)
+        assert any(log["keyword"] == "DRF" for log in response.data["results"])
 
     def test_list_search_logs_unauthenticated(self):
         client = APIClient()

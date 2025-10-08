@@ -72,6 +72,7 @@ class UserService:
             raise PasswordMismatchException(message)
 
         self.redis_repo.clear_login_attempts(user.id)
+        user.backend = "django.contrib.auth.backends.ModelBackend"  # 백엔드 명시적 설정
         return user
 
     def login_with_optional_2fa(self, email, password, code=None):

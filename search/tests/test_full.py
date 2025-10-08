@@ -70,7 +70,7 @@ class TestSearchFull:
         url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
         assert response.status_code == 200
-        assert any(item["keyword"] == "DRF" for item in response.data)
+        assert any(item["keyword"] == "DRF" for item in response.data["results"])
 
     def test_create_search_log_unauthenticated(self, api_client):
         url = reverse("search:search-log-list-create")

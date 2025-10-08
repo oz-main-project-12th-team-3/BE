@@ -23,6 +23,9 @@ class NotificationTypeAPITest(APITestCase):
 
     def test_get_notification_type_list_is_array(self):
         """알림 타입 목록 조회 응답이 페이지네이션 객체가 아닌 순수 배열인지 테스트"""
+        # DB에 있는 실제 알림 타입 개수를 확인
+        expected_count = NotificationType.objects.count()
+
         url_list = reverse("notificationtype-list")
         response = self.client.get(url_list)
 
@@ -30,7 +33,7 @@ class NotificationTypeAPITest(APITestCase):
         self.assertTrue(
             isinstance(response.data, list)
         )  # 👈 응답이 리스트(배열)인지 확인
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data), expected_count)
 
     def test_crud_notification_type(self):
         # 🚨 테스트 유효성을 위해 setUp에서 생성한 객체 대신 새 객체 생성

@@ -66,8 +66,8 @@ class TestChatAPI:
 
         response = client.get(f"{url}?session_id={session.id}")
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]["message"] == "Hello, world!"
+        assert len(response.data["results"]) == 1
+        assert response.data["results"][0]["message"] == "Hello, world!"
 
     def test_cannot_access_others_session(self, authenticated_user):
         """사용자는 다른 사람의 세션에 접근할 수 없다."""

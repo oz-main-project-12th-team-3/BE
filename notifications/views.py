@@ -94,17 +94,7 @@ class NotificationTypeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = NotificationType.objects.all()
     serializer_class = NotificationTypeSerializer
-
-    # list 메서드를 오버라이드하여 페이지네이션 무시하고 순수 배열 반환
-    def list(self, request, *args, **kwargs):
-        # 쿼리셋 필터링 (기존 로직 유지)
-        queryset = self.filter_queryset(self.get_queryset())
-
-        # 페이지네이션을 수동으로 건너뛰고 전체 쿼리셋을 시리얼라이즈
-        serializer = self.get_serializer(queryset, many=True)
-
-        # 순수한 배열 데이터만 반환 (프론트엔드가 기대하는 형식)
-        return Response(serializer.data)
+    pagination_class = None  # 페이지네이션 비활성화
 
 
 @extend_schema_view(
