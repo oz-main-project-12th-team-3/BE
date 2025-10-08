@@ -48,17 +48,17 @@ jobs:
     - name: 📝 Generate Dockerrun.aws.json
       run: |
         echo '{' > Dockerrun.aws.json
-        echo '  "AWSEBDockerrunVersion": "1"' >> Dockerrun.aws.json
+        echo '  "AWSEBDockerrunVersion": "1",' >> Dockerrun.aws.json
         echo '  "Image": {' >> Dockerrun.aws.json
-        echo '    "Name": "${{ steps.build-image.outputs.image }}"'
-        echo '    "Update": "true"'
+        echo '    "Name": "${{ steps.build-image.outputs.image }}",' >> Dockerrun.aws.json
+        echo '    "Update": "true"' >> Dockerrun.aws.json
         echo '  },' >> Dockerrun.aws.json
         echo '  "Ports": [' >> Dockerrun.aws.json
         echo '    {' >> Dockerrun.aws.json
         echo '      "ContainerPort": 8000,' >> Dockerrun.aws.json
-        echo '      "HostPort": 80'
+        echo '      "HostPort": 80' >> Dockerrun.aws.json
         echo '    }' >> Dockerrun.aws.json
-        echo '  ]'
+        echo '  ]' >> Dockerrun.aws.json
         echo '}' >> Dockerrun.aws.json
         echo "✅ Dockerrun.aws.json generated:"
         cat Dockerrun.aws.json
@@ -72,4 +72,5 @@ jobs:
         environment_name: Oz-digital-human-dev
         version_label: ${{ github.sha }}
         region: ap-northeast-2
+        create_new_application_version: true
         deployment_package: Dockerrun.aws.json
