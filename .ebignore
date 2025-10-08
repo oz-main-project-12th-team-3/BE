@@ -42,3 +42,6 @@ docker-compose.yml
 .DS_Store
 db.sqlite3.yml
 media/
+
+# Nginx
+nginx/default.conf
