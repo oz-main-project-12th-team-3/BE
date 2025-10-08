@@ -135,6 +135,7 @@ class UserRegisterView(APIView):
 
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def _get_services(self):
         user_repo = UserRepository()
