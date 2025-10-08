@@ -33,7 +33,7 @@ DEBUG = os.environ.get("DEBUG", "0") == "1"
 IS_TEST_ENV = "test" in sys.argv
 
 # Temporarily allow all hosts for debugging health checks
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["*"]
 
 
 # -----------------------------
@@ -106,7 +106,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "https://ozaisecretary.com",
     "https://www.ozaisecretary.com",
-    "https://api.ozaisecretary.com", # New backend API domain
+    "https://api.ozaisecretary.com",  # New backend API domain
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -169,32 +169,18 @@ if os.environ.get("RUNNING_TESTS"):
     CELERY_RESULT_BACKEND = "cache+memory://"
 
 else:
-    redis_host = os.environ.get("REDIS_HOST")
-    
-    if redis_host:
-        # Use Redis if REDIS_HOST is available
-        print("✅ Using Redis for Channels and Celery.")
-        CHANNEL_LAYERS = {
-            "default": {
-                "BACKEND": "channels_redis.core.RedisChannelLayer",
-                "CONFIG": {"hosts": [(redis_host, 6379)]},
-            },
-        }
-        CELERY_BROKER_URL = f"redis://{redis_host}:6379/0"
-        CELERY_RESULT_BACKEND = f"redis://{redis_host}:6379/0"
-    else:
-        # Fallback for when Redis is not available
-        print("⚠️ Warning: REDIS_HOST not set. Using InMemoryChannelLayer and django-db for Celery results.")
-        CHANNEL_LAYERS = {
-            "default": {
-                "BACKEND": "channels.layers.InMemoryChannelLayer",
-            },
-        }
-        # Use the database as the message broker for Celery
-        # This requires django-celery-results, which is installed.
-        # Note: This is not recommended for high-throughput production but works for getting started.
-        CELERY_BROKER_URL = "sqla+postgresql://"
-        CELERY_RESULT_BACKEND = "django-db"
+    redis_host = os.environ.get("REDIS_HOST", "redis")
+
+    # Use Redis for Channels and Celery
+    print("✅ Using Redis for Channels and Celery.")
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [(redis_host, 6379)]},
+        },
+    }
+    CELERY_BROKER_URL = f"redis://{redis_host}:6379/0"
+    CELERY_RESULT_BACKEND = f"redis://{redis_host}:6379/0"
 
 # -----------------------------
 # 데이터베이스
@@ -209,7 +195,7 @@ if os.environ.get("RUNNING_TESTS"):
 else:
     # Elastic Beanstalk RDS 또는 로컬 환경
     db_host = os.environ.get("RDS_HOSTNAME")
-    
+
     if db_host:
         # Elastic Beanstalk with RDS
         DATABASES = {
@@ -276,10 +262,18 @@ SECURE_COOKIE = os.getenv("DEBUG", "0") != "1"
 SESSION_COOKIE_SECURE = SECURE_COOKIE
 CSRF_COOKIE_SECURE = SECURE_COOKIE
 
+# Allow cookies to be shared across all subdomains of ozaisecretary.com
+SESSION_COOKIE_DOMAIN = ".ozaisecretary.com"
+CSRF_COOKIE_DOMAIN = ".ozaisecretary.com"
+
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
-    if origin
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://ozaisecretary.com",
+    "https://www.ozaisecretary.com",
+    "https://api.ozaisecretary.com",
 ]
 
 # Proxy/Load Balancer Settings

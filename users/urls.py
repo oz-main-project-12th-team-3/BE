@@ -19,6 +19,7 @@ from .views.user_views import (
     UserDeleteView,
     UserProfileView,
 )
+from .views.supabase_webhook_view import SupabaseWebhookAPIView
 
 urlpatterns = [
     path("auth/signup/", UserRegisterView.as_view(), name="user-register"),
@@ -50,4 +51,5 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name="password-reset-confirm",
     ),
+    path("webhooks/supabase/", SupabaseWebhookAPIView.as_view(), name="supabase-webhook"),
 ]
