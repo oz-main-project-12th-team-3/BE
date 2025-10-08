@@ -1,5 +1,6 @@
 import google.generativeai as genai
 from django.conf import settings
+from django.utils.functional import SimpleLazyObject
 
 
 class AIService:
@@ -23,5 +24,5 @@ class AIService:
             return "Sorry, I'm having trouble thinking right now."
 
 
-# Instantiate the service for easy import
-ai_service = AIService()
+# Instantiate the service lazily for easy import
+ai_service = SimpleLazyObject(AIService)
