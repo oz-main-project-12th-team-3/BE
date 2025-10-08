@@ -27,9 +27,7 @@ urlpatterns = [
     path("auth/login/", UserLoginView.as_view(), name="user-login"),
     path("auth/logout/", LogoutView.as_view(), name="user-logout"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
-    path(
-        "auth/email-check/", CheckEmailView.as_view(), name="email-check"
-    ),
+    path("auth/email-check/", CheckEmailView.as_view(), name="email-check"),
     # ------------------ 2FA 통합 및 분리 경로 ------------------
     # 1. 커스텀 2FA 페이지용 단일 API
     path("auth/2fa/full/", TfaApiView.as_view(), name="tfa-api"),
