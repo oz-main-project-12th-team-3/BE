@@ -52,8 +52,8 @@ class TestSearchLogIntegration:
         url = reverse("search:search-log-list-create")
         response = auth_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert any(item["keyword"] == "DRF" for item in response.data)
+        assert len(response.data["results"]) >= 1
+        assert any(item["keyword"] == "DRF" for item in response.data["results"])
 
     def test_unauthenticated_access(self, api_client):
         url = reverse("search:search-log-list-create")

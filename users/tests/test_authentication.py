@@ -141,6 +141,8 @@ def test_login_success(api_client, user, password, service, mocker):
     """UserService 의존성 해결 및 핵심 로직 Mocking으로 로그인 성공 복구"""
     url = reverse("user-login")
 
+    user.backend = "django.contrib.auth.backends.ModelBackend"
+
     mocker.patch.object(
         service,
         "login_with_optional_2fa",
@@ -174,6 +176,9 @@ def test_token_refresh_success(api_client, user, password, service, mocker):
     refresh_url = reverse("token-refresh")
 
     # 1. 로그인 성공 시뮬레이션 (쿠키 획득 목적)
+    # user 객체에 백엔드 설정
+    user.backend = "django.contrib.auth.backends.ModelBackend"
+
     # 로그인 뷰가 정식 토큰을 응답하도록 Mock
     mock_token_service = service.token_service
     mocker.patch.object(
