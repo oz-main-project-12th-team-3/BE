@@ -1,5 +1,8 @@
 #!/bin/bash
 # start.sh
+
+exec > /var/log/my_app_startup.log 2>&1
+
 set -e
 
 # Elastic Beanstalk 환경에서는 RDS_HOSTNAME 변수가 존재합니다.
