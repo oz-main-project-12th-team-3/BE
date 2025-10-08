@@ -72,5 +72,4 @@ jobs:
         environment_name: Oz-digital-human-dev
         version_label: ${{ github.sha }}
         region: ap-northeast-2
-        create_new_application_version: true
         deployment_package: Dockerrun.aws.json
