@@ -31,6 +31,9 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
+    supabase_uid = models.UUIDField(
+        unique=True, null=True, blank=True, help_text="Supabase Auth User ID"
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     login_fail_count = models.IntegerField(default=0)
