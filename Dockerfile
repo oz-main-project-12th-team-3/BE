@@ -29,13 +29,17 @@ RUN apt-get purge -y --auto-remove gcc && rm -rf /var/lib/apt/lists/*
 # 1.5단계: 프론트엔드 빌드 스테이지
 FROM node:18-alpine AS frontend_builder
 
-# 프론트엔드 코드 전체 복사
-COPY frontend /app/frontend
-
 WORKDIR /app/frontend
+
+# 프론트엔드 의존성 파일 복사 (캐시 활용을 위해 먼저 복사)
+COPY frontend/package.json ./
+COPY frontend/package-lock.json ./
 
 # 프론트엔드 의존성 설치
 RUN npm install
+
+# 나머지 프론트엔드 코드 복사
+COPY frontend/ ./
 
 # 프론트엔드 빌드
 RUN npm run build
