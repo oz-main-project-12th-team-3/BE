@@ -49,7 +49,6 @@ services:
       - ./manage.py:/app/manage.py
       - staticfiles_volume:/app/staticfiles
 
-    # DB가 HEALTHY할 때까지 web 시작 대기
     depends_on:
       db:
         condition: service_healthy
@@ -58,6 +57,7 @@ services:
 
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
+      - PYTHONPATH=/app
     env_file:
       - ./.env
 
@@ -92,6 +92,7 @@ services:
 
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings
+      - PYTHONPATH=/app
     env_file:
       - ./.env
 

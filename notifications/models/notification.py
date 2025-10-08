@@ -15,7 +15,7 @@ class Notification(models.Model):
         User, on_delete=models.CASCADE, related_name="sent_notifications"
     )  # 발신자
     notification_type = models.ForeignKey(
-        NotificationType, on_delete=models.CASCADE, default=1
+        NotificationType, on_delete=models.SET_NULL, null=True, blank=True
     )  # 알림 타입
     title = models.CharField(max_length=255)  # 제목
     message = models.TextField(blank=True)  # 내용

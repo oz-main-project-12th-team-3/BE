@@ -2,6 +2,8 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
+from chat.paginations import ChatSessionPagination
+
 from .models import ChatLog, VoiceLog
 from .serializers import ChatLogSerializer, ChatSessionSerializer, VoiceLogSerializer
 from .services.chat_service import (
@@ -74,6 +76,7 @@ class ChatMessageSearchView(generics.ListAPIView):
 class ChatSessionListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = ChatSessionPagination
 
     def get_queryset(self):
         return get_chat_sessions_for_user(user=self.request.user)

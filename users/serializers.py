@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Token, UserProfile
+from .models import Token, User, UserProfile
 from .validators import profanity_validator
 
 
@@ -74,6 +74,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ["nickname", "profile_image_url", "last_login"]
+
+
+class UserSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer(source="user_profile")
+
+    class Meta:
+        model = User
+        fields = ["email", "profile"]
 
 
 class TokenSerializer(serializers.ModelSerializer):
