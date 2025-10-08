@@ -1,3 +1,4 @@
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
@@ -21,6 +22,32 @@ class ChatSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return get_chat_sessions_for_user(user=self.request.user)
 
+    @extend_schema(
+        summary="챗 세션 상세 조회, 수정, 삭제",
+        description="특정 세션 ID에 대한 조회, 수정, 삭제를 지원합니다.",
+        responses={
+            200: ChatSessionSerializer,
+            404: OpenApiResponse(description="챗 세션을 찾을 수 없습니다."),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @extend_schema(
+        request=ChatSessionSerializer,
+        responses={200: ChatSessionSerializer},
+        summary="챗 세션 수정",
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @extend_schema(
+        responses={204: OpenApiResponse(description="챗 세션 삭제 완료")},
+        summary="챗 세션 삭제",
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
 
 class ChatMessageSearchView(generics.ListAPIView):
     serializer_class = ChatLogSerializer
@@ -35,6 +62,14 @@ class ChatMessageSearchView(generics.ListAPIView):
             user=self.request.user, message__icontains=search_query
         ).order_by("-timestamp")
 
+    @extend_schema(
+        summary="챗 메시지 검색",
+        description="현재 로그인한 사용자가 메시지 내용으로 검색할 수 있습니다.",
+        responses={200: ChatLogSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
 
 class ChatSessionListCreateView(generics.ListCreateAPIView):
     serializer_class = ChatSessionSerializer
@@ -43,6 +78,13 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return get_chat_sessions_for_user(user=self.request.user)
 
+    @extend_schema(
+        summary="챗 세션 목록 조회",
+        description="현재 사용자의 챗 세션 리스트를 반환합니다.",
+        responses={
+            200: ChatSessionSerializer(many=True),
+        },
+    )
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
@@ -53,6 +95,12 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
             }
         )
 
+    @extend_schema(
+        request=ChatSessionSerializer,
+        responses={201: ChatSessionSerializer},
+        summary="챗 세션 생성",
+        description="새 챗 세션을 생성합니다.",
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -80,6 +128,20 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
             user=self.request.user, session_id=session_id
         )
 
+    @extend_schema(
+        summary="챗 메시지 목록 조회",
+        description="특정 세션의 챗 메시지 리스트를 반환합니다.",
+        responses={200: ChatLogSerializer(many=True)},
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=ChatLogSerializer,
+        responses={201: ChatLogSerializer},
+        summary="챗 메시지 생성",
+        description="특정 세션에 새 챗 메시지를 만듭니다.",
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -106,6 +168,20 @@ class VoiceLogListCreateView(generics.ListCreateAPIView):
 
         return get_voice_logs_for_session(user=self.request.user, session_id=session_id)
 
+    @extend_schema(
+        summary="음성 로그 목록 조회",
+        description="특정 세션의 음성 기록 리스트를 반환합니다.",
+        responses={200: VoiceLogSerializer(many=True)},
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=VoiceLogSerializer,
+        responses={201: VoiceLogSerializer},
+        summary="음성 로그 생성",
+        description="특정 세션에 새 음성 로그를 저장합니다.",
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

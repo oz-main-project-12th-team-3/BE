@@ -36,9 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    login_fail_count = models.IntegerField(default=0)
     password_changed_at = models.DateTimeField(null=True, blank=True)
-    account_locked_until = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -50,11 +48,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
-    def is_account_locked(self):
-        return (
-            self.account_locked_until is not None
-            and self.account_locked_until > timezone.now()
-        )
+    def set_password(self, raw_password):
+        super().set_password(raw_password)
+        self.password_changed_at = timezone.now()
 
 
 class Token(models.Model):
@@ -99,6 +95,15 @@ class Token(models.Model):
             == hashlib.sha256(refresh_token_plain.encode("utf-8")).hexdigest()
         )
 
+    @property
+    def is_expired(self):
+        """토큰이 현재 만료되었는지 여부를 반환합니다."""
+        # expires_at과 현재 시각 비교
+        return self.expires_at < timezone.now()
+
+    def __str__(self):
+        return f"Token for {self.user.email} (ID: {self.refresh_token_id})"
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
@@ -109,6 +114,9 @@ class UserProfile(models.Model):
     last_login = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Profile of {self.user.email}"
 
 
 @receiver(post_save, sender=User)
