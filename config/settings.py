@@ -168,19 +168,40 @@ if os.environ.get("RUNNING_TESTS"):
     CELERY_BROKER_URL = "memory://"
     CELERY_RESULT_BACKEND = "cache+memory://"
 
+    # TEST 환경용 Redis 더미 설정 추가
+    REDIS_HOST = "localhost"
+    REDIS_PORT = 6379
+
 else:
-    redis_host = os.environ.get("REDIS_HOST", "redis")
+    # Define lowercase for local use in this block
+    redis_host_local = os.environ.get("REDIS_HOST", "redis")
+    redis_port_local = 6379
+
+    # Define uppercase for global use (for REDIS_CLIENT_CONFIG)
+    REDIS_HOST = redis_host_local
+    REDIS_PORT = redis_port_local
 
     # Use Redis for Channels and Celery
     print("✅ Using Redis for Channels and Celery.")
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [(redis_host, 6379)]},
+            "CONFIG": {"hosts": [(REDIS_HOST, REDIS_PORT)]},
         },
     }
-    CELERY_BROKER_URL = f"redis://{redis_host}:6379/0"
-    CELERY_RESULT_BACKEND = f"redis://{redis_host}:6379/0"
+    CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+    CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+
+# -----------------------------
+# 직접적인 Redis 연결 정보 설정 (로그인 실패 카운트용)
+# -----------------------------
+# 캐싱 목적은 아니지만, Redis 클라이언트를 직접 연결하는 데 사용.
+# 이 설정은 `get_redis_client()` 유틸리티에서 사용.
+REDIS_CLIENT_CONFIG = {
+    "HOST": REDIS_HOST,
+    "PORT": REDIS_PORT,
+    "DB": 0,  # 로그인 실패 카운트용 DB 인덱스 지정 (0번 사용)
+}
 
 # -----------------------------
 # 데이터베이스
@@ -230,6 +251,7 @@ AUTH_USER_MODEL = "users.User"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

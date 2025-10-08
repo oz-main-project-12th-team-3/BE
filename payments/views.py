@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.urls import reverse
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -16,6 +17,13 @@ from .serializers import (
 from .services.toss_service import confirm_toss_payment, create_toss_payment_request
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="활성 요금제 목록 조회",
+        description="사용 가능한 활성 요금제 리스트를 반환합니다.",
+        responses={200: PlanSerializer(many=True)},
+    )
+)
 class PlanViewSet(viewsets.ReadOnlyModelViewSet):
     """요금제 정보를 조회하는 ViewSet"""
 
@@ -24,6 +32,36 @@ class PlanViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="사용자 구독 목록 조회",
+        description="현재 로그인한 사용자의 구독 정보를 반환합니다.",
+        responses={200: SubscriptionSerializer(many=True)},
+    ),
+    create=extend_schema(
+        summary="사용자 구독 생성",
+        description="새로운 구독을 생성합니다.",
+        request=SubscriptionSerializer,
+        responses={201: SubscriptionSerializer},
+    ),
+    update=extend_schema(
+        summary="사용자 구독 수정",
+        description="구독 정보를 수정합니다.",
+        request=SubscriptionSerializer,
+        responses={200: SubscriptionSerializer},
+    ),
+    partial_update=extend_schema(
+        summary="사용자 구독 부분 수정",
+        description="구독 정보를 부분 수정합니다.",
+        request=SubscriptionSerializer,
+        responses={200: SubscriptionSerializer},
+    ),
+    destroy=extend_schema(
+        summary="사용자 구독 삭제",
+        description="사용자 구독을 삭제합니다.",
+        responses={204: OpenApiResponse(description="삭제 성공")},
+    ),
+)
 class SubscriptionViewSet(viewsets.ModelViewSet):
     """사용자의 구독 정보를 관리하는 ViewSet"""
 
@@ -37,6 +75,13 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="결제 내역 조회",
+        description="로그인 사용자의 결제 내역을 반환합니다.",
+        responses={200: PaymentHistorySerializer(many=True)},
+    )
+)
 class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     """사용자의 결제 내역을 조회하는 ViewSet"""
 
@@ -52,6 +97,26 @@ class TossPaymentRequestView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        request={
+            "type": "object",
+            "properties": {"plan_id": {"type": "string"}},
+            "required": ["plan_id"],
+        },
+        responses={
+            200: OpenApiResponse(
+                description="토스페이먼츠 결제 요청 성공, 결제 URL 반환"
+            ),
+            400: OpenApiResponse(description="잘못된 요청 (plan_id 누락)"),
+            404: OpenApiResponse(description="요금제 없음 또는 비활성화"),
+            500: OpenApiResponse(description="결제 요청 실패"),
+        },
+        summary="토스페이먼츠 결제 요청 생성",
+        description=(
+            "요금제 ID를 받아 토스페이먼츠 결제 요청을 생성하고 "
+            "결제 페이지 URL을 반환합니다."
+        ),
+    )
     def post(self, request, *args, **kwargs):
         plan_id = request.data.get("plan_id")
         if not plan_id:
@@ -105,6 +170,18 @@ class TossPaymentSuccessView(APIView):
 
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        parameters=[
+            # 여기 필요한 쿼리 파라미터를 명시할 수 있습니다
+        ],
+        responses={
+            200: OpenApiResponse(description="결제 성공 - 구독 활성화"),
+            400: OpenApiResponse(description="파라미터 부족 또는 금액 불일치"),
+            404: OpenApiResponse(description="대기 중인 결제 내역 없음"),
+        },
+        summary="토스페이먼츠 결제 성공 콜백",
+        description="토스페이먼츠 결제 성공 후 호출되며 구독 활성화를 처리합니다.",
+    )
     def get(self, request, *args, **kwargs):
         payment_key = request.GET.get("paymentKey")
         order_id = request.GET.get("orderId")
@@ -178,6 +255,13 @@ class TossPaymentFailView(APIView):
 
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        responses={
+            400: OpenApiResponse(description="결제 실패 처리 완료"),
+        },
+        summary="토스페이먼츠 결제 실패 콜백",
+        description="결제 실패시 호출되어 상태 업데이트 등을 수행합니다.",
+    )
     def get(self, request, *args, **kwargs):
         code = request.GET.get("code")
         message = request.GET.get("message")

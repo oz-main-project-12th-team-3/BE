@@ -1,23 +1,24 @@
 import secrets
-from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
-from django.utils import timezone
+from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from users.models import Token, User
 from users.serializers import (
     CheckEmailSerializer,
+    LoginResponseSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
-    PasswordResetRequestSerializer,
-    TokenSerializer,
-    TwoFactorAuthSerializer,
+    TfaSetupConfirmSerializer,
+    TfaVerifySerializer,
     UserLoginSerializer,
-    UserProfileSerializer,
     UserRegisterSerializer,
 )
+
+# -----------------------------------------------------------
+# 1. FIXTURES
+# -----------------------------------------------------------
 
 
 @pytest.fixture
@@ -29,187 +30,282 @@ def mock_user_service():
     return service
 
 
-def test_user_register_serializer_valid_data(mock_user_service):
-    """유효한 데이터와 닉네임 유무에 따른 UserRegisterSerializer 검증 테스트"""
-    # 1. 닉네임 포함 (성공)
+# -----------------------------------------------------------
+# 2. UserRegisterSerializer
+# -----------------------------------------------------------
+
+
+def test_user_register_serializer_success(mock_user_service):
+    """
+    유효한 데이터로 UserRegisterSerializer 검증 테스트
+    (닉네임 포함/생략, enable_2fa default)
+    """
     pw = secrets.token_urlsafe(10)
-    data = {"email": "new@example.com", "password": pw, "nickname": "Nick"}
+
+    # 1. 닉네임, enable_2fa를 모두 포함한 경우
+    data = {
+        "email": "with_nick@example.com",
+        "password": pw,
+        "nickname": "TestNick",
+        "enable_2fa": True,
+    }
     ser = UserRegisterSerializer(data=data, context={"user_service": mock_user_service})
 
     assert ser.is_valid(raise_exception=True)
-    assert ser.validated_data["nickname"] == "Nick"
+    assert ser.validated_data["nickname"] == "TestNick"
+    assert ser.validated_data["enable_2fa"] is True
 
-    # check_email_exists가 호출되었는지 확인
-    mock_user_service.check_email_exists.assert_called_once_with("new@example.com")
-
-    # Mock 호출 횟수 초기화 (두 번째 테스트를 위해)
+    mock_user_service.check_email_exists.assert_called_once_with(
+        "with_nick@example.com"
+    )
     mock_user_service.check_email_exists.reset_mock()
 
-    # 2. 닉네임 없음 (성공)
+    # 2. 닉네임, enable_2fa를 생략한 경우 (default 값 및 validate() 로직 확인)
     pw2 = secrets.token_urlsafe(10)
-    data2 = {"email": "new2@example.com", "password": pw2}
+    data2 = {"email": "no_nick@example.com", "password": pw2}
     ser2 = UserRegisterSerializer(
         data=data2, context={"user_service": mock_user_service}
     )
 
     assert ser2.is_valid(raise_exception=True)
-    # nickname이 없을 때 자동으로 None 설정되는지 확인
     assert ser2.validated_data["nickname"] is None
-
-    # check_email_exists가 두 번째 이메일로 호출되었는지 확인
-    mock_user_service.check_email_exists.assert_called_once_with("new2@example.com")
+    assert ser2.validated_data["enable_2fa"] is False
 
 
 def test_user_register_serializer_email_already_exists(mock_user_service):
-    """이메일 중복 시 ValidationError가 발생하는지 검증 테스트"""
-    # 이메일이 이미 존재한다고 설정
+    """validate_email() 메서드를 통한 이메일 중복 검증 테스트"""
     mock_user_service.check_email_exists.return_value = True
 
     pw = secrets.token_urlsafe(10)
     duplicate_email = "exists@example.com"
-    data = {"email": duplicate_email, "password": pw, "nickname": "Test"}
+    data = {"email": duplicate_email, "password": pw}
 
     ser = UserRegisterSerializer(data=data, context={"user_service": mock_user_service})
 
-    # ValidationError가 발생하는지 확인
     with pytest.raises(ValidationError) as excinfo:
         ser.is_valid(raise_exception=True)
 
-    # 정확한 에러 메시지가 반환되었는지 확인
     assert "이미 등록된 이메일 주소입니다." in str(excinfo.value.detail["email"][0])
-
-    # check_email_exists가 호출되었는지 확인
     mock_user_service.check_email_exists.assert_called_once_with(duplicate_email)
 
 
-def test_user_login_serializer_valid():
-    """UserLoginSerializer 유효성 테스트"""
-    pw = secrets.token_urlsafe(8)
-    data = {"email": "login@example.com", "password": pw}
-    ser = UserLoginSerializer(data=data)
-    assert ser.is_valid()
-    assert ser.validated_data["email"] == "login@example.com"
+def test_user_register_serializer_profanity_validation_mock():
+    """닉네임 필드의 profanity_validator 작동 확인 (Mocking을 위한 구조 테스트)"""
+    pw = secrets.token_urlsafe(10)
 
-    # 💡 (선택적 추가) tfa_code가 입력된 경우 확인
-    data_with_tfa = {
-        "email": "login2@example.com",
+    # profanity_validator가 에러를 발생시킨다고 가정
+    mock_validator = MagicMock()
+    mock_validator.side_effect = ValidationError("비속어는 사용할 수 없습니다.")
+
+    class MockUserRegisterSerializer(UserRegisterSerializer):
+        # UserRegisterSerializer의 닉네임 필드를 Mock validator로 오버라이딩
+        nickname = serializers.CharField(
+            required=False, allow_blank=True, validators=[mock_validator]
+        )
+
+    data = {
+        "email": "profanity@example.com",
         "password": pw,
-        "tfa_code": "123456",
+        "nickname": "BadWord",
     }
-    ser_tfa = UserLoginSerializer(data=data_with_tfa)
-    assert ser_tfa.is_valid()
-    assert ser_tfa.validated_data["tfa_code"] == "123456"
 
+    ser = MockUserRegisterSerializer(data=data, context={"user_service": MagicMock()})
 
-def test_check_email_serializer_errors():
-    """CheckEmailSerializer 오류 테스트"""
-    ser = CheckEmailSerializer(data={})
     with pytest.raises(ValidationError) as excinfo:
         ser.is_valid(raise_exception=True)
 
-    # 1. 'required' 오류 메시지 텍스트 검사
-    # ErrorDetail 객체를 문자열로 변환하여 비교
+    assert "비속어는 사용할 수 없습니다." in str(excinfo.value.detail["nickname"][0])
+    mock_validator.assert_called_once()
+
+
+# -----------------------------------------------------------
+# 3. UserLoginSerializer
+# -----------------------------------------------------------
+
+
+def test_user_login_serializer_valid_with_tfa_code():
+    """UserLoginSerializer 유효성 테스트 (tfa_code 포함)"""
+    pw = secrets.token_urlsafe(8)
+    data = {
+        "email": "login@example.com",
+        "password": pw,
+        "tfa_code": "987654",
+    }
+    ser = UserLoginSerializer(data=data)
+
+    assert ser.is_valid(raise_exception=True)
+    assert ser.validated_data["tfa_code"] == "987654"
+
+
+def test_user_login_serializer_tfa_code_default():
+    """tfa_code 생략 시 default="" 값 할당 검증"""
+    pw = secrets.token_urlsafe(8)
+    data = {"email": "login@example.com", "password": pw}
+    ser = UserLoginSerializer(data=data)
+
+    assert ser.is_valid(raise_exception=True)
+    assert ser.validated_data.get("tfa_code") == ""
+
+
+# -----------------------------------------------------------
+# 4. LoginResponseSerializer
+# -----------------------------------------------------------
+
+
+def test_login_response_serializer_serialization_success():
+    """LoginResponseSerializer 직렬화 테스트 및 allow_null 필드 확인"""
+    data = {
+        "detail": "로그인 성공",
+        "user_id": 101,
+        "email": "user@response.com",
+        "expires_in": 3600,
+        "access_token": "a.b.c",
+        "tfa_required": False,
+        "tfa_step": "done",
+        "temporary_access_token": None,
+        "temporary_refresh_token": None,
+        "profile_image_url": "http://img.com/user101.png",
+    }
+    ser = LoginResponseSerializer(data=data)
+
+    assert ser.is_valid(raise_exception=True)
+
+    validated = ser.validated_data
+    assert validated["access_token"] == "a.b.c"
+    assert validated["temporary_access_token"] is None
+    assert "profile_image_url" in validated
+
+
+def test_login_response_serializer_optional_fields():
+    """required=False인 profile_image_url 생략 테스트"""
+    data = {
+        "detail": "2FA 필요",
+        "user_id": 102,
+        "email": "user2fa@response.com",
+        "expires_in": 600,
+        "access_token": None,
+        "tfa_required": True,
+        "tfa_step": "pending_tfa",
+        "temporary_access_token": "temp.a.b",
+        "temporary_refresh_token": "temp.r.f",
+    }
+    ser = LoginResponseSerializer(data=data)
+
+    assert ser.is_valid(raise_exception=True)
+    validated = ser.validated_data
+    assert validated["access_token"] is None
+    assert "profile_image_url" not in validated
+
+
+# -----------------------------------------------------------
+# 5. CheckEmailSerializer
+# -----------------------------------------------------------
+
+
+def test_check_email_serializer_required_error():
+    """CheckEmailSerializer 'required' 커스텀 에러 메시지 검증"""
+    ser = CheckEmailSerializer(data={})
+
+    with pytest.raises(ValidationError) as excinfo:
+        ser.is_valid(raise_exception=True)
+
     assert "이메일을 입력해주세요." in str(excinfo.value.detail["email"][0])
 
-    # 2. 'invalid' 오류 메시지 텍스트 검사
-    ser2 = CheckEmailSerializer(data={"email": "invalid-email"})
+
+def test_check_email_serializer_invalid_error():
+    """CheckEmailSerializer 'invalid' 커스텀 에러 메시지 검증"""
+    ser = CheckEmailSerializer(data={"email": "not-an-email"})
+
     with pytest.raises(ValidationError) as excinfo:
-        ser2.is_valid(raise_exception=True)
+        ser.is_valid(raise_exception=True)
 
     assert "유효한 이메일 주소를 입력하십시오." in str(excinfo.value.detail["email"][0])
 
 
-@pytest.mark.django_db
-def test_userprofile_serializer():
-    """UserProfileSerializer 직렬화 테스트"""
-    user = User.objects.create_user(
-        email="profile@example.com", password=secrets.token_urlsafe(12)
-    )
-    profile = user.user_profile
-    profile.nickname = "Hi"
-    profile.profile_image_url = "http://img.com/img.png"
-    profile.last_login = timezone.now()
-    profile.save()
-
-    ser = UserProfileSerializer(profile)
-    data = ser.data
-    assert data["nickname"] == "Hi"
-    assert data["profile_image_url"].startswith("http")
+# -----------------------------------------------------------
+# 6. PasswordChangeSerializer
+# -----------------------------------------------------------
 
 
-@pytest.mark.django_db
-def test_token_serializer():
-    """TokenSerializer 직렬화 테스트"""
-    user = User.objects.create_user(
-        email="token@example.com", password=secrets.token_urlsafe(12)
-    )
-    token = Token.objects.create(
-        user=user,
-        issued_at=timezone.now(),
-        expires_at=timezone.now() + timedelta(days=1),
-    )
-    ser = TokenSerializer(token)
-    data = ser.data
-    assert "issued_at" in data and "expires_at" in data
+def test_password_change_serializer_min_length_fail():
+    """PasswordChangeSerializer min_length=8 실패 테스트"""
+    short_pw = "short"
+    ser = PasswordChangeSerializer(data={"new_password": short_pw})
+
+    with pytest.raises(ValidationError) as excinfo:
+        ser.is_valid(raise_exception=True)
+
+    assert "at least 8 characters" in str(excinfo.value.detail["new_password"][0])
 
 
-def test_password_change_serializer_valid_and_invalid():
-    """PasswordChangeSerializer 유효성 테스트 (current_password 제거 반영)"""
-    pw = secrets.token_urlsafe(10)
+def test_password_change_serializer_write_only():
+    """
+    PasswordChangeSerializer 직렬화 시 new_password가 포함되지 않는지 확인
+    (write_only)
+    """
+    new_pw = secrets.token_urlsafe(12)
+    ser = PasswordChangeSerializer(data={"new_password": new_pw})
 
-    # 1. 유효한 새 비밀번호
-    ser = PasswordChangeSerializer(data={"new_password": pw})
-    assert ser.is_valid()
-    assert ser.validated_data["new_password"] == pw
-
-    # 2. 너무 짧은 새 비밀번호 → min_length=8
-    ser2 = PasswordChangeSerializer(data={"new_password": "short"})
-    assert not ser2.is_valid()
-
-    # ⚠️ 주목: 기존 비밀번호 일치 검증 로직이 제거되어 해당 테스트는 필요 없어졌습니다.
+    ser.is_valid(raise_exception=True)
+    assert "new_password" not in ser.data
 
 
-def test_twofactor_serializer_valid():
-    """TwoFactorAuthSerializer 유효성 테스트"""
-    ser = TwoFactorAuthSerializer(data={"code": "123456"})
-    assert ser.is_valid()
+# -----------------------------------------------------------
+# 7. TFA Serials (TfaSetupConfirmSerializer, TfaVerifySerializer)
+# -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "SerializerClass", [TfaSetupConfirmSerializer, TfaVerifySerializer]
+)
+def test_tfa_serializers_valid_and_write_only(SerializerClass):
+    """TFA 시리얼라이저 유효성 및 write_only 검증"""
+    ser = SerializerClass(data={"code": "123456"})
+
+    assert ser.is_valid(raise_exception=True)
     assert ser.validated_data["code"] == "123456"
-
-    # 코드 없음
-    bad = TwoFactorAuthSerializer(data={})
-    assert not bad.is_valid()
+    assert "code" not in ser.data  # write_only 확인
 
 
-def test_password_reset_request_serializer():
-    """PasswordResetRequestSerializer 유효성 테스트"""
-    ser = PasswordResetRequestSerializer(data={"email": "pwr@example.com"})
-    assert ser.is_valid()
+@pytest.mark.parametrize(
+    "SerializerClass", [TfaSetupConfirmSerializer, TfaVerifySerializer]
+)
+def test_tfa_serializers_max_length_fail(SerializerClass):
+    """TFA 시리얼라이저 max_length=6 실패 테스트 (AssertionError 수정)"""
+    long_code = "1234567"
+    ser = SerializerClass(data={"code": long_code})
 
-    # 이메일 없음
-    ser2 = PasswordResetRequestSerializer(data={})
-    assert not ser2.is_valid()
+    with pytest.raises(ValidationError) as excinfo:
+        ser.is_valid(raise_exception=True)
+
+    assert "no more than 6 characters" in str(excinfo.value.detail["code"][0])
 
 
-def test_password_reset_confirm_serializer_valid_and_mismatch():
-    """PasswordResetConfirmSerializer 유효성 테스트"""
+# -----------------------------------------------------------
+# 8. Password Reset Serials
+# -----------------------------------------------------------
+
+
+def test_password_reset_confirm_serializer_success():
+    """PasswordResetConfirmSerializer 유효성 테스트 (성공)"""
     pw = secrets.token_urlsafe(12)
+    data = {"new_password": pw, "new_password_confirm": pw}
+    ser = PasswordResetConfirmSerializer(data=data)
 
-    # 1. 유효한 비밀번호와 확인
-    ser = PasswordResetConfirmSerializer(
-        data={"new_password": pw, "new_password_confirm": pw}
-    )
-    assert ser.is_valid()
+    assert ser.is_valid(raise_exception=True)
 
-    # 2. 비밀번호 불일치
-    mismatch = PasswordResetConfirmSerializer(
-        data={"new_password": "abc12345", "new_password_confirm": "zzz12345"}
-    )
-    with pytest.raises(ValidationError):
-        mismatch.is_valid(raise_exception=True)
 
-    # 3. 너무 짧은 비밀번호 (min_length=8)
-    short_pw = "1234567"
-    short = PasswordResetConfirmSerializer(
-        data={"new_password": short_pw, "new_password_confirm": short_pw}
-    )
-    assert not short.is_valid()
+def test_password_reset_confirm_serializer_mismatch_fail():
+    """validate() 메서드를 통한 비밀번호 불일치 검증 테스트 (AttributeError 수정)"""
+    data = {
+        "new_password": secrets.token_urlsafe(12),
+        "new_password_confirm": secrets.token_urlsafe(12),
+    }
+    ser = PasswordResetConfirmSerializer(data=data)
+
+    with pytest.raises(ValidationError) as excinfo:
+        ser.is_valid(raise_exception=True)
+
+    error_list = excinfo.value.detail.get("non_field_errors", excinfo.value.detail)
+
+    assert "새 비밀번호와 확인용 비밀번호가 일치하지 않습니다." in str(error_list[0])
