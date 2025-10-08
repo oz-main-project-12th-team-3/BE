@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.sites",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -53,6 +54,8 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "corsheaders",
+    "djoser",
+    "social_django",
     # local apps
     "users",
     "chat",
@@ -107,14 +110,64 @@ CORS_ALLOWED_ORIGINS = [
     "https://ozaisecretary.com",
     "https://www.ozaisecretary.com",
     "https://api.ozaisecretary.com",  # New backend API domain
-    "http://Oz-digital-human-dev.ap-northeast-2.elasticbeanstalk.com",  # New EB environment URL
+    "http://Oz-digital-human-dev.eba-dipavmms.ap-northeast-2.elasticbeanstalk.com",  # New EB environment URL
+    "https://ozaisecretary.com",  # Frontend custom domain
 ]
 CORS_ALLOW_CREDENTIALS = True
 
 
 AUTHENTICATION_BACKENDS = [
+    "social_core.backends.google.GoogleOAuth2",
+    "social_core.backends.kakao.KakaoOAuth2",
+    "social_core.backends.naver.NaverOAuth2",
+    "social_core.backends.github.GithubOAuth2",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+SITE_ID = 1
+
+# ----------------------------->
+# Djoser 설정
+# ----------------------------->
+DJOSER = {
+    "LOGIN_FIELD": "email",
+    "USER_CREATE_PASSWORD_RETYPE": True,
+    "PASSWORD_CHANGED_EMAIL_CONFIRMATION": True,
+    "PASSWORD_RESET_CONFIRM_URL": "password/reset/confirm/{uid}/{token}",
+    "USERNAME_RESET_CONFIRM_URL": "username/reset/confirm/{uid}/{token}",
+    "ACTIVATION_URL": "activate/{uid}/{token}",
+    "SEND_ACTIVATION_EMAIL": True,
+    "SOCIAL_AUTH_TOKEN_STRATEGY": "djoser.social.token.jwt.TokenStrategy",
+    "SOCIAL_AUTH_ALLOWED_REDIRECT_URIS": os.environ.get(
+        "SOCIAL_AUTH_ALLOWED_REDIRECT_URIS", ""
+    ).split(","),
+    "SERIALIZERS": {
+        "user_create": "djoser.serializers.UserCreateSerializer",
+        "user": "users.serializers.UserSerializer",
+        "current_user": "users.serializers.UserSerializer",
+    },
+}
+
+
+# ----------------------------->
+# 소셜 로그인 인증 키
+# ----------------------------->
+# 각 소셜 서비스에서 발급받은 키를 환경 변수에 설정해야 합니다.
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get("SOCIAL_AUTH_GOOGLE_OAUTH2_KEY")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get("SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+]
+
+SOCIAL_AUTH_KAKAO_KEY = os.environ.get("SOCIAL_AUTH_KAKAO_KEY")
+SOCIAL_AUTH_KAKAO_SECRET = os.environ.get("SOCIAL_AUTH_KAKAO_SECRET")
+
+SOCIAL_AUTH_NAVER_KEY = os.environ.get("SOCIAL_AUTH_NAVER_KEY")
+SOCIAL_AUTH_NAVER_SECRET = os.environ.get("SOCIAL_AUTH_NAVER_SECRET")
+
+SOCIAL_AUTH_GITHUB_KEY = os.environ.get("SOCIAL_AUTH_GITHUB_KEY")
+SOCIAL_AUTH_GITHUB_SECRET = os.environ.get("SOCIAL_AUTH_GITHUB_SECRET")
 
 
 ROOT_URLCONF = "config.urls"
@@ -256,6 +309,8 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
 }
 
 

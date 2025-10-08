@@ -140,3 +140,4 @@ staticfiles/
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+test_db.sqlite3
