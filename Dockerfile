@@ -1,3 +1,4 @@
+# Cache-busting comment: 2025-10-08 12:58
 # 1단계: 빌드 스테이지
 FROM python:3.10-slim AS builder
 
