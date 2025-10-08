@@ -65,6 +65,7 @@ COPY --chown=appuser:appuser ./schedule /app/schedule/
 COPY --chown=appuser:appuser ./search /app/search/
 COPY --chown=appuser:appuser ./two_factor_wrapper /app/two_factor_wrapper/
 COPY --chown=appuser:appuser ./users /app/users/
+COPY --chown=appuser:appuser ./utils /app/utils/
 COPY --chown=appuser:appuser ./manage.py /app/manage.py
 COPY --chown=appuser:appuser ./pyproject.toml /app/pyproject.toml
 
