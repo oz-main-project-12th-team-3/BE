@@ -1,8 +1,5 @@
 #!/bin/bash
 # start.sh
-
-exec > /var/log/my_app_startup.log 2>&1
-
 set -e
 
 # Elastic Beanstalk 환경에서는 RDS_HOSTNAME 변수가 존재합니다.
@@ -10,15 +7,13 @@ set -e
 if [ -n "$RDS_HOSTNAME" ]; then
     echo "✅ Production environment detected (RDS_HOSTNAME is set)."
     echo "Running database migrations..."
-    python3 manage.py migrate --noinput || { echo "MIGRATE FAILED"; exit 1; }
-    echo "Migrations completed."
+    python3 manage.py migrate --noinput
 else
     echo "ℹ️ Local environment detected (RDS_HOSTNAME is not set). Skipping migrations."
 fi
 
 echo "Collecting static files..."
-python3 manage.py collectstatic --noinput || { echo "COLLECTSTATIC FAILED"; exit 1; }
-echo "Collectstatic completed."
+python3 manage.py collectstatic --noinput
 
 echo "Starting Daphne ASGI server..."
 exec daphne -b 0.0.0.0 -p 8000 config.asgi:application
