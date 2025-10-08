@@ -107,6 +107,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://ozaisecretary.com",
     "https://www.ozaisecretary.com",
     "https://api.ozaisecretary.com",  # New backend API domain
+    "http://Oz-digital-human-dev.ap-northeast-2.elasticbeanstalk.com",  # New EB environment URL
 ]
 CORS_ALLOW_CREDENTIALS = True
 
