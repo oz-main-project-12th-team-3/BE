@@ -73,7 +73,6 @@ jobs:
         environment_name: Oz-digital-human-dev # Staging 환경 이름
         version_label: ${{ github.sha }}
         region: ap-northeast-2 # 예: ap-northeast-2
-        deployment_package: docker-compose.yml # Docker 배포 명시
 
     # --- 롤백 시스템 테스트 가이드 ---
     # 배포 실패 또는 문제 발생 시 롤백을 위한 단계입니다.
