@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import login
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,6 +20,7 @@ from ..serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     UserLoginSerializer,
+    UserRegisterResponseSerializer,
     UserRegisterSerializer,
 )
 from ..services.token_service import TokenService
@@ -41,11 +42,48 @@ class UserRegisterView(APIView):
 
     @extend_schema(
         request=UserRegisterSerializer,
-        responses={201: UserRegisterSerializer},
+        responses={
+            201: UserRegisterResponseSerializer,
+            400: OpenApiResponse(description="입력 값 오류 및 예외 발생"),
+        },
         summary="유저 회원가입",
-        description=(
-            "이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다."
-        ),
+        description="이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다.",
+        examples=[
+            OpenApiExample(
+                "2FA 활성화 응답 예시",
+                summary="회원가입 후 2FA 설정 필요",
+                value={
+                    "detail": "회원가입이 완료되었습니다. 2FA 설정을 진행해야 완전한 로그인이 가능합니다.",
+                    "user_id": 1,
+                    "email": "user@example.com",
+                    "expires_in": 300,
+                    "access_token": None,
+                    "tfa_required": True,
+                    "tfa_step": "setup",
+                    "temporary_access_token": "temp_access_token_string",
+                    "temporary_refresh_token": "temp_refresh_token_string",
+                },
+                response_only=True,
+                status_codes=[201],
+            ),
+            OpenApiExample(
+                "2FA 비활성화 응답 예시",
+                summary="2FA 비활성화 회원가입 성공 응답",
+                value={
+                    "detail": "회원가입이 성공적으로 완료되었습니다.",
+                    "user_id": 1,
+                    "email": "user@example.com",
+                    "expires_in": 1800,
+                    "access_token": "access_token_string",
+                    "tfa_required": False,
+                    "tfa_step": "none",
+                    "temporary_access_token": None,
+                    "temporary_refresh_token": None,
+                },
+                response_only=True,
+                status_codes=[201],
+            ),
+        ],
     )
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
