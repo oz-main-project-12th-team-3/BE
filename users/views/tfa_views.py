@@ -73,7 +73,7 @@ class BaseTfaView(APIView):
 
 @extend_schema(
     responses={
-        200: None,
+        200: OpenApiResponse(description="2FA 내장 페이지로 리다이렉트"),
         403: OpenApiResponse(description="접근 권한 없음 또는 2FA 필요 없음"),
     },
     summary="2FA 내장 페이지 리다이렉트",
@@ -90,7 +90,6 @@ class TwoFactorWrapperView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        # 세션에서 2FA 단계 상태 호출
         tfa_step = request.session.get("tfa_step", "none")
 
         if request.user.is_authenticated:
@@ -98,7 +97,6 @@ class TwoFactorWrapperView(APIView):
                 return redirect(reverse("two_factor:setup"))
 
             if tfa_step == "verify":
-                # 내장 뷰는 세션 인증 후 'two_factor:login'으로 자동 이동.
                 return redirect(reverse("two_factor:login"))
 
         return Response(
@@ -120,38 +118,27 @@ class TfaApiView(BaseTfaView):
     @extend_schema(
         request=None,
         responses={
-            200: {
-                "type": "object",
-                "properties": {
-                    "detail": {"type": "string"},
-                    "otp_uri": {"type": ["string", "null"]},
-                    "qr_code_base64": {"type": ["string", "null"]},
-                },
-            },
+            200: OpenApiResponse(
+                description="2FA 설정 정보와 QR 코드 base64 문자열 반환"
+            ),
             403: OpenApiResponse(description="2FA 설정 불가 단계"),
             500: OpenApiResponse(description="서버 내부 오류"),
         },
         summary="2FA 설정 정보 조회 (GET)",
         description="2FA 설정 단계에서 QR 코드 생성 및 반환",
     )
-    # 1. GET: 2FA 설정(setup)을 위한 QR 코드 URI 요청
     def get(self, request):
-        """
-        tfa_step='setup' 단계일 때만 호출 가능.
-        QR 코드 URI와 base64 이미지를 반환합니다.
-        """
         user_service, _ = self._get_services()
         user = request.user
         tfa_step = request.session.get("tfa_step", "none")
 
-        if not tfa_step == "setup":
+        if tfa_step != "setup":
             return Response(
                 {"detail": "2FA 설정을 시작할 수 있는 단계가 아닙니다."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         try:
-            # UserService의 setup_2fa 메서드 사용 (TOTPDevice 생성)
             device = user_service.setup_2fa(user)
             otp_uri = device.config_url
             qr_code_base64 = self._generate_qr_code_base64(otp_uri) if otp_uri else None
@@ -170,25 +157,33 @@ class TfaApiView(BaseTfaView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # 2. POST: 2FA 설정 완료(Confirm) 또는 2FA 인증(Verify) 처리
+    @extend_schema(
+        request={
+            "type": "object",
+            "properties": {"code": {"type": "string", "description": "2FA 인증 코드"}},
+            "required": ["code"],
+        },
+        responses={
+            200: OpenApiResponse(description="2FA 인증 성공 및 토큰 발급"),
+            400: OpenApiResponse(description="잘못된 2FA 처리 단계"),
+            401: OpenApiResponse(description="2FA 인증 실패"),
+            500: OpenApiResponse(description="서버 내부 오류"),
+        },
+        summary="2FA 인증 및 설정 완료 (POST)",
+        description="2FA 인증 코드 검증 및 인증 성공 시 JWT 토큰 발급",
+    )
     def post(self, request):
-        """
-        tfa_step에 따라 인증을 처리하고, 성공 시 정식 JWT 토큰을 발급합니다.
-        """
         user_service, token_service = self._get_services()
         user = request.user
         tfa_step = request.session.get("tfa_step", "none")
 
         if tfa_step == "setup":
-            # 2FA 설정 완료 (기존 TwoFactorConfirmView 로직 통합)
             serializer = TfaSetupConfirmSerializer(data=request.data)
             confirm_method = user_service.confirm_2fa
             success_detail = "2FA 설정이 완료되었습니다."
 
         elif tfa_step == "verify":
-            # 2FA 로그인 인증 (기존 TwoFactorVerifyView 로직 통합)
             serializer = TfaVerifySerializer(data=request.data)
-            # UserService에 verify_2fa_by_user(user, code) 메서드 필요.
             confirm_method = user_service.verify_2fa_by_user
             success_detail = "2FA 인증에 성공했습니다."
 
@@ -207,11 +202,9 @@ class TfaApiView(BaseTfaView):
             if not confirmed:
                 raise TfaVerificationFailedException("잘못된 인증 코드")
 
-            # 2FA 성공 후: 세션 상태 제거
             if "tfa_step" in request.session:
                 del request.session["tfa_step"]
 
-            # 정식 JWT 토큰 발급 및 쿠키 설정
             access_token, refresh_token, access_token_lifetime = (
                 token_service.generate_tokens(user)
             )
@@ -258,12 +251,10 @@ class TwoFactorDisableView(BaseTfaView):
         description="사용자의 2FA 설정을 해제",
     )
     def delete(self, request):
-        """사용자의 모든 TOTPDevice를 삭제하여 2FA를 비활성화합니다."""
         user_service, _ = self._get_services()
         user = request.user
 
         try:
-            # 🚨 UserService에 disable_2fa(user) 메서드가 필요합니다.
             user_service.disable_2fa(user)
             return Response(
                 {"detail": "2FA가 성공적으로 해제되었습니다."},

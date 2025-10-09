@@ -21,7 +21,7 @@ from .services.toss_service import confirm_toss_payment, create_toss_payment_req
     list=extend_schema(
         summary="활성 요금제 목록 조회",
         description="사용 가능한 활성 요금제 리스트를 반환합니다.",
-        responses={200: PlanSerializer(many=True)},
+        responses={200: OpenApiResponse(description="활성 요금제 리스트 반환")},
     )
 )
 class PlanViewSet(viewsets.ReadOnlyModelViewSet):
@@ -36,30 +36,30 @@ class PlanViewSet(viewsets.ReadOnlyModelViewSet):
     list=extend_schema(
         summary="사용자 구독 목록 조회",
         description="현재 로그인한 사용자의 구독 정보를 반환합니다.",
-        responses={200: SubscriptionSerializer(many=True)},
+        responses={200: OpenApiResponse(description="구독 목록 반환")},
     ),
     create=extend_schema(
         summary="사용자 구독 생성",
         description="새로운 구독을 생성합니다.",
         request=SubscriptionSerializer,
-        responses={201: SubscriptionSerializer},
+        responses={201: OpenApiResponse(description="구독 생성 성공")},
     ),
     update=extend_schema(
         summary="사용자 구독 수정",
         description="구독 정보를 수정합니다.",
         request=SubscriptionSerializer,
-        responses={200: SubscriptionSerializer},
+        responses={200: OpenApiResponse(description="구독 수정 성공")},
     ),
     partial_update=extend_schema(
         summary="사용자 구독 부분 수정",
         description="구독 정보를 부분 수정합니다.",
         request=SubscriptionSerializer,
-        responses={200: SubscriptionSerializer},
+        responses={200: OpenApiResponse(description="구독 부분 수정 성공")},
     ),
     destroy=extend_schema(
         summary="사용자 구독 삭제",
         description="사용자 구독을 삭제합니다.",
-        responses={204: OpenApiResponse(description="삭제 성공")},
+        responses={204: OpenApiResponse(description="구독 삭제 성공")},
     ),
 )
 class SubscriptionViewSet(viewsets.ModelViewSet):
@@ -79,7 +79,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     list=extend_schema(
         summary="결제 내역 조회",
         description="로그인 사용자의 결제 내역을 반환합니다.",
-        responses={200: PaymentHistorySerializer(many=True)},
+        responses={200: OpenApiResponse(description="결제 내역 리스트 반환")},
     )
 )
 class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -172,7 +172,7 @@ class TossPaymentSuccessView(APIView):
 
     @extend_schema(
         parameters=[
-            # 여기 필요한 쿼리 파라미터를 명시할 수 있습니다
+            # 필요 시 Query Parameter 명시 가능
         ],
         responses={
             200: OpenApiResponse(description="결제 성공 - 구독 활성화"),
