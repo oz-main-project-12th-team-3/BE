@@ -6,20 +6,21 @@ import pytest
 from rest_framework.exceptions import ValidationError
 
 from users.serializers import (
-    UserRegisterSerializer,
-    UserRegisterResponseSerializer,
-    UserLoginSerializer,
-    LoginResponseSerializer,
     CheckEmailSerializer,
+    LoginResponseSerializer,
     PasswordChangeSerializer,
+    PasswordResetConfirmSerializer,
     TfaSetupConfirmSerializer,
     TfaVerifySerializer,
-    PasswordResetConfirmSerializer,
+    UserLoginSerializer,
+    UserRegisterResponseSerializer,
+    UserRegisterSerializer,
 )
+
 
 def generate_random_password(length=12):
     characters = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
-    return ''.join(secrets.choice(characters) for _ in range(length))
+    return "".join(secrets.choice(characters) for _ in range(length))
 
 
 @pytest.fixture
@@ -43,8 +44,13 @@ def test_user_register_serializer_success(mock_user_service):
     assert ser.validated_data["nickname"] == "TestNick"
     assert ser.validated_data["enable_2fa"] is True
 
-    data2 = {"email": "no_nick@example.com", "password": generate_random_password()}
-    ser2 = UserRegisterSerializer(data=data2, context={"user_service": mock_user_service})
+    data2 = {
+        "email": "no_nick@example.com",
+        "password": generate_random_password(),
+    }
+    ser2 = UserRegisterSerializer(
+        data=data2, context={"user_service": mock_user_service}
+    )
     assert ser2.is_valid(raise_exception=True)
     assert ser2.validated_data["nickname"] is None
     assert ser2.validated_data["enable_2fa"] is False
@@ -52,7 +58,10 @@ def test_user_register_serializer_success(mock_user_service):
 
 def test_user_register_serializer_email_duplicate(mock_user_service):
     mock_user_service.check_email_exists.return_value = True
-    data = {"email": "exists@example.com", "password": generate_random_password()}
+    data = {
+        "email": "exists@example.com",
+        "password": generate_random_password(),
+    }
     ser = UserRegisterSerializer(data=data, context={"user_service": mock_user_service})
     with pytest.raises(ValidationError) as excinfo:
         ser.is_valid(raise_exception=True)
@@ -111,7 +120,10 @@ def test_user_login_serializer_valid_with_tfa_code():
 
 def test_user_login_serializer_tfa_code_default():
     pw = generate_random_password()
-    data = {"email": "login@example.com", "password": pw}
+    data = {
+        "email": "login@example.com",
+        "password": pw,
+    }
     ser = UserLoginSerializer(data=data)
     assert ser.is_valid(raise_exception=True)
     assert ser.validated_data.get("tfa_code") == ""
@@ -186,7 +198,13 @@ def test_password_change_serializer_write_only():
     assert "new_password" not in ser.data
 
 
-@pytest.mark.parametrize("SerializerClass", [TfaSetupConfirmSerializer, TfaVerifySerializer])
+@pytest.mark.parametrize(
+    "SerializerClass",
+    [
+        TfaSetupConfirmSerializer,
+        TfaVerifySerializer,
+    ],
+)
 def test_tfa_serializers_valid_and_write_only(SerializerClass):
     ser = SerializerClass(data={"code": "123456"})
     assert ser.is_valid(raise_exception=True)
@@ -194,7 +212,13 @@ def test_tfa_serializers_valid_and_write_only(SerializerClass):
     assert "code" not in ser.data
 
 
-@pytest.mark.parametrize("SerializerClass", [TfaSetupConfirmSerializer, TfaVerifySerializer])
+@pytest.mark.parametrize(
+    "SerializerClass",
+    [
+        TfaSetupConfirmSerializer,
+        TfaVerifySerializer,
+    ],
+)
 def test_tfa_serializers_max_length_fail(SerializerClass):
     long_code = "1234567"
     ser = SerializerClass(data={"code": long_code})
@@ -205,7 +229,10 @@ def test_tfa_serializers_max_length_fail(SerializerClass):
 
 def test_password_reset_confirm_serializer_success():
     pw = generate_random_password()
-    data = {"new_password": pw, "new_password_confirm": pw}
+    data = {
+        "new_password": pw,
+        "new_password_confirm": pw,
+    }
     ser = PasswordResetConfirmSerializer(data=data)
     assert ser.is_valid(raise_exception=True)
 

@@ -47,13 +47,18 @@ class UserRegisterView(APIView):
             400: OpenApiResponse(description="입력 값 오류 및 예외 발생"),
         },
         summary="유저 회원가입",
-        description="이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다.",
+        description=(
+            "이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다."
+        ),
         examples=[
             OpenApiExample(
                 "2FA 활성화 응답 예시",
                 summary="회원가입 후 2FA 설정 필요",
                 value={
-                    "detail": "회원가입이 완료되었습니다. 2FA 설정을 진행해야 완전한 로그인이 가능합니다.",
+                    "detail": (
+                        "회원가입이 완료되었습니다. 2FA 설정을 "
+                        "진행해야 완전한 로그인이 가능합니다."
+                    ),
                     "user_id": 1,
                     "email": "user@example.com",
                     "expires_in": 300,
