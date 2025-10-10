@@ -122,8 +122,19 @@ class CustomJWTAuthentication(SimpleJWTAuthentication):
         self.token_service = TokenService(self.user_repo, self.token_repo)
 
     def authenticate(self, request):
+        # ⬇️ 🚨 Swagger/Schema 경로 우회 로직 추가 🚨 ⬇️
+        # '/api/schema/'로 시작하는 경로는 인증이 필요 없으므로
+        # 불필요한 토큰 검사 없이 즉시 None을 반환하여 인증을 건너뜁니다.
+        if request.path.startswith("/api/schema/"):
+            return None
+            # ⬆️ 🚨 Swagger/Schema 경로 우회 로직 끝 🚨 ⬆️
+
         # 1. 토큰 추출 (헤더 우선)
         auth_header = self.get_header(request)
+        # 헤더가 없으면(None이면) 바로 None을 반환하여 인증을 건너뛰고
+        # 다음 인증 클래스(SessionAuthentication)로 넘기거나 익명 사용자로 처리.
+        if auth_header is None:
+            return None
         raw_token = self.get_raw_token(auth_header)
 
         if raw_token is None:

@@ -95,7 +95,7 @@ MIDDLEWARE = [
 
 if not IS_TEST_ENV:
     MIDDLEWARE.insert(
-        5, "django_otp.middleware.OTPMiddleware"
+        6, "django_otp.middleware.OTPMiddleware"
     )  # Insert after auth middleware
 
 
@@ -467,4 +467,5 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API documentation for the OZ Digital Human project.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PUBLIC": True,
 }

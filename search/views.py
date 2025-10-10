@@ -30,7 +30,6 @@ class SearchLogListCreateView(generics.ListCreateAPIView):
     queryset = SearchLog.objects.all()
     serializer_class = SearchLogSerializer
     permission_classes = [permissions.IsAuthenticated]
-    authentication_classes = []
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)

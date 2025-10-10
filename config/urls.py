@@ -5,8 +5,7 @@ from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-
-
+from rest_framework.permissions import AllowAny
 def health_check(request):
     return JsonResponse({"status": "healthy"})
 
@@ -25,10 +24,18 @@ urlpatterns = [
     path("api/", include("notifications.urls")),
     path("api/payments/", include("payments.urls")),
     # drf-spectacular URLS
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/schema/",
+        SpectacularAPIView.as_view(
+            permission_classes=[AllowAny]
+        ),
+        name="schema",
+    ),
     path(
         "api/schema/swagger-ui/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
+        SpectacularSwaggerView.as_view(
+            url_name="schema", permission_classes=[AllowAny]
+        ),
         name="swagger-ui",
     ),
     # Catch-all for frontend
@@ -37,7 +44,3 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-
-# if not settings.IS_TEST_ENV:
-#     urlpatterns.append(path("two_factor/", include("two_factor.urls")))

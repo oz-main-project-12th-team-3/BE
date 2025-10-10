@@ -19,7 +19,6 @@ from .serializers.user_notification_preference_serializer import (
     UserNotificationPreferenceSerializer,
 )
 
-
 @extend_schema_view(
     list=extend_schema(
         summary="알림 목록 조회",
@@ -59,7 +58,6 @@ from .serializers.user_notification_preference_serializer import (
 class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializer
-    authentication_classes = []
 
     def get_queryset(self):
         return Notification.objects.filter(recipient=self.request.user)
@@ -92,7 +90,6 @@ class NotificationTypeViewSet(viewsets.ModelViewSet):
     queryset = NotificationType.objects.all()
     serializer_class = NotificationTypeSerializer
     pagination_class = None
-    authentication_classes = []
 
 
 @extend_schema_view(
@@ -123,7 +120,6 @@ class NotificationTypeViewSet(viewsets.ModelViewSet):
 class UserNotificationPreferenceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = UserNotificationPreferenceSerializer
-    authentication_classes = []
 
     def get_queryset(self):
         return UserNotificationPreference.objects.filter(user=self.request.user)
@@ -157,7 +153,6 @@ class UserNotificationPreferenceViewSet(viewsets.ModelViewSet):
 class ScheduleNotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = ScheduleNotificationSerializer
-    authentication_classes = []
 
     def get_queryset(self):
         return ScheduleNotification.objects.filter(user=self.request.user)
