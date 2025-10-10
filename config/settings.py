@@ -7,8 +7,12 @@ Full list of settings: https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 # -----------------------------
 # 기본 경로 설정
@@ -25,10 +29,11 @@ JWT_SECRET_KEY = os.getenv(
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
 DEBUG = os.environ.get("DEBUG", "0") == "1"
 
-if os.environ.get("RUNNING_TESTS"):
-    ALLOWED_HOSTS = ["testserver"]
-else:
-    ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+# CI/Test 환경에서는 2FA 앱을 비활성화
+IS_TEST_ENV = "test" in sys.argv
+
+# Temporarily allow all hosts for debugging health checks
+ALLOWED_HOSTS = ["*"]
 
 
 # -----------------------------
@@ -39,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.sites",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -46,18 +52,38 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "corsheaders",
+    "djoser",
+    "social_django",
     # local apps
     "users",
     "chat",
     "ai",
-    "schedule.apps.ScheduleConfig",
+    "schedule",
+    "search",
+    "notifications",
+    "payments",
+    "django_extensions",
 ]
+
+if not IS_TEST_ENV:
+    INSTALLED_APPS.extend(
+        [
+            "django_otp",
+            "django_otp.plugins.otp_totp",
+            "django_otp.plugins.otp_static",
+            "two_factor",
+            "two_factor_wrapper",
+        ]
+    )
 
 
 # -----------------------------
 # 미들웨어
 # -----------------------------
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -66,6 +92,83 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+if not IS_TEST_ENV:
+    MIDDLEWARE.insert(
+        6, "django_otp.middleware.OTPMiddleware"
+    )  # Insert after auth middleware
+
+
+# -----------------------------
+# CORS 설정
+# -----------------------------
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://ozaisecretary.com",
+    "https://www.ozaisecretary.com",
+    "https://api.ozaisecretary.com",  # New backend API domain
+    "http://Oz-digital-human-dev.eba-dipavmms.ap-northeast-2.elasticbeanstalk.com",  # New EB environment URL
+    "https://ozaisecretary.com",  # Frontend custom domain
+]
+CORS_ALLOW_CREDENTIALS = True
+
+
+AUTHENTICATION_BACKENDS = [
+    "social_core.backends.google.GoogleOAuth2",
+    "social_core.backends.kakao.KakaoOAuth2",
+    "social_core.backends.naver.NaverOAuth2",
+    "social_core.backends.github.GithubOAuth2",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+SITE_ID = 1
+
+# ----------------------------->
+# Djoser 설정
+# ----------------------------->
+DJOSER = {
+    "LOGIN_FIELD": "email",
+    "USER_CREATE_PASSWORD_RETYPE": True,
+    "PASSWORD_CHANGED_EMAIL_CONFIRMATION": True,
+    "PASSWORD_RESET_CONFIRM_URL": "password/reset/confirm/{uid}/{token}",
+    "USERNAME_RESET_CONFIRM_URL": "username/reset/confirm/{uid}/{token}",
+    "ACTIVATION_URL": "activate/{uid}/{token}",
+    "SEND_ACTIVATION_EMAIL": True,
+    "SOCIAL_AUTH_TOKEN_STRATEGY": "djoser.social.token.jwt.TokenStrategy",
+    "SOCIAL_AUTH_ALLOWED_REDIRECT_URIS": os.environ.get(
+        "SOCIAL_AUTH_ALLOWED_REDIRECT_URIS", ""
+    ).split(","),
+    "SERIALIZERS": {
+        "user_create": "djoser.serializers.UserCreateSerializer",
+        "user": "users.serializers.UserSerializer",
+        "current_user": "users.serializers.UserSerializer",
+    },
+}
+
+
+# ----------------------------->
+# 소셜 로그인 인증 키
+# ----------------------------->
+# 각 소셜 서비스에서 발급받은 키를 환경 변수에 설정해야 합니다.
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get("SOCIAL_AUTH_GOOGLE_OAUTH2_KEY")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get("SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+]
+
+SOCIAL_AUTH_KAKAO_KEY = os.environ.get("SOCIAL_AUTH_KAKAO_KEY")
+SOCIAL_AUTH_KAKAO_SECRET = os.environ.get("SOCIAL_AUTH_KAKAO_SECRET")
+
+SOCIAL_AUTH_NAVER_KEY = os.environ.get("SOCIAL_AUTH_NAVER_KEY")
+SOCIAL_AUTH_NAVER_SECRET = os.environ.get("SOCIAL_AUTH_NAVER_SECRET")
+
+SOCIAL_AUTH_GITHUB_KEY = os.environ.get("SOCIAL_AUTH_GITHUB_KEY")
+SOCIAL_AUTH_GITHUB_SECRET = os.environ.get("SOCIAL_AUTH_GITHUB_SECRET")
+
 
 ROOT_URLCONF = "config.urls"
 
@@ -76,7 +179,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [os.path.join(BASE_DIR, "frontend", "dist")],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -90,54 +193,108 @@ TEMPLATES = [
 
 
 # -----------------------------
+# 2FA 관련 설정
+# -----------------------------
+LOGIN_URL = "two_factor:login"  # 로그인 시작 URL, 커스텀 로그인 사용 시 이 URL 연결
+LOGIN_REDIRECT_URL = "/"  # 로그인 성공 후 리다이렉트할 URL
+LOGOUT_REDIRECT_URL = "two_factor:login"
+
+# 2FA 폼 설정 (기본 TOTP 폼 사용)
+TWO_FACTOR_FORMS = {
+    "setup": "two_factor.forms.TOTPDeviceForm",
+}
+
+# -----------------------------
 # WSGI / ASGI
 # -----------------------------
 WSGI_APPLICATION = "config.wsgi.application"
-
+ASGI_APPLICATION = "config.asgi.application"
 
 # -----------------------------
 # Channels 설정
 # -----------------------------
-ASGI_APPLICATION = "config.asgi.application"
 if os.environ.get("RUNNING_TESTS"):
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
     }
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
+
+    # TEST 환경용 Redis 더미 설정 추가
+    REDIS_HOST = "localhost"
+    REDIS_PORT = 6379
+
 else:
+    # Define lowercase for local use in this block
+    redis_host_local = os.environ.get("REDIS_HOST", "redis")
+    redis_port_local = 6379
+
+    # Define uppercase for global use (for REDIS_CLIENT_CONFIG)
+    REDIS_HOST = redis_host_local
+    REDIS_PORT = redis_port_local
+
+    # Use Redis for Channels and Celery
+    print("✅ Using Redis for Channels and Celery.")
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [("redis", 6379)],
-            },
+            "CONFIG": {"hosts": [(REDIS_HOST, REDIS_PORT)]},
         },
     }
+    CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+    CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
-CELERY_BROKER_URL = "redis://redis:6379/0"
+# -----------------------------
+# 직접적인 Redis 연결 정보 설정 (로그인 실패 카운트용)
+# -----------------------------
+# 캐싱 목적은 아니지만, Redis 클라이언트를 직접 연결하는 데 사용.
+# 이 설정은 `get_redis_client()` 유틸리티에서 사용.
+REDIS_CLIENT_CONFIG = {
+    "HOST": REDIS_HOST,
+    "PORT": REDIS_PORT,
+    "DB": 0,  # 로그인 실패 카운트용 DB 인덱스 지정 (0번 사용)
+}
 
-
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+# -----------------------------
+# 데이터베이스
+# -----------------------------
 if os.environ.get("RUNNING_TESTS"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "test_db.sqlite3",
+            "NAME": "test_db.sqlite3",
         }
     }
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "mydatabase"),
-            "USER": os.environ.get("DB_USER", "myuser"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "mypassword"),
-            "HOST": os.environ.get("DB_HOST", "db"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
+    # Elastic Beanstalk RDS 또는 로컬 환경
+    db_host = os.environ.get("RDS_HOSTNAME")
+
+    if db_host:
+        # Elastic Beanstalk with RDS
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.environ.get("RDS_DB_NAME"),
+                "USER": os.environ.get("RDS_USERNAME"),
+                "PASSWORD": os.environ.get("RDS_PASSWORD"),
+                "HOST": db_host,
+                "PORT": os.environ.get("RDS_PORT", "5432"),
+            }
         }
-    }
+    else:
+        # Docker Compose 로컬 환경
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.environ.get("DB_NAME", "postgres"),
+                "USER": os.environ.get("DB_USER", "postgres"),
+                "PASSWORD": os.environ.get("DB_PASSWORD", "password"),
+                "HOST": "db",  # Docker Compose 서비스 이름
+                "PORT": "5432",
+            }
+        }
 
 AUTH_USER_MODEL = "users.User"
 
@@ -145,18 +302,17 @@ AUTH_USER_MODEL = "users.User"
 # -----------------------------
 # REST Framework 설정
 # -----------------------------
-if os.environ.get("RUNNING_TESTS"):
-    REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": (
-            "rest_framework.authentication.SessionAuthentication",
-        ),
-        "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    }
-else:
-    REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": ("users.authentication.JWTAuthentication",),
-        "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    }
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        # "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "users.authentication.CustomJWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+}
 
 
 # -----------------------------
@@ -185,6 +341,25 @@ SECURE_COOKIE = os.getenv("DEBUG", "0") != "1"
 SESSION_COOKIE_SECURE = SECURE_COOKIE
 CSRF_COOKIE_SECURE = SECURE_COOKIE
 
+# Allow cookies to be shared across all subdomains of ozaisecretary.com
+SESSION_COOKIE_DOMAIN = ".ozaisecretary.com"
+CSRF_COOKIE_DOMAIN = ".ozaisecretary.com"
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://ozaisecretary.com",
+    "https://www.ozaisecretary.com",
+    "https://api.ozaisecretary.com",
+]
+
+# Proxy/Load Balancer Settings
+if not DEBUG:
+    USE_X_FORWARDED_HOST = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 # -----------------------------
 # 패스워드 검증
@@ -212,6 +387,18 @@ USE_TZ = True
 # 정적 파일
 # -----------------------------
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "frontend", "dist"),
+]
+
+# -----------------------------
+# 미디어 파일
+# -----------------------------
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
 
 # -----------------------------
 # 기본 PK 필드
@@ -256,4 +443,29 @@ LOGGING = {
             "propagate": False,
         },
     },
+}
+
+# SMTP 서버 설정
+EMAIL_BACKEND = (
+    "django.core.mail.backends.console.EmailBackend"  # 개발 시 이메일 콘솔 출력
+)
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" # 배포 시 사용
+EMAIL_HOST = "smtp.gmail.com"  # 구글 SMTP 예시
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get(
+    "EMAIL_HOST_USER"
+)  # 실제 이메일 아이디 (환경변수로 관리 권장)
+EMAIL_HOST_PASSWORD = os.environ.get(
+    "EMAIL_HOST_PASSWORD"
+)  # 비밀번호(또는 앱 비밀번호)
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # 발신 이메일 주소 기본값
+
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "OZ-Digital-Human API",
+    "DESCRIPTION": "API documentation for the OZ Digital Human project.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PUBLIC": True,
 }

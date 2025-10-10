@@ -1,0 +1,4 @@
+Retrieving logs...
+Logs were saved to /Users/gwang_il_jeon/Desktop/OZ/OZ_Main_AI/.elasticbeanstalk/logs/251004_170223
+Logs were saved to /Users/gwang_il_jeon/Desktop/OZ/OZ_Main_AI/.elasticbeanstalk/logs/251004_170223
+Updated symlink at /Users/gwang_il_jeon/Desktop/OZ/OZ_Main_AI/.elasticbeanstalk/logs/latest

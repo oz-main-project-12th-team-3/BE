@@ -132,3 +132,12 @@ ai/migrations/0001_initial.py
 
 # 정적파일
 staticfiles/
+
+.coveragerc
+
+  fix_schedule_notification.py
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+test_db.sqlite3

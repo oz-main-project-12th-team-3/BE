@@ -66,8 +66,8 @@ class TestChatAPI:
 
         response = client.get(f"{url}?session_id={session.id}")
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]["message"] == "Hello, world!"
+        assert len(response.data["results"]) == 1
+        assert response.data["results"][0]["message"] == "Hello, world!"
 
     def test_cannot_access_others_session(self, authenticated_user):
         """사용자는 다른 사람의 세션에 접근할 수 없다."""
@@ -98,13 +98,25 @@ class TestChatConsumer:
         asyncio.run(self._test_authenticated_user_can_connect())
 
     async def _test_authenticated_user_can_connect(self):
+        from asgiref.sync import sync_to_async
+
+        from users.repositories.token_repository import TokenRepository
+        from users.repositories.user_repository import UserRepository
+        from users.services.token_service import TokenService
+
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+
         user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
+        generate_tokens_async = sync_to_async(token_service.generate_tokens)
+        access_token, _, _ = await generate_tokens_async(user)
+
         communicator = WebsocketCommunicator(
-            application, f"/ws/chat-sessions/{session.id}/"
+            application, f"/ws/chat-sessions/{session.id}/?token={access_token}"
         )
-        communicator.scope["user"] = user
 
         connected, _ = await communicator.connect()
         assert connected
@@ -132,6 +144,16 @@ class TestChatConsumer:
         asyncio.run(self._test_user_cannot_connect_to_others_session())
 
     async def _test_user_cannot_connect_to_others_session(self):
+        from asgiref.sync import sync_to_async
+
+        from users.repositories.token_repository import TokenRepository
+        from users.repositories.user_repository import UserRepository
+        from users.services.token_service import TokenService
+
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+
         user1 = await User.objects.acreate(
             email="user1@example.com", password="password"
         )
@@ -142,26 +164,45 @@ class TestChatConsumer:
             user=user2, title="User2 Session"
         )
 
+        generate_tokens_async = sync_to_async(token_service.generate_tokens)
+        access_token, _, _ = await generate_tokens_async(user1)
+
         communicator = WebsocketCommunicator(
-            application, f"/ws/chat-sessions/{session_of_user2.id}/"
+            application,
+            f"/ws/chat-sessions/{session_of_user2.id}/?token={access_token}",
         )
-        communicator.scope["user"] = user1
 
         connected, close_code = await communicator.connect()
         assert not connected
         assert close_code == 403
 
-    def test_receive_and_save_message(self):
-        asyncio.run(self._test_receive_and_save_message())
+    def test_receive_and_save_message(self, mocker):
+        asyncio.run(self._test_receive_and_save_message(mocker))
 
-    async def _test_receive_and_save_message(self):
+    async def _test_receive_and_save_message(self, mocker):
+        mocker.patch(
+            "ai.services.ai_service.ai_service.get_gemini_response",
+            return_value="hello",
+        )
+        from asgiref.sync import sync_to_async
+
+        from users.repositories.token_repository import TokenRepository
+        from users.repositories.user_repository import UserRepository
+        from users.services.token_service import TokenService
+
+        user_repo = UserRepository()
+        token_repo = TokenRepository()
+        token_service = TokenService(user_repo, token_repo)
+
         user = await User.objects.acreate(email="test@example.com", password="password")
         session = await ChatSession.objects.acreate(user=user, title="Test Session")
 
+        generate_tokens_async = sync_to_async(token_service.generate_tokens)
+        access_token, _, _ = await generate_tokens_async(user)
+
         communicator = WebsocketCommunicator(
-            application, f"/ws/chat-sessions/{session.id}/"
+            application, f"/ws/chat-sessions/{session.id}/?token={access_token}"
         )
-        communicator.scope["user"] = user
         await communicator.connect()
 
         await communicator.send_json_to({"message": "hello"})

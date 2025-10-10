@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from users.validators import profanity_validator
+
 from .models import ChatLog, ChatSession, VoiceLog
 
 
@@ -18,6 +20,7 @@ class ChatSessionSerializer(serializers.ModelSerializer):
 
 class ChatLogSerializer(serializers.ModelSerializer):
     session = serializers.PrimaryKeyRelatedField(queryset=ChatSession.objects.all())
+    message = serializers.CharField(validators=[profanity_validator])
 
     class Meta:
         model = ChatLog

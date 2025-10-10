@@ -9,20 +9,15 @@ class UserAdmin(BaseUserAdmin):
     model = User
     list_display = (
         "email",
-        "role",
         "is_staff",
         "is_active",
-        "two_factor_enabled",
-        "login_fail_count",
         "password_changed_at",
-        "account_locked_until",
     )
-    list_filter = ("role", "is_staff", "is_active", "two_factor_enabled")
+    list_filter = ("is_staff", "is_active")
     ordering = ("email",)
     search_fields = ("email",)
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Personal Info", {"fields": ("role",)}),
         (
             "Permissions",
             {
@@ -32,16 +27,6 @@ class UserAdmin(BaseUserAdmin):
                     "is_superuser",
                     "groups",
                     "user_permissions",
-                )
-            },
-        ),
-        (
-            "Account Status",
-            {
-                "fields": (
-                    "two_factor_enabled",
-                    "login_fail_count",
-                    "account_locked_until",
                 )
             },
         ),
@@ -62,10 +47,12 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "password", "role", "is_staff", "is_active"),
+                "fields": ("email", "password", "is_staff", "is_active"),
             },
         ),
     )
+
+    readonly_fields = BaseUserAdmin.readonly_fields + ("created_at", "updated_at")
 
 
 @admin.register(UserProfile)
