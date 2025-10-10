@@ -6,6 +6,8 @@ from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
+
+
 def health_check(request):
     return JsonResponse({"status": "healthy"})
 
@@ -26,9 +28,7 @@ urlpatterns = [
     # drf-spectacular URLS
     path(
         "api/schema/",
-        SpectacularAPIView.as_view(
-            permission_classes=[AllowAny]
-        ),
+        SpectacularAPIView.as_view(permission_classes=[AllowAny]),
         name="schema",
     ),
     path(

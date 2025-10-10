@@ -19,6 +19,7 @@ from .serializers.user_notification_preference_serializer import (
     UserNotificationPreferenceSerializer,
 )
 
+
 @extend_schema_view(
     list=extend_schema(
         summary="알림 목록 조회",

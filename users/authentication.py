@@ -122,29 +122,30 @@ class CustomJWTAuthentication(SimpleJWTAuthentication):
         self.token_service = TokenService(self.user_repo, self.token_repo)
 
     def authenticate(self, request):
-        # ⬇️ 🚨 Swagger/Schema 경로 우회 로직 추가 🚨 ⬇️
-        # '/api/schema/'로 시작하는 경로는 인증이 필요 없으므로
-        # 불필요한 토큰 검사 없이 즉시 None을 반환하여 인증을 건너뜁니다.
+        # 0. Swagger 경로 우회
         if request.path.startswith("/api/schema/"):
             return None
-            # ⬆️ 🚨 Swagger/Schema 경로 우회 로직 끝 🚨 ⬆️
 
         # 1. 토큰 추출 (헤더 우선)
         auth_header = self.get_header(request)
-        # 헤더가 없으면(None이면) 바로 None을 반환하여 인증을 건너뛰고
-        # 다음 인증 클래스(SessionAuthentication)로 넘기거나 익명 사용자로 처리.
+        # [최종 안전 로직: 헤더가 None이면 raw_token을 None으로 즉시 설정]
+        # SimpleJWT 상위 메서드(get_raw_token) 호출 시 NoneType 오류 방지.
         if auth_header is None:
-            return None
-        raw_token = self.get_raw_token(auth_header)
+            raw_token = None
+        else:
+            # 헤더가 있을 때만 SimpleJWT의 get_raw_token을 안전하게 호출
+            raw_token = self.get_raw_token(auth_header)
 
+        # 2. 쿠키 폴백
+        # 헤더에서 토큰을 찾지 못했으면 (None이면) 쿠키에서 'access_token' 시도
         if raw_token is None:
-            # 헤더에 없으면 쿠키에서 'access_token' 시도
             raw_token = request.COOKIES.get("access_token")
 
         if raw_token is None:
+            # 헤더에도 쿠키에도 없으면 최종적으로 None 반환 (익명 처리)
             return None
 
-        # 2. 유효성 검사 및 페이로드 획득 (커스텀 TokenService 사용)
+        # 3. 유효성 검사 및 페이로드 획득
         try:
             validated_token = self.token_service.is_valid_access_token(raw_token)
         except TokenAuthenticationFailed as e:
@@ -153,23 +154,22 @@ class CustomJWTAuthentication(SimpleJWTAuthentication):
         except Exception as e:
             raise AuthenticationFailed(f"인증 오류: {str(e)}")
 
-        # 3. 임시 토큰 거부 (정식 엔드포인트에서 사용되므로)
+        # 4. 임시 토큰 거부
         if validated_token.get("is_temporary", False):
             raise AuthenticationFailed(
                 "임시 토큰으로는 일반 엔드포인트에 접근할 수 없습니다."
             )
 
-        # 4. 블랙리스트 검사 (JTI 기반)
+        # 5. 블랙리스트 검사
         jti = validated_token.get("jti")
         if jti and is_token_blacklisted(jti):
             raise AuthenticationFailed("토큰이 블랙리스트에 등록되어 무효화되었습니다.")
 
-        # 5. 사용자 로드 및 반환
+        # 6. 사용자 로드 및 반환
         try:
             user = self.user_repo.get_user_by_id(validated_token["user_id"])
         except Exception:
             raise AuthenticationFailed("사용자를 찾을 수 없습니다.")
 
-        # LogoutView의 블랙리스트 처리를 위해
-        # validated_token(payload)을 request.auth로 반환
+        # 7. 튜플 반환
         return (user, validated_token)
