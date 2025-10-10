@@ -11,7 +11,7 @@ from utils.redis_client import get_redis_client
 
 from ..authentication import JWTAuthentication
 from ..exceptions import PasswordMismatchException, TokenAuthenticationFailed
-from ..repositories.redis_lock_repository import RedisLockRepository
+from ..repositories.login_fail_lock_repository import LoginFailLockRepository
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import (
@@ -36,7 +36,9 @@ class UserRegisterView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(
+            redis_client=redis_client
+        )  # 변경된 클래스명 적용
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
@@ -111,8 +113,6 @@ class UserRegisterView(APIView):
                 access_token_to_set, refresh_token_to_set, access_token_lifetime = (
                     user_service.token_service.generate_temporary_tokens(user)
                 )
-
-                # E501 수정: 문자열을 괄호로 묶어 줄바꿈
                 detail_message = (
                     "회원가입이 완료되었습니다. 2FA 설정을 "
                     "진행해야 완전한 로그인이 가능합니다."
@@ -124,16 +124,15 @@ class UserRegisterView(APIView):
                     "expires_in": int(access_token_lifetime.total_seconds()),
                     "access_token": None,
                     "tfa_required": True,
-                    "tfa_step": "setup",  # 2fa setup 단계
+                    "tfa_step": "setup",
                     "temporary_access_token": access_token_to_set,
                     "temporary_refresh_token": refresh_token_to_set,
                 }
             else:
-                # 2. 2FA 비활성화 시: 정식 토큰 발급 (기존 로직)
+                # 2. 2FA 비활성화 시: 정식 토큰 발급
                 access_token_to_set, refresh_token_to_set, access_token_lifetime = (
                     user_service.token_service.generate_tokens(user)
                 )
-
                 response_data = {
                     "detail": "회원가입이 성공적으로 완료되었습니다.",
                     "user_id": user.id,
@@ -185,7 +184,9 @@ class UserLoginView(APIView):
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(
+            redis_client=redis_client
+        )  # 변경된 임포트 및 클래스명
         user_service = UserService(user_repo, token_repo, token_service, redis_repo)
         return user_service, token_service
 
@@ -331,9 +332,6 @@ class LogoutView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    def _get_token_repo(self):
-        return TokenRepository()
-
     @extend_schema(
         responses={200: OpenApiResponse(description="로그아웃 되었습니다.")},
         summary="로그아웃 API",
@@ -342,13 +340,20 @@ class LogoutView(APIView):
         ),
     )
     def post(self, request):
-        token_repo = self._get_token_repo()
-        if request.user:
-            token_repo.blacklist_all_user_tokens(request.user)
+        token_service = TokenService(UserRepository(), TokenRepository())
+        access_token = getattr(request.auth, "token", None)
+        refresh_token = request.COOKIES.get("refresh_token")
 
-        response = Response(
-            {"detail": "로그아웃 되었습니다."}, status=status.HTTP_200_OK
-        )
+        if access_token:
+            jti = access_token.get("jti")
+            exp = access_token.get("exp")
+            if jti and exp:
+                token_service.blacklist_access_token(jti, exp)
+
+        if refresh_token:
+            token_service.blacklist_refresh_token(refresh_token)
+
+        response = Response({"detail": "로그아웃 되었습니다."})
         response.delete_cookie("access_token")
         response.delete_cookie("refresh_token")
         return response
@@ -436,7 +441,7 @@ class CheckEmailView(APIView):
         user_repo = UserRepository()
         token_repo = TokenRepository()
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(redis_client=redis_client)  # 변경됨
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
@@ -474,7 +479,7 @@ class PasswordResetRequestView(APIView):
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(redis_client=redis_client)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(
@@ -507,7 +512,7 @@ class PasswordResetConfirmView(APIView):
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(redis_client=redis_client)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(

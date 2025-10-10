@@ -7,7 +7,6 @@ from .models import Token, User, UserProfile
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     model = User
-    # ❌ login_fail_count, account_locked_until 필드 제거
     list_display = (
         "email",
         "is_staff",
@@ -31,16 +30,6 @@ class UserAdmin(BaseUserAdmin):
                 )
             },
         ),
-        # ❌ Account Status 필드셋 제거 (DB 필드가 없으므로)
-        # (
-        #     "Account Status",
-        #     {
-        #         "fields": (
-        #             "login_fail_count",
-        #             "account_locked_until",
-        #         )
-        #     },
-        # ),
         (
             "Important dates",
             {

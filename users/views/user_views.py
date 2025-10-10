@@ -7,7 +7,7 @@ from utils.redis_client import get_redis_client
 
 from ..authentication import JWTAuthentication
 from ..exceptions import PasswordMismatchException
-from ..repositories.redis_lock_repository import RedisLockRepository
+from ..repositories.login_fail_lock_repository import LoginFailLockRepository
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import PasswordChangeSerializer, UserProfileSerializer
@@ -25,7 +25,7 @@ class UserProfileView(APIView):
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(redis_client=redis_client)  # 변경사항 반영
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(
@@ -102,7 +102,7 @@ class PasswordChangeView(APIView):
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(redis_client=redis_client)  # 변경사항 반영
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(
@@ -122,7 +122,6 @@ class PasswordChangeView(APIView):
         user = request.user
         new_password = serializer.validated_data["new_password"]
 
-        # 비밀번호 변경 시 PasswordMismatchException 발생 시 자동으로 처리됨
         user_service.change_user_password(user, new_password)
 
         response = Response(
@@ -144,7 +143,7 @@ class UserDeleteView(APIView):
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(redis_client=redis_client)  # 변경사항 반영
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
     @extend_schema(

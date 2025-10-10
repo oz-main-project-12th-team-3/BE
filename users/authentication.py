@@ -2,6 +2,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 from users.exceptions import TokenAuthenticationFailed
+from users.repositories.token_blacklist_repository import is_token_blacklisted
 from users.repositories.token_repository import TokenRepository
 from users.repositories.user_repository import UserRepository
 from users.services.token_service import TokenService
@@ -96,3 +97,17 @@ class TemporaryJWTAuthentication(BaseAuthentication):
             raise AuthenticationFailed(str(e))
         except Exception as e:
             raise AuthenticationFailed(f"임시 토큰 인증 오류: {str(e)}")
+
+
+class CustomJWTAuthentication(JWTAuthentication):
+    def authenticate(self, request):
+        raw_token = self.get_raw_token(self.get_header(request))
+        if raw_token is None:
+            return None
+
+        validated_token = self.get_validated_token(raw_token)
+        jti = validated_token.get("jti")
+        if jti and is_token_blacklisted(jti):
+            raise AuthenticationFailed("토큰이 블랙리스트에 등록되어 무효화되었습니다.")
+
+        return self.get_user(validated_token), validated_token

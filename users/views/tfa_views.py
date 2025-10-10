@@ -14,7 +14,7 @@ from utils.redis_client import get_redis_client
 
 from ..authentication import JWTAuthentication, TemporaryJWTAuthentication
 from ..exceptions import TfaVerificationFailedException
-from ..repositories.redis_lock_repository import RedisLockRepository
+from ..repositories.login_fail_lock_repository import LoginFailLockRepository
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
 from ..serializers import TfaSetupConfirmSerializer, TfaVerifySerializer
@@ -30,7 +30,7 @@ class BaseTfaView(APIView):
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
         redis_client = get_redis_client()
-        redis_repo = RedisLockRepository(redis_client=redis_client)
+        redis_repo = LoginFailLockRepository(redis_client=redis_client)
         user_service = UserService(user_repo, token_repo, token_service, redis_repo)
         return user_service, token_service
 

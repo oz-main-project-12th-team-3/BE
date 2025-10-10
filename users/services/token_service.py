@@ -6,6 +6,11 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework.exceptions import AuthenticationFailed
 
+from users.repositories.token_blacklist_repository import (
+    add_token_to_blacklist,
+    hash_token,
+)
+
 from ..exceptions import TokenAuthenticationFailed, UserNotFoundException
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
@@ -219,3 +224,20 @@ class TokenService:
             self.token_repo.blacklist_token(token_obj)
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, AuthenticationFailed):
             pass
+
+    def blacklist_access_token(self, token_jti: str, token_exp: int):
+        exp_datetime = datetime.utcfromtimestamp(token_exp)
+        add_token_to_blacklist(token_jti, exp_datetime)
+        # DB 내 토큰도 무효화 병행 가능
+        try:
+            token_obj = self.token_repo.get_valid_token_by_id(token_jti)
+            if token_obj:
+                self.token_repo.blacklist_token(token_obj)
+        except Exception:
+            pass
+
+    def blacklist_refresh_token(self, refresh_token: str):
+        hashed = hash_token(refresh_token)
+        expire_datetime = datetime.utcnow() + timedelta(days=7)
+        add_token_to_blacklist(hashed, expire_datetime)
+        # 필요 시 DB 토큰 무효화 추가 가능

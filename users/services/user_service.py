@@ -11,7 +11,9 @@ from ..exceptions import (
     PasswordMismatchException,
     UserNotFoundException,
 )
-from ..repositories.redis_lock_repository import RedisLockRepository
+from ..repositories.login_fail_lock_repository import (
+    LoginFailLockRepository,  # 변경된 이름 반영
+)
 from ..repositories.user_repository import UserRepository
 
 
@@ -21,7 +23,7 @@ class UserService:
         user_repo: UserRepository,
         token_repo,
         token_service,
-        redis_repo: RedisLockRepository,
+        redis_repo: LoginFailLockRepository,
     ):
         self.user_repo = user_repo
         self.token_repo = token_repo
@@ -36,10 +38,9 @@ class UserService:
     def authenticate_user(self, email, password):
         user = self.user_repo.get_user_by_email(email)
 
-        # 1. RedisLockRepository를 사용하여 계정 잠금 상태 확인
+        # 1. LoginFailLockRepository를 사용하여 계정 잠금 상태 확인
         if self.redis_repo.is_account_locked(user.id):
-            # RedisLockRepository의 상수를 사용해 메시지 생성
-            lock_duration = self.redis_repo.ACCOUNT_LOCK_DURATION_SECONDS // 60
+            lock_duration = self.redis_repo.get_account_lock_duration_seconds() // 60
             raise ValueError(
                 f"계정이 잠겼습니다. {lock_duration}분 후 다시 시도해주세요."
             )
@@ -72,7 +73,7 @@ class UserService:
             raise PasswordMismatchException(message)
 
         self.redis_repo.clear_login_attempts(user.id)
-        user.backend = "django.contrib.auth.backends.ModelBackend"  # 백엔드 명시적 설정
+        user.backend = "django.contrib.auth.backends.ModelBackend"
         return user
 
     def login_with_optional_2fa(self, email, password, code=None):
@@ -86,9 +87,9 @@ class UserService:
             return user, True, False, "none", None, None
 
         # 2. 미확정 (Pending) 기기가 있는 경우 (회원가입 직후)
-        #    🚨 뷰에서 tfa_required=True를 받도록 임시 토큰 반환을 최우선으로 처리
+        # 뷰에서 tfa_required=True를 받도록 임시 토큰 반환을 최우선으로 처리
         if pending_device:
-            # 2A 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
+            # 2FA 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
             if not code:
                 temp_access_token, temp_refresh_token, _ = (
                     self.token_service.generate_temporary_tokens(user)
@@ -96,25 +97,19 @@ class UserService:
                 # tfa_required=True를 반환하여 뷰가 임시 토큰을 응답하도록 유도
                 return user, False, True, "setup", temp_access_token, temp_refresh_token
 
-            # 2A 코드가 있는 경우 -> 인증 시도
+            # 2FA 코드가 있는 경우 -> 인증 시도
             if pending_device.verify_token(code):
                 pending_device.confirmed = True
                 pending_device.save()
-                return (
-                    user,
-                    True,
-                    False,
-                    "none",
-                    None,
-                    None,
-                )  # 2FA 완료 -> 정식 토큰 발급 가능
+                # 2FA 완료 -> 정식 토큰 발급 가능
+                return user, True, False, "none", None, None
             else:
                 raise ValueError("잘못된 2FA 인증 코드입니다.")
 
         # 3. 확정된 (Confirmed) 기기가 있는 경우
-        #    🚨 Pending과 동일하게, 코드가 없으면 임시 토큰 반환을 최우선으로 처리
+        # Pending과 동일하게, 코드가 없으면 임시 토큰 반환을 최우선으로 처리
         if confirmed_device:
-            # 2A 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
+            # 2FA 코드가 없는 경우 (첫 로그인 시) -> 임시 토큰 발급 및 2FA 인증 요구
             if not code:
                 temp_access_token, temp_refresh_token, _ = (
                     self.token_service.generate_temporary_tokens(user)
@@ -204,7 +199,6 @@ class UserService:
             # TfaApiView는 이미 임시 토큰으로 접근했으므로,
             # 2FA가 필요한 사용자임을 전제하지만 안전장치
             return False
-
         if device.verify_token(code):
             # 2FA 성공
             return True
@@ -248,7 +242,7 @@ class UserService:
         self.token_repo.blacklist_all_user_tokens(user)
         return True
 
-    # 비밀번호 재설정 시 2fa 인증 요구한다면 위의 함수를 하단으로 대체
+    # 비밀번호 재설정 시 2fa 인증 요구한다면 아래 주석처리 된 코드 활용 가능
     # def reset_password(self, uidb64, token, new_password, two_fa_code=None):
     #     try:
     #         uid = force_str(urlsafe_base64_decode(uidb64))
