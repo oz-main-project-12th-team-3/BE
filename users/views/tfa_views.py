@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from utils.redis_client import get_redis_client
 
-from ..authentication import JWTAuthentication, TemporaryJWTAuthentication
+from ..authentication import TemporaryJWTAuthentication
 from ..exceptions import TfaVerificationFailedException
 from ..repositories.login_fail_lock_repository import LoginFailLockRepository
 from ..repositories.token_repository import TokenRepository
@@ -88,6 +88,7 @@ class TwoFactorWrapperView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def get(self, request):
         tfa_step = request.session.get("tfa_step", "none")
@@ -238,7 +239,6 @@ class TwoFactorDisableView(BaseTfaView):
     2FA 설정을 해제하는 뷰. (정식 JWT 토큰으로 인증)
     """
 
-    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(

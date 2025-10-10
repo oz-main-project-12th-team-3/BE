@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 
 from utils.redis_client import get_redis_client
 
-from ..authentication import JWTAuthentication
 from ..exceptions import PasswordMismatchException, TokenAuthenticationFailed
 from ..repositories.login_fail_lock_repository import LoginFailLockRepository
 from ..repositories.token_repository import TokenRepository
@@ -329,7 +328,6 @@ class UserLoginView(APIView):
 
 
 class LogoutView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
@@ -341,16 +339,18 @@ class LogoutView(APIView):
     )
     def post(self, request):
         token_service = TokenService(UserRepository(), TokenRepository())
-        access_token = getattr(request.auth, "token", None)
+        access_token_payload = request.auth
         refresh_token = request.COOKIES.get("refresh_token")
 
-        if access_token:
-            jti = access_token.get("jti")
-            exp = access_token.get("exp")
+        if access_token_payload and isinstance(access_token_payload, dict):
+            jti = access_token_payload.get("jti")
+            exp = access_token_payload.get("exp")
             if jti and exp:
+                # JTI와 EXP를 사용하여 액세스 토큰을 블랙리스트에 추가
                 token_service.blacklist_access_token(jti, exp)
 
         if refresh_token:
+            # 리프레시 토큰은 문자열 그대로 블랙리스트에 추가
             token_service.blacklist_refresh_token(refresh_token)
 
         response = Response({"detail": "로그아웃 되었습니다."})
@@ -361,6 +361,7 @@ class LogoutView(APIView):
 
 class TokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def _get_token_service(self):
         user_repo = UserRepository()
@@ -436,6 +437,7 @@ class TokenRefreshView(APIView):
 
 class CheckEmailView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def _get_user_service(self):
         user_repo = UserRepository()
@@ -473,6 +475,7 @@ class CheckEmailView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def _get_user_service(self):
         user_repo = UserRepository()
@@ -506,6 +509,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def _get_user_service(self):
         user_repo = UserRepository()

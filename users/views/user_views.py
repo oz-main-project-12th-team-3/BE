@@ -5,7 +5,6 @@ from rest_framework.views import APIView
 
 from utils.redis_client import get_redis_client
 
-from ..authentication import JWTAuthentication
 from ..exceptions import PasswordMismatchException
 from ..repositories.login_fail_lock_repository import LoginFailLockRepository
 from ..repositories.token_repository import TokenRepository
@@ -16,7 +15,6 @@ from ..services.user_service import UserService
 
 
 class UserProfileView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def _get_user_service(self):
@@ -93,7 +91,6 @@ class UserProfileView(APIView):
 
 
 class PasswordChangeView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def _get_user_service(self):
@@ -134,7 +131,6 @@ class PasswordChangeView(APIView):
 
 
 class UserDeleteView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def _get_user_service(self):
