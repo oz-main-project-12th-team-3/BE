@@ -12,7 +12,6 @@ from users.repositories.token_repository import TokenRepository
 
 @pytest.fixture
 def user(db):
-    """토큰 테스트용 사용자 생성 (비밀번호는 secrets 랜덤 사용)"""
     password = secrets.token_urlsafe(16)
     return User.objects.create_user(email="test@example.com", password=password)
 
@@ -124,8 +123,8 @@ def test_blacklist_all_user_tokens(user):
         issued_at=timezone.now(),
         expires_at=timezone.now() + timedelta(hours=2),
     )
-    assert t1.is_blacklisted is False
-    assert t2.is_blacklisted is False
+    assert not t1.is_blacklisted
+    assert not t2.is_blacklisted
 
     repo.blacklist_all_user_tokens(user)
     t1.refresh_from_db()
