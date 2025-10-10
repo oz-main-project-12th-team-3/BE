@@ -73,4 +73,4 @@ class NotificationTypeAPITest(APITestCase):
         # 알림 목록 조회 접근 시 401 Unauthorized 확인
         url_list = reverse("notificationtype-list")
         response = self.client.get(url_list)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

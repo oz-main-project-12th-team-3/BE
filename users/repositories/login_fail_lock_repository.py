@@ -7,7 +7,8 @@ class LoginFailLockRepository:
         LoginFailLockRepository 초기화 메서드.
 
         Args:
-            redis_client: Redis 클라이언트 인스턴스. None일 경우 utils.redis_client에서 싱글톤 인스턴스 로드.
+            redis_client: Redis 클라이언트 인스턴스.
+            None일 경우 utils.redis_client에서 싱글톤 인스턴스 로드.
         """
         self.redis = redis_client if redis_client else get_redis_client()
 

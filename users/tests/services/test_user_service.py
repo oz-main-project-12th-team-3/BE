@@ -175,7 +175,10 @@ def test_authenticate_user_password_mismatch_no_lock(service, user, mock_redis_r
     }
     with pytest.raises(PasswordMismatchException) as excinfo:
         service.authenticate_user(user.email, "wrongpass")
-    expected_msg = f"비밀번호가 올바르지 않습니다. (현재 실패 횟수: {CURRENT}/{LIMIT}회). {REMAINING}회 추가 실패 시 계정이 잠금 처리됩니다."
+    expected_msg = (
+        f"비밀번호가 올바르지 않습니다. (현재 실패 횟수: {CURRENT}/{LIMIT}회). "
+        f"{REMAINING}회 추가 실패 시 계정이 잠금 처리됩니다."
+    )
     assert str(excinfo.value) == expected_msg
 
 
@@ -191,7 +194,10 @@ def test_authenticate_user_password_mismatch_with_lock(service, user, mock_redis
     }
     with pytest.raises(PasswordMismatchException) as excinfo:
         service.authenticate_user(user.email, "wrongpass")
-    expected_msg = f"비밀번호가 올바르지 않습니다. 로그인 실패 횟수({LIMIT}회)를 초과하여 계정이 {DURATION}분 동안 잠금 처리되었습니다."
+    expected_msg = (
+        f"비밀번호가 올바르지 않습니다. 로그인 실패 횟수({LIMIT}회)를 초과하여 "
+        f"계정이 {DURATION}분 동안 잠금 처리되었습니다."
+    )
     assert str(excinfo.value) == expected_msg
 
 

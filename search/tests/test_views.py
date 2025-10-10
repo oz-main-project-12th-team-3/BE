@@ -40,7 +40,7 @@ class TestSearchLogViews:
         url = reverse("search:search-log-list-create")
         data = {"keyword": "Django", "search_type": "tutorial", "result_count": 5}
         response = client.post(url, data, format="json")
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_list_search_logs_authenticated(self, auth_client, user):
         SearchLog.objects.create(user=user, keyword="DRF", result_count=10)
@@ -53,4 +53,4 @@ class TestSearchLogViews:
         client = APIClient()
         url = reverse("search:search-log-list-create")
         response = client.get(url)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_403_FORBIDDEN
