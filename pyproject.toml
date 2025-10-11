@@ -23,3 +23,23 @@ max-complexity = 10
 [tool.black]
 line-length = 88
 target-version = ["py312"]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    ".*",
+    "*/migrations/*",
+    "*/tests/*",
+    "manage.py",
+    "conftest.py",
+    "config/asgi.py",
+    "config/wsgi.py",
+    "config/celery.py",
+    "htmlcov/*",
+    "frontend/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
