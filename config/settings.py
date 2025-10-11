@@ -32,8 +32,13 @@ DEBUG = os.environ.get("DEBUG", "0") == "1"
 # CI/Test 환경에서는 2FA 앱을 비활성화
 IS_TEST_ENV = "test" in sys.argv
 
-# Temporarily allow all hosts for debugging health checks
-ALLOWED_HOSTS = ["*"]
+# Production security: Limit hosts to allowed domains
+ALLOWED_HOSTS = [
+    "ozaisecretary.com",
+    "www.ozaisecretary.com",
+    "api.ozaisecretary.com",
+    "Oz-digital-human-dev.eba-dipavmms.ap-northeast-2.elasticbeanstalk.com",
+]
 
 
 # -----------------------------
