@@ -180,10 +180,8 @@ class TestChatConsumer:
         asyncio.run(self._test_receive_and_save_message(mocker))
 
     async def _test_receive_and_save_message(self, mocker):
-        mocker.patch(
-            "ai.services.ai_service.ai_service.get_gemini_response",
-            return_value="hello",
-        )
+        mock_ai_service = mocker.patch("chat.consumers.ai_service")
+        mock_ai_service.get_gemini_response.return_value = "hello"
         from asgiref.sync import sync_to_async
 
         from users.repositories.token_repository import TokenRepository
