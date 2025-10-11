@@ -1,4 +1,4 @@
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
@@ -67,7 +67,15 @@ class ChatMessageSearchView(generics.ListAPIView):
     @extend_schema(
         summary="챗 메시지 검색",
         description="현재 로그인한 사용자가 메시지 내용으로 검색할 수 있습니다.",
-        responses={200: OpenApiResponse(description="챗 메시지 검색 결과 목록")},
+        parameters=[
+            OpenApiParameter(
+                name="q",
+                description="Search term for message content",
+                required=True,
+                type=str,
+            )
+        ],
+        responses={200: ChatLogSerializer(many=True)},
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
