@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import login
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,6 +20,7 @@ from ..serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     UserLoginSerializer,
+    UserRegisterResponseSerializer,
     UserRegisterSerializer,
 )
 from ..services.token_service import TokenService
@@ -41,11 +42,53 @@ class UserRegisterView(APIView):
 
     @extend_schema(
         request=UserRegisterSerializer,
-        responses={201: UserRegisterSerializer},
+        responses={
+            201: UserRegisterResponseSerializer,
+            400: OpenApiResponse(description="입력 값 오류 및 예외 발생"),
+        },
         summary="유저 회원가입",
         description=(
             "이메일, 비밀번호, 닉네임, 2FA 활성화 여부를 받아 회원가입을 진행합니다."
         ),
+        examples=[
+            OpenApiExample(
+                "2FA 활성화 응답 예시",
+                summary="회원가입 후 2FA 설정 필요",
+                value={
+                    "detail": (
+                        "회원가입이 완료되었습니다. 2FA 설정을 "
+                        "진행해야 완전한 로그인이 가능합니다."
+                    ),
+                    "user_id": 1,
+                    "email": "user@example.com",
+                    "expires_in": 300,
+                    "access_token": None,
+                    "tfa_required": True,
+                    "tfa_step": "setup",
+                    "temporary_access_token": "temp_access_token_string",
+                    "temporary_refresh_token": "temp_refresh_token_string",
+                },
+                response_only=True,
+                status_codes=[201],
+            ),
+            OpenApiExample(
+                "2FA 비활성화 응답 예시",
+                summary="2FA 비활성화 회원가입 성공 응답",
+                value={
+                    "detail": "회원가입이 성공적으로 완료되었습니다.",
+                    "user_id": 1,
+                    "email": "user@example.com",
+                    "expires_in": 1800,
+                    "access_token": "access_token_string",
+                    "tfa_required": False,
+                    "tfa_step": "none",
+                    "temporary_access_token": None,
+                    "temporary_refresh_token": None,
+                },
+                response_only=True,
+                status_codes=[201],
+            ),
+        ],
     )
     def post(self, request, *args, **kwargs):
         user_service = self._get_user_service()
@@ -289,7 +332,6 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def _get_token_repo(self):
-        """요청 시마다 독립적인 TokenRepository 객체를 생성합니다."""
         return TokenRepository()
 
     @extend_schema(
@@ -316,7 +358,6 @@ class TokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def _get_token_service(self):
-        """요청 시마다 독립적인 TokenService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
         return TokenService(user_repo, token_repo)
@@ -391,14 +432,7 @@ class TokenRefreshView(APIView):
 class CheckEmailView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    @extend_schema(
-        request=CheckEmailSerializer,
-        responses={200: CheckEmailSerializer},
-        summary="이메일 중복 확인",
-        description="이메일이 사용 가능한지 여부를 확인합니다.",
-    )
     def _get_user_service(self):
-        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
         redis_client = get_redis_client()
@@ -406,6 +440,14 @@ class CheckEmailView(APIView):
         token_service = TokenService(user_repo, token_repo)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
+    @extend_schema(
+        request=CheckEmailSerializer,
+        responses={
+            200: OpenApiResponse(description="이메일 사용 가능 여부 반환"),
+        },
+        summary="이메일 중복 확인",
+        description="이메일이 사용 가능한지 여부를 확인합니다.",
+    )
     def post(self, request):
         user_service = self._get_user_service()
         serializer = CheckEmailSerializer(data=request.data)
@@ -428,7 +470,6 @@ class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def _get_user_service(self):
-        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
@@ -438,7 +479,9 @@ class PasswordResetRequestView(APIView):
 
     @extend_schema(
         request=PasswordResetRequestSerializer,
-        responses={200: PasswordResetRequestSerializer},
+        responses={
+            200: OpenApiResponse(description="비밀번호 재설정 이메일 발송 완료"),
+        },
         summary="비밀번호 재설정 요청",
         description="비밀번호 재설정 이메일을 발송합니다.",
     )
@@ -459,14 +502,7 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    @extend_schema(
-        request=PasswordResetConfirmSerializer,
-        responses={200: PasswordResetConfirmSerializer},
-        summary="비밀번호 재설정 확인",
-        description="비밀번호 재설정 링크를 통해 새로운 비밀번호를 설정합니다.",
-    )
     def _get_user_service(self):
-        """요청 시마다 독립적인 UserService 객체를 생성합니다."""
         user_repo = UserRepository()
         token_repo = TokenRepository()
         token_service = TokenService(user_repo, token_repo)
@@ -474,6 +510,15 @@ class PasswordResetConfirmView(APIView):
         redis_repo = RedisLockRepository(redis_client=redis_client)
         return UserService(user_repo, token_repo, token_service, redis_repo)
 
+    @extend_schema(
+        request=PasswordResetConfirmSerializer,
+        responses={
+            200: OpenApiResponse(description="비밀번호 재설정 성공"),
+            401: OpenApiResponse(description="비밀번호 불일치 또는 유효하지 않은 링크"),
+        },
+        summary="비밀번호 재설정 확인",
+        description="비밀번호 재설정 링크를 통해 새로운 비밀번호를 설정합니다.",
+    )
     def post(self, request, uidb64, token):
         user_service = self._get_user_service()
         serializer = PasswordResetConfirmSerializer(data=request.data)

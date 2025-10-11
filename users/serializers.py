@@ -37,6 +37,18 @@ class UserRegisterSerializer(serializers.Serializer):
         return data
 
 
+class UserRegisterResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    user_id = serializers.IntegerField()
+    email = serializers.EmailField()
+    expires_in = serializers.IntegerField()
+    access_token = serializers.CharField(allow_null=True)
+    tfa_required = serializers.BooleanField()
+    tfa_step = serializers.CharField()
+    temporary_access_token = serializers.CharField(allow_null=True)
+    temporary_refresh_token = serializers.CharField(allow_null=True)
+
+
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
