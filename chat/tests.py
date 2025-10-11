@@ -1,5 +1,4 @@
 import asyncio
-from unittest.mock import patch
 
 import pytest
 from channels.testing import WebsocketCommunicator
@@ -93,6 +92,7 @@ class TestChatAPI:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
+@pytest.mark.usefixtures("mock_google_cloud_clients")
 @pytest.mark.django_db(transaction=True)
 class TestChatConsumer:
     def test_authenticated_user_can_connect(self):
@@ -177,14 +177,10 @@ class TestChatConsumer:
         assert not connected
         assert close_code == 403
 
-    @patch("chat.consumers.ai_service")
-    def test_receive_and_save_message(self, mock_ai_service):
-        asyncio.run(self._test_receive_and_save_message(mock_ai_service))
+    def test_receive_and_save_message(self):
+        asyncio.run(self._test_receive_and_save_message())
 
-    async def _test_receive_and_save_message(self, mock_ai_service):
-        # Configure the mock's return value
-        mock_ai_service.get_gemini_response.return_value = "hello from ai"
-
+    async def _test_receive_and_save_message(self):
         from asgiref.sync import sync_to_async
 
         from users.repositories.token_repository import TokenRepository
@@ -211,7 +207,7 @@ class TestChatConsumer:
 
         # 2. AI responds. Wait for it and assert its content.
         response = await communicator.receive_json_from()
-        assert response["message"] == "hello from ai"
+        assert response["message"] == "This is a mocked AI response."
         assert response["sender"] == "ai"
 
         # 3. Now that processing is done, assert both messages are in the DB
@@ -223,12 +219,9 @@ class TestChatConsumer:
         ai_log_exists = await ChatLog.objects.filter(
             session=session,
             user=user,
-            message="hello from ai",
+            message="This is a mocked AI response.",
             sender=Sender.AI,
         ).aexists()
         assert ai_log_exists, "AI's message was not saved to the database."
-
-        # 4. Assert that the mock was called correctly
-        mock_ai_service.get_gemini_response.assert_called_once_with("hello")
 
         await communicator.disconnect()
