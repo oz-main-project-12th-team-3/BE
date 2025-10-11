@@ -2,7 +2,7 @@ from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models.notification import Notification
@@ -91,7 +91,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
 )
 # === 알림 유형 ViewSet ===
 class NotificationTypeViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     queryset = NotificationType.objects.all()
     serializer_class = NotificationTypeSerializer
     pagination_class = None  # 페이지네이션 비활성화
