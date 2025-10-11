@@ -85,7 +85,7 @@ class TestAIChatAPI:
             "This is the AI response."
         )
 
-    def test_voice_chat_no_file(self, authenticated_user):
+    def test_voice_chat_no_file(self, mock_ai_service, authenticated_user):
         """
         Tests voice chat API call with no file.
         """
