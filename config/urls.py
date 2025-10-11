@@ -12,7 +12,7 @@ def health_check(request):
 
 
 urlpatterns = [
-    path("health/", health_check, name="health_check"),
+    path("api/health/", health_check, name="health_check"),
     path("admin/", admin.site.urls),
     path("api/auth/", include("djoser.urls")),
     path("api/auth/", include("djoser.urls.jwt")),
@@ -32,8 +32,6 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    # Catch-all for frontend
-    re_path(r"^.*$", TemplateView.as_view(template_name="index.html")),
 ]
 
 if settings.DEBUG:
