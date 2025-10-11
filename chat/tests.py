@@ -180,8 +180,16 @@ class TestChatConsumer:
         asyncio.run(self._test_receive_and_save_message(mocker))
 
     async def _test_receive_and_save_message(self, mocker):
-        mock_ai_service = mocker.patch("chat.consumers.ai_service")
-        mock_ai_service.get_gemini_response.return_value = "hello"
+        # Patch the underlying Google Clients to prevent credential errors
+        mock_genai = mocker.patch("ai.services.ai_service.genai.GenerativeModel")
+        mocker.patch("ai.services.ai_service.speech.SpeechClient")
+        mocker.patch("ai.services.ai_service.texttospeech.TextToSpeechClient")
+
+        # Mock the return value of the method that is actually called in the consumer
+        mock_model_instance = mocker.MagicMock()
+        mock_model_instance.generate_content.return_value.text = "hello"
+        mock_genai.return_value = mock_model_instance
+
         from asgiref.sync import sync_to_async
 
         from users.repositories.token_repository import TokenRepository
