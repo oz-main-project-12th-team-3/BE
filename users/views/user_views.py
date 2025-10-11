@@ -10,10 +10,7 @@ from ..exceptions import PasswordMismatchException
 from ..repositories.redis_lock_repository import RedisLockRepository
 from ..repositories.token_repository import TokenRepository
 from ..repositories.user_repository import UserRepository
-from ..serializers import (
-    PasswordChangeSerializer,
-    UserProfileSerializer,
-)
+from ..serializers import PasswordChangeSerializer, UserProfileSerializer
 from ..services.token_service import TokenService
 from ..services.user_service import UserService
 
@@ -33,7 +30,7 @@ class UserProfileView(APIView):
 
     @extend_schema(
         responses={
-            200: UserProfileSerializer,
+            200: OpenApiResponse(description="사용자 프로필 정보"),
             404: OpenApiResponse(description="프로필을 찾을 수 없습니다."),
         },
         summary="사용자 프로필 조회",
@@ -53,9 +50,9 @@ class UserProfileView(APIView):
     @extend_schema(
         request=UserProfileSerializer,
         responses={
-            200: UserProfileSerializer,
-            404: OpenApiResponse(description="프로필을 찾을 수 없습니다."),
+            200: OpenApiResponse(description="수정된 사용자 프로필 정보"),
             400: OpenApiResponse(description="잘못된 요청"),
+            404: OpenApiResponse(description="프로필을 찾을 수 없습니다."),
         },
         summary="사용자 프로필 부분 수정",
         description="인증된 사용자의 프로필 정보를 부분 수정합니다.",

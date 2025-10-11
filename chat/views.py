@@ -28,7 +28,7 @@ class ChatSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
         summary="챗 세션 상세 조회, 수정, 삭제",
         description="특정 세션 ID에 대한 조회, 수정, 삭제를 지원합니다.",
         responses={
-            200: ChatSessionSerializer,
+            200: OpenApiResponse(description="챗 세션 상세 정보 반환"),
             404: OpenApiResponse(description="챗 세션을 찾을 수 없습니다."),
         },
     )
@@ -37,7 +37,7 @@ class ChatSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     @extend_schema(
         request=ChatSessionSerializer,
-        responses={200: ChatSessionSerializer},
+        responses={200: OpenApiResponse(description="챗 세션 수정 성공")},
         summary="챗 세션 수정",
     )
     def put(self, request, *args, **kwargs):
@@ -67,7 +67,7 @@ class ChatMessageSearchView(generics.ListAPIView):
     @extend_schema(
         summary="챗 메시지 검색",
         description="현재 로그인한 사용자가 메시지 내용으로 검색할 수 있습니다.",
-        responses={200: ChatLogSerializer(many=True)},
+        responses={200: OpenApiResponse(description="챗 메시지 검색 결과 목록")},
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
@@ -84,9 +84,7 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
     @extend_schema(
         summary="챗 세션 목록 조회",
         description="현재 사용자의 챗 세션 리스트를 반환합니다.",
-        responses={
-            200: ChatSessionSerializer(many=True),
-        },
+        responses={200: OpenApiResponse(description="챗 세션 목록 반환")},
     )
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -100,7 +98,7 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
 
     @extend_schema(
         request=ChatSessionSerializer,
-        responses={201: ChatSessionSerializer},
+        responses={201: OpenApiResponse(description="챗 세션 생성 성공")},
         summary="챗 세션 생성",
         description="새 챗 세션을 생성합니다.",
     )
@@ -111,7 +109,7 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
 
         chat_session = create_chat_session(
             user=request.user,
-            title=validated_data.get("title", "New Chat"),  # Provide a default title
+            title=validated_data.get("title", "New Chat"),
         )
 
         response_serializer = self.get_serializer(chat_session)
@@ -134,14 +132,14 @@ class ChatMessageListCreateView(generics.ListCreateAPIView):
     @extend_schema(
         summary="챗 메시지 목록 조회",
         description="특정 세션의 챗 메시지 리스트를 반환합니다.",
-        responses={200: ChatLogSerializer(many=True)},
+        responses={200: OpenApiResponse(description="챗 메시지 목록 반환")},
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
         request=ChatLogSerializer,
-        responses={201: ChatLogSerializer},
+        responses={201: OpenApiResponse(description="챗 메시지 생성 성공")},
         summary="챗 메시지 생성",
         description="특정 세션에 새 챗 메시지를 만듭니다.",
     )
@@ -174,14 +172,14 @@ class VoiceLogListCreateView(generics.ListCreateAPIView):
     @extend_schema(
         summary="음성 로그 목록 조회",
         description="특정 세션의 음성 기록 리스트를 반환합니다.",
-        responses={200: VoiceLogSerializer(many=True)},
+        responses={200: OpenApiResponse(description="음성 로그 목록 반환")},
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
         request=VoiceLogSerializer,
-        responses={201: VoiceLogSerializer},
+        responses={201: OpenApiResponse(description="음성 로그 생성 성공")},
         summary="음성 로그 생성",
         description="특정 세션에 새 음성 로그를 저장합니다.",
     )
