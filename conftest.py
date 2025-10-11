@@ -30,7 +30,9 @@ def mock_google_cloud_clients():
 
     # Mock for Speech-to-Text (speech)
     mock_stt_result = MagicMock()
-    mock_stt_result.alternatives = [MagicMock(transcript="This is a mocked transcription.")]
+    mock_stt_result.alternatives = [
+        MagicMock(transcript="This is a mocked transcription.")
+    ]
     mock_stt_response = MagicMock()
     mock_stt_response.results = [mock_stt_result]
 
@@ -38,18 +40,18 @@ def mock_google_cloud_clients():
     mock_tts_response = MagicMock()
     mock_tts_response.audio_content = b"mocked_audio_content"
 
-    with patch("ai.services.ai_service.genai.GenerativeModel") as mock_genai_model, patch(
-        "ai.services.ai_service.speech.SpeechClient"
-    ) as mock_speech_client, patch(
-        "ai.services.ai_service.texttospeech.TextToSpeechClient"
-    ) as mock_tts_client:
+    with (
+        patch("ai.services.ai_service.genai.GenerativeModel") as mock_genai_model,
+        patch("ai.services.ai_service.speech.SpeechClient") as mock_speech_client,
+        patch(
+            "ai.services.ai_service.texttospeech.TextToSpeechClient"
+        ) as mock_tts_client,
+    ):
         mock_genai_model.return_value.generate_content.return_value = (
             mock_gemini_response
         )
         mock_speech_client.return_value.recognize.return_value = mock_stt_response
-        mock_tts_client.return_value.synthesize_speech.return_value = (
-            mock_tts_response
-        )
+        mock_tts_client.return_value.synthesize_speech.return_value = mock_tts_response
 
         yield {
             "gemini": mock_genai_model,
