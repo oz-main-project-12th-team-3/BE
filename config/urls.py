@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/", include("search.urls")),
     path("api/", include("notifications.urls")),
     path("api/payments/", include("payments.urls")),
+    path("api/ai/", include("ai.urls")),
     # drf-spectacular URLS
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
