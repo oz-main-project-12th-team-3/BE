@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import patch
 
 import pytest
 from channels.testing import WebsocketCommunicator
@@ -176,14 +177,13 @@ class TestChatConsumer:
         assert not connected
         assert close_code == 403
 
-    def test_receive_and_save_message(self, mocker):
-        asyncio.run(self._test_receive_and_save_message(mocker))
+    @patch("chat.consumers.ai_service")
+    def test_receive_and_save_message(self, mock_ai_service):
+        asyncio.run(self._test_receive_and_save_message(mock_ai_service))
 
-    async def _test_receive_and_save_message(self, mocker):
-        # Patch the ai_service where it is used in the consumer
-        mock_ai_service = mocker.patch("chat.consumers.ai_service")
-        # Configure the return value for the specific method call
-        mock_ai_service.get_gemini_response.return_value = "hello"
+    async def _test_receive_and_save_message(self, mock_ai_service):
+        # Configure the mock's return value
+        mock_ai_service.get_gemini_response.return_value = "hello from ai"
 
         from asgiref.sync import sync_to_async
 
@@ -206,14 +206,29 @@ class TestChatConsumer:
         )
         await communicator.connect()
 
+        # 1. User sends a message
         await communicator.send_json_to({"message": "hello"})
 
+        # 2. AI responds. Wait for it and assert its content.
         response = await communicator.receive_json_from()
-        assert response["message"] == "hello"
+        assert response["message"] == "hello from ai"
+        assert response["sender"] == "ai"
 
-        log_exists = await ChatLog.objects.filter(
+        # 3. Now that processing is done, assert both messages are in the DB
+        user_log_exists = await ChatLog.objects.filter(
             session=session, user=user, message="hello", sender=Sender.USER
         ).aexists()
-        assert log_exists
+        assert user_log_exists, "User's message was not saved to the database."
+
+        ai_log_exists = await ChatLog.objects.filter(
+            session=session,
+            user=user,
+            message="hello from ai",
+            sender=Sender.AI,
+        ).aexists()
+        assert ai_log_exists, "AI's message was not saved to the database."
+
+        # 4. Assert that the mock was called correctly
+        mock_ai_service.get_gemini_response.assert_called_once_with("hello")
 
         await communicator.disconnect()
