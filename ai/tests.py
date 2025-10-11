@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -24,25 +24,41 @@ def authenticated_user(api_client):
 
 
 @pytest.mark.django_db
-@patch("ai.views.ai_service")
+@patch("ai.services.ai_service.texttospeech.TextToSpeechClient")
+@patch("ai.services.ai_service.speech.SpeechClient")
+@patch("ai.services.ai_service.genai.GenerativeModel")
 class TestAIChatAPI:
-    def test_text_chat_success(self, mock_ai_service, authenticated_user):
+    def test_text_chat_success(
+        self,
+        mock_genai_model,
+        mock_speech_client,
+        mock_tts_client,
+        authenticated_user,
+    ):
         """
         Tests successful text chat API call.
         """
-        user, client = authenticated_user
-        # Mock the AI service response
-        mock_ai_service.get_gemini_response.return_value = "This is a test response."
+        # Mock the return value from the generative model instance
+        mock_model_instance = MagicMock()
+        mock_model_instance.generate_content.return_value.text = "This is a test response."
+        mock_genai_model.return_value = mock_model_instance
 
+        user, client = authenticated_user
         url = reverse("ai-text-chat")
         data = {"message": "Hello, AI!"}
         response = client.post(url, data, format="json")
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["response"] == "This is a test response."
-        mock_ai_service.get_gemini_response.assert_called_once_with("Hello, AI!")
+        mock_model_instance.generate_content.assert_called_once_with("Hello, AI!")
 
-    def test_text_chat_no_message(self, mock_ai_service, authenticated_user):
+    def test_text_chat_no_message(
+        self,
+        mock_genai_model,
+        mock_speech_client,
+        mock_tts_client,
+        authenticated_user,
+    ):
         """
         Tests text chat API call with no message.
         """
@@ -53,17 +69,34 @@ class TestAIChatAPI:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_voice_chat_success(self, mock_ai_service, authenticated_user):
+    def test_voice_chat_success(
+        self,
+        mock_genai_model,
+        mock_speech_client,
+        mock_tts_client,
+        authenticated_user,
+    ):
         """
         Tests successful voice chat API call.
         """
-        user, client = authenticated_user
-        # Mock the service responses
-        mock_ai_service.transcribe_audio.return_value = "This is a transcribed message."
-        mock_ai_service.get_gemini_response.return_value = "This is the AI response."
-        mock_ai_service.synthesize_speech.return_value = b"fake_audio_content"
+        # Mock the client instances and their method return values
+        mock_speech_instance = MagicMock()
+        mock_speech_instance.recognize.return_value.results = [
+            MagicMock(alternatives=[MagicMock(transcript="This is a transcribed message.")])
+        ]
+        mock_speech_client.return_value = mock_speech_instance
 
-        # Create a dummy audio file
+        mock_model_instance = MagicMock()
+        mock_model_instance.generate_content.return_value.text = "This is the AI response."
+        mock_genai_model.return_value = mock_model_instance
+
+        mock_tts_instance = MagicMock()
+        mock_tts_instance.synthesize_speech.return_value.audio_content = (
+            b"fake_audio_content"
+        )
+        mock_tts_client.return_value = mock_tts_instance
+
+        user, client = authenticated_user
         audio_content = b"dummy audio data"
         audio_file = SimpleUploadedFile(
             "test.mp3", audio_content, content_type="audio/mpeg"
@@ -77,15 +110,25 @@ class TestAIChatAPI:
         assert response.content == b"fake_audio_content"
         assert response["Content-Type"] == "audio/mpeg"
 
-        mock_ai_service.transcribe_audio.assert_called_once_with(audio_content)
-        mock_ai_service.get_gemini_response.assert_called_once_with(
+        mock_speech_instance.recognize.assert_called_once()
+        mock_model_instance.generate_content.assert_called_once_with(
             "This is a transcribed message."
         )
-        mock_ai_service.synthesize_speech.assert_called_once_with(
-            "This is the AI response."
+        mock_tts_instance.synthesize_speech.assert_called_once_with(
+            input=MagicMock(text="This is the AI response."),
+            voice=MagicMock(
+                language_code="ko-KR", ssml_gender=MagicMock(name="NEUTRAL")
+            ),
+            audio_config=MagicMock(audio_encoding=MagicMock(name="MP3")),
         )
 
-    def test_voice_chat_no_file(self, mock_ai_service, authenticated_user):
+    def test_voice_chat_no_file(
+        self,
+        mock_genai_model,
+        mock_speech_client,
+        mock_tts_client,
+        authenticated_user,
+    ):
         """
         Tests voice chat API call with no file.
         """
