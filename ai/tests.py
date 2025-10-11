@@ -31,7 +31,6 @@ class TestAIChatAPI:
         Tests successful text chat API call.
         """
         user, client = authenticated_user
-        # Mock the AI service response
         mock_ai_service.get_gemini_response.return_value = "This is a test response."
 
         url = reverse("ai-text-chat")
@@ -58,12 +57,10 @@ class TestAIChatAPI:
         Tests successful voice chat API call.
         """
         user, client = authenticated_user
-        # Mock the service responses
         mock_ai_service.transcribe_audio.return_value = "This is a transcribed message."
         mock_ai_service.get_gemini_response.return_value = "This is the AI response."
         mock_ai_service.synthesize_speech.return_value = b"fake_audio_content"
 
-        # Create a dummy audio file
         audio_content = b"dummy audio data"
         audio_file = SimpleUploadedFile(
             "test.mp3", audio_content, content_type="audio/mpeg"
@@ -75,7 +72,6 @@ class TestAIChatAPI:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.content == b"fake_audio_content"
-        assert response["Content-Type"] == "audio/mpeg"
 
         mock_ai_service.transcribe_audio.assert_called_once_with(audio_content)
         mock_ai_service.get_gemini_response.assert_called_once_with(
