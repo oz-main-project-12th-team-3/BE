@@ -26,9 +26,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="schedule_list",
         description="사용자가 등록한 일정 목록을 반환합니다.",
-        responses={
-            200: OpenApiResponse(description="일정 목록 조회 성공"),
-        },
+        responses={200: ScheduleSerializer(many=True)},
         summary="일정 목록 조회",
     )
     def list(self, request, *args, **kwargs):
@@ -49,9 +47,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     @extend_schema(
         operation_id="schedule_detail",
         description="일정 상세 정보를 조회합니다.",
-        responses={
-            200: OpenApiResponse(description="일정 상세 조회 성공"),
-        },
+        responses={200: ScheduleSerializer()},
         summary="일정 상세 조회",
     )
     def retrieve(self, request, *args, **kwargs):

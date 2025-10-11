@@ -9,11 +9,7 @@ from search.serializers import SearchLogSerializer
     get=extend_schema(
         summary="검색 로그 목록 조회",
         description="사용자 본인의 검색 로그 목록을 조회합니다.",
-        responses={
-            200: OpenApiResponse(
-                description="검색 로그 리스트 반환",
-            ),
-        },
+        responses={200: SearchLogSerializer(many=True)},
     ),
     post=extend_schema(
         summary="검색 로그 생성",
