@@ -59,9 +59,7 @@ class TestAIChatAPI:
         """
         user, client = authenticated_user
         # Mock the service responses
-        mock_ai_service.transcribe_audio.return_value = (
-            "This is a transcribed message."
-        )
+        mock_ai_service.transcribe_audio.return_value = "This is a transcribed message."
         mock_ai_service.get_gemini_response.return_value = "This is the AI response."
         mock_ai_service.synthesize_speech.return_value = b"fake_audio_content"
 
