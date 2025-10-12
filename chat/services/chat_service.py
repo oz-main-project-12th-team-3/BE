@@ -1,5 +1,6 @@
 from typing import Optional
 
+from django.contrib.auth.models import AnonymousUser
 from django.db.models import F, OuterRef, Subquery
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -56,11 +57,14 @@ def get_chat_messages_for_session(user: User, session_id: int):
     return ChatLog.objects.filter(session_id=session_id).order_by("timestamp")
 
 
-def get_chat_sessions_for_user(user: User):
+def get_chat_sessions_for_user(user: Optional[User]):
     """
     Retrieves all chat sessions for a given user, annotated with the last message
     and its timestamp for ordering.
     """
+    if user is None or isinstance(user, AnonymousUser):
+        return ChatSession.objects.none()
+
     last_message_subquery = ChatLog.objects.filter(session=OuterRef("pk")).order_by(
         "-timestamp"
     )
