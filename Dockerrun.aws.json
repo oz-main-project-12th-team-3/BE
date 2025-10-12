@@ -4,7 +4,7 @@
     {
 "image": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:e8cf664a103b138e1544c63ce6637630cc0a190b",
       "essential": true,
-      "memory": 256,
+      "memory": 512,
       "portMappings": [
         {
           "hostPort": 8000,
@@ -45,7 +45,7 @@
       "name": "worker",
       "image": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:temp-fix",
       "essential": false,
-      "memory": 128,
+      "memory": 256,
       "command": ["/usr/local/bin/celery", "-A", "config", "worker", "-l", "info"],
       "environment": [
         {
@@ -69,7 +69,7 @@
       "name": "nginx",
       "image": "nginx:alpine",
       "essential": true,
-      "memory": 64,
+      "memory": 128,
       "portMappings": [
         {
           "hostPort": 80,
@@ -93,7 +93,7 @@
       "name": "redis",
       "image": "redis:7-alpine",
       "essential": true,
-      "memory": 64,
+      "memory": 128,
       "portMappings": [
         {
           "hostPort": 6379,
