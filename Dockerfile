@@ -19,8 +19,8 @@ COPY requirements.txt .
 RUN python3 -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 
-# 휠 파일로 패키지 설치 캐시 생성
-RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+# 휠 파일로 패키지 설치 캐시 생성 (사용 안 함)
+# RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
 
 # 최적화: 빌드에만 사용된 gcc 및 개발 도구 정리
 RUN apt-get purge -y --auto-remove gcc && rm -rf /var/lib/apt/lists/*
@@ -50,6 +50,7 @@ FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # 런타임에 필요한 최소 의존성 설치 (DB 대기 및 healthcheck를 위해 필수)
 # libpq-dev: DB 연결 라이브러리 (psycopg2 사용)
@@ -62,12 +63,10 @@ RUN useradd --no-create-home appuser
 
 WORKDIR /app
 
-# 빌드 스테이지에서 생성된 휠 복사
-COPY --from=builder /wheels /wheels
 COPY requirements.txt .
 
 # 시스템 Python 환경에 직접 의존성 설치
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 💡 start.sh 스크립트 복사 및 실행 권한 부여 (DB 대기 및 마이그레이션 자동화)
 COPY start.sh /usr/local/bin/
