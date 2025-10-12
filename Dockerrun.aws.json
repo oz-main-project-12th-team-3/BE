@@ -1,9 +1,12 @@
 {
   "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:<TAG>",
+    "Update": "true"
+  },
   "Ports": [
     {
-      "ContainerPort": 8000,
-      "HostPort": 80
+      "ContainerPort": 8000
     }
   ]
 }
