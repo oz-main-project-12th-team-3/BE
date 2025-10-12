@@ -25,6 +25,7 @@ from users.repositories.token_repository import TokenRepository
 from users.repositories.user_repository import UserRepository
 from users.services.token_service import TokenService
 from users.services.user_service import UserService
+from utils.redis_client import get_redis_client
 
 # -----------------------------------------------------------
 # 1. CORE FIXTURES (UserService 의존성 수정)
@@ -63,6 +64,16 @@ def mock_redis_repo(mocker):
         "lock_duration_minutes": 30,
     }
     return mock_repo
+
+
+@pytest.fixture(autouse=True)
+def mock_get_redis_client_global(mocker):
+    """users.views.auth_views.get_redis_client 함수를 전역적으로 Mocking합니다."""
+    mock_redis = mocker.Mock()
+    mock_redis.ping.return_value = True # ping 호출 시 True 반환
+    # users.views.auth_views 모듈에서 임포트된 get_redis_client를 패치
+    mocker.patch('users.views.auth_views.get_redis_client', return_value=mock_redis)
+    return mock_redis
 
 
 @pytest.fixture

@@ -1,12 +1,123 @@
 {
-  "AWSEBDockerrunVersion": "1",
-  "Image": {
-    "Name": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:<TAG>",
-    "Update": "true"
-  },
-  "Ports": [
+  "AWSEBDockerrunVersion": 2,
+  "containerDefinitions": [
     {
-      "ContainerPort": 8000
+      "name": "web",
+      "image": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:temp-fix",
+      "essential": true,
+      "memory": 256,
+      "portMappings": [
+        {
+          "hostPort": 8000,
+          "containerPort": 8000
+        }
+      ],
+      "command": ["/usr/local/bin/start.sh"],
+      "environment": [
+        {
+          "name": "DJANGO_SETTINGS_MODULE",
+          "value": "config.settings"
+        },
+        {
+          "name": "PYTHONPATH",
+          "value": "/app"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "staticfiles_volume",
+          "containerPath": "/app/staticfiles"
+        },
+        {
+          "sourceVolume": "app_code",
+          "containerPath": "/app"
+        }
+      ],
+      "links": ["redis"],
+      "healthcheck": {
+        "command": ["CMD-SHELL", "python -c 'import socket; s = socket.create_connection((\"localhost\", 8000), timeout=1); s.close()' || exit 1"],
+        "interval": 5,
+        "timeout": 3,
+        "retries": 5,
+        "startPeriod": 30
+      }
+    },
+    {
+      "name": "worker",
+      "image": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:temp-fix",
+      "essential": false,
+      "memory": 128,
+      "command": ["/usr/local/bin/celery", "-A", "config", "worker", "-l", "info"],
+      "environment": [
+        {
+          "name": "DJANGO_SETTINGS_MODULE",
+          "value": "config.settings"
+        },
+        {
+          "name": "PYTHONPATH",
+          "value": "/app"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "app_code",
+          "containerPort": "/app"
+        }
+      ],
+      "links": ["redis"]
+    },
+    {
+      "name": "nginx",
+      "image": "nginx:alpine",
+      "essential": true,
+      "memory": 64,
+      "portMappings": [
+        {
+          "hostPort": 80,
+          "containerPort": 80
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "nginx_config",
+          "containerPath": "/etc/nginx/conf.d/default.conf",
+          "readOnly": true
+        },
+        {
+          "sourceVolume": "staticfiles_volume",
+          "containerPort": "/var/www/staticfiles"
+        }
+      ],
+      "links": ["web"]
+    },
+    {
+      "name": "redis",
+      "image": "redis:7-alpine",
+      "essential": true,
+      "memory": 64,
+      "portMappings": [
+        {
+          "hostPort": 6379,
+          "containerPort": 6379
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "staticfiles_volume"
+    },
+    {
+      "name": "nginx_config",
+      "host": {
+        "sourcePath": "/var/app/current/nginx/default.conf"
+      }
+    },
+    {
+      "name": "app_code",
+      "host": {
+        "sourcePath": "/var/app/current"
+      }
     }
   ]
 }
