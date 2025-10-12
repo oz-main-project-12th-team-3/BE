@@ -1,3 +1,5 @@
+import os
+
 import redis
 from django.conf import settings
 
@@ -25,6 +27,7 @@ def get_redis_client():
             print("✅ Redis client successfully connected for general use.")
         except redis.exceptions.ConnectionError as e:
             print(f"❌ Redis connection error: {e}")
-            # 테스트 환경이 아니라면 예외를 발생시켜야 하지만, 여기서는 로깅만 합니다.
+            if not os.environ.get("RUNNING_TESTS"):
+                raise e
 
     return _redis_client

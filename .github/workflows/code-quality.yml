@@ -133,7 +133,7 @@ jobs:
         
         if python -c "import django" 2>/dev/null; then
           echo "📱 Detected Django project"
-          export DJANGO_SETTINGS_MODULE=config.settings
+          export DJANGO_SETTINGS_MODULE=config.settings_test
           pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v
         else
           echo "🐍 Running standard Python tests"
