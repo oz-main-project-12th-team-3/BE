@@ -13,11 +13,6 @@ from users.views.tfa_views import (
     TwoFactorDisableView,
 )
 
-from users.services.user_service import (
-    UserService,
-)
-from utils.redis_client import get_redis_client
-
 # ----------------------------------------------------------------------
 # Fixtures
 # ----------------------------------------------------------------------
@@ -32,8 +27,8 @@ def api_client():
 def mock_get_redis_client_global(mocker):
     """users.views.tfa_views.get_redis_client 함수를 전역적으로 Mocking합니다."""
     mock_redis = mocker.Mock()
-    mock_redis.ping.return_value = True # ping 호출 시 True 반환
-    mocker.patch('users.views.tfa_views.get_redis_client', return_value=mock_redis)
+    mock_redis.ping.return_value = True  # ping 호출 시 True 반환
+    mocker.patch("users.views.tfa_views.get_redis_client", return_value=mock_redis)
     return mock_redis
 
 

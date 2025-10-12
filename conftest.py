@@ -13,19 +13,19 @@ sys.path.insert(0, str(ROOT_DIR))
 pytest_plugins = ["pytest_django"]
 
 # Import get_redis_client for patching
-from utils.redis_client import get_redis_client
 
 
 def pytest_configure():
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     django.setup()
 
+
 @pytest.fixture(autouse=True)
 def mock_get_redis_client_global(mocker):
     """Globally mocks utils.redis_client.get_redis_client for all tests."""
     mock_redis = mocker.Mock()
-    mock_redis.ping.return_value = True # Ensure ping returns True
-    mocker.patch('utils.redis_client.get_redis_client', return_value=mock_redis)
+    mock_redis.ping.return_value = True  # Ensure ping returns True
+    mocker.patch("utils.redis_client.get_redis_client", return_value=mock_redis)
     return mock_redis
 
 
