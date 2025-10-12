@@ -123,3 +123,21 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# 가상환경
+.venv311/
+
+# Django 마이그레이션 파일 (특정 앱 제외 가능)
+ai/migrations/0001_initial.py
+
+# 정적파일
+staticfiles/
+
+.coveragerc
+
+  fix_schedule_notification.py
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+test_db.sqlite3

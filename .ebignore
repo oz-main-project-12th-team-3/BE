@@ -1,0 +1,47 @@
+# 프론트엔드 소스 제외
+frontend/node_modules/
+frontend/src/
+frontend/public/
+frontend/.git/
+frontend/.gitignore
+frontend/package-lock.json
+frontend/package.json
+frontend/README.md
+frontend/.env*
+frontend/tsconfig.json
+frontend/vite.config.ts
+frontend/eslint.config.js
+frontend/index.html
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+
+# 개발 파일
+.pytest_cache/
+.coverage
+.coveragerc
+htmlcov/
+coverage.xml
+.idea/
+*.swp
+
+# Git
+.git/
+.github/
+
+# Docker
+.dockerignore
+docker-compose.yml
+
+# 기타
+*.log
+.DS_Store
+db.sqlite3.yml
+media/
+
+# Nginx
+nginx/default.conf

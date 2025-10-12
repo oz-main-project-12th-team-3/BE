@@ -2,20 +2,30 @@ from django.urls import path
 
 from .views import (
     ChatMessageListCreateView,
+    ChatMessageSearchView,
+    ChatSessionDetailView,
     ChatSessionListCreateView,
-    VoiceLogListCreateView,
 )
 
 urlpatterns = [
     path(
-        "chat-sessions",
+        "chat-sessions/",
         ChatSessionListCreateView.as_view(),
-        name="chat-sessions-list-create",
+        name="chat-session-list-create",
     ),
     path(
-        "chat-messages",
-        ChatMessageListCreateView.as_view(),
-        name="chat-messages-list-create",
+        "chat-sessions/<int:session_id>/",
+        ChatSessionDetailView.as_view(),
+        name="chat-session-detail",
     ),
-    path("voice-logs", VoiceLogListCreateView.as_view(), name="voice-logs-list-create"),
+    path(
+        "chat-sessions/<int:session_id>/messages/",
+        ChatMessageListCreateView.as_view(),
+        name="chat-message-list-create",
+    ),
+    path(
+        "chat/messages/search/",
+        ChatMessageSearchView.as_view(),
+        name="chat-message-search",
+    ),
 ]

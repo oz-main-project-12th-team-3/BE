@@ -1,8 +1,11 @@
 import json
 
+from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.utils import timezone
+
+from ai.services.ai_service import ai_service
 
 from .models import ChatLog, ChatSession, Sender
 
@@ -13,7 +16,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f"chat_{self.session_id}"
         self.user = self.scope["user"]
 
-        # 인증된 사용자인지, 세션이 존재하는지, 사용자가 세션의 소유주인지 확인
         if self.user.is_authenticated:
             try:
                 session = await self.get_session(self.session_id)
@@ -23,11 +25,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     )
                     await self.accept()
                 else:
-                    await self.close(code=403)  # 권한 없음
+                    await self.close(code=403)
             except ChatSession.DoesNotExist:
-                await self.close(code=404)  # 찾을 수 없음
+                await self.close(code=404)
         else:
-            await self.close(code=401)  # 인증되지 않음
+            await self.close(code=401)
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
@@ -36,29 +38,43 @@ class ChatConsumer(AsyncWebsocketConsumer):
         text_data_json = json.loads(text_data)
         message = text_data_json["message"]
 
-        # 데이터베이스에 메시지 저장
-        await self.save_message(message)
+        # 1. Save user's message
+        await self.save_message(message, Sender.USER)
 
-        # 그룹에 메시지 방송
+        # 2. Get AI response
+        ai_response_message = await sync_to_async(ai_service.get_gemini_response)(
+            message
+        )
+
+        # 3. Save AI's message
+        await self.save_message(ai_response_message, Sender.AI)
+
+        # 4. Broadcast AI's message to the group
         await self.channel_layer.group_send(
-            self.room_group_name, {"type": "chat_message", "message": message}
+            self.room_group_name,
+            {
+                "type": "chat_message",
+                "message": ai_response_message,
+                "sender": Sender.AI.value,
+            },
         )
 
     async def chat_message(self, event):
         message = event["message"]
-        await self.send(text_data=json.dumps({"message": message}))
+        sender = event["sender"]
+        await self.send(text_data=json.dumps({"message": message, "sender": sender}))
 
     @database_sync_to_async
     def get_session(self, session_id):
         return ChatSession.objects.select_related("user").get(id=session_id)
 
     @database_sync_to_async
-    def save_message(self, message):
+    def save_message(self, message, sender):
         session = ChatSession.objects.get(id=self.session_id)
         ChatLog.objects.create(
             session=session,
             user=self.user,
-            sender=Sender.USER,
+            sender=sender,
             message=message,
             timestamp=timezone.now(),
         )

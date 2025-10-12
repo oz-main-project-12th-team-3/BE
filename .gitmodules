@@ -1,0 +1,4 @@
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/oz-main-project-12th-team-3/FE.git
+	branch = develop

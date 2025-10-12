@@ -1,0 +1,20 @@
+[run]
+source = .
+omit =
+    */migrations/*
+    */tests/*
+    manage.py
+    conftest.py
+    config/asgi.py
+    config/wsgi.py
+    config/celery.py
+    htmlcov/*
+    frontend/*
+    */site-packages/*
+    .venv/*
+    venv/*
+    .*
+
+[report]
+fail_under = 80
+show_missing = True
