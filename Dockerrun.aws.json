@@ -1,29 +1,9 @@
 {
   "AWSEBDockerrunVersion": "1",
-  "containerDefinitions": [
-    { "Name": "REDIS_HOST", "Value": "master.oz-main-cache.qb7tsv.apn2.cache.amazonaws.com" },
-    { "Name": "REDIS_PORT", "Value": "6379" },
-    { "Name": "DJANGO_SETTINGS_MODULE", "Value": "config.settings" },
-    { "Name": "PYTHONPATH", "Value": "/app" },
-    { "Name": "GEMINI_API_KEY", "Value": "***REMOVED***" },
-    { "Name": "JWT_SECRET_KEY", "Value": "***REMOVED***" },
-    { "Name": "SECRET_KEY", "Value": "***REMOVED***" },
-    { "Name": "SOCIAL_AUTH_ALLOWED_REDIRECT_URIS", "Value": "https://ozaisecretary.com/auth/callback" },
-    { "Name": "SOCIAL_AUTH_GITHUB_KEY", "Value": "Ov23libDMDYrKtpRj6c3" },
-    { "Name": "SOCIAL_AUTH_GITHUB_SECRET", "Value": "***REMOVED***" },
-    { "Name": "SOCIAL_AUTH_GOOGLE_OAUTH2_KEY", "Value": "289312322653-scftlh1vr1g7mmn8508em0bgcn9h6bi5.apps.googleusercontent.com" },
-    { "Name": "SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET", "Value": "***REMOVED***" },
-    { "Name": "SOCIAL_AUTH_KAKAO_KEY", "Value": "http://127.0.0.1:8000/accounts/kakao/login/callback/" },
-    { "Name": "SOCIAL_AUTH_KAKAO_SECRET", "Value": "***REMOVED***" },
-    { "Name": "SOCIAL_AUTH_NAVER_KEY", "Value": "g0GiGzRWzNjnyYlCnu_q" },
-    { "Name": "SOCIAL_AUTH_NAVER_SECRET", "Value": "***REMOVED***" },
-    { "Name": "RDS_HOSTNAME", "Value": "awseb-e-xfwa8ab3qy-stack-awsebrdsdatabase-s3jlozdln3fa.cr0wwkm88v7i.ap-northeast-2.rds.amazonaws.com" },
-    { "Name": "RDS_PORT", "Value": "5432" },
-    { "Name": "RDS_USERNAME", "Value": "ozbe12" },
-    { "Name": "RDS_PASSWORD", "Value": "***REMOVED***" },
-    { "Name": "RDS_DB_NAME", "Value": "postgres" },
-    { "Name": "DEBUG", "Value": "0" },
-    { "Name": "EMAIL_HOST_USER", "Value": "***REMOVED***" },
-    { "Name": "EMAIL_HOST_PASSWORD", "Value": "***REMOVED***" }
+  "Ports": [
+    {
+      "ContainerPort": 8000,
+      "HostPort": 80
+    }
   ]
 }
