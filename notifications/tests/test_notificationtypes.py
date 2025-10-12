@@ -30,11 +30,11 @@ class NotificationTypeAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, dict)
-        self.assertIn('count', response.data)
-        self.assertIn('results', response.data)
-        self.assertEqual(response.data['count'], expected_count)
-        self.assertIsInstance(response.data['results'], list)
-        self.assertEqual(len(response.data['results']), expected_count)
+        self.assertIn("count", response.data)
+        self.assertIn("results", response.data)
+        self.assertEqual(response.data["count"], expected_count)
+        self.assertIsInstance(response.data["results"], list)
+        self.assertEqual(len(response.data["results"]), expected_count)
 
     def test_crud_notification_type(self):
         # 🚨 테스트 유효성을 위해 setUp에서 생성한 객체 대신 새 객체 생성
