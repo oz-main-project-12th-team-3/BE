@@ -141,3 +141,4 @@ staticfiles/
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
 test_db.sqlite3
+BE_repo_backup/
