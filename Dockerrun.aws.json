@@ -2,8 +2,7 @@
   "AWSEBDockerrunVersion": 2,
   "containerDefinitions": [
     {
-      "name": "web",
-      "image": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:temp-fix",
+"image": "621716744837.dkr.ecr.ap-northeast-2.amazonaws.com/oz-be-main-project:e8cf664a103b138e1544c63ce6637630cc0a190b",
       "essential": true,
       "memory": 256,
       "portMappings": [
