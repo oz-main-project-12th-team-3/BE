@@ -10,7 +10,11 @@ class Sender(models.TextChoices):
 
 class ChatSession(models.Model):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="chat_sessions"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="chat_sessions",
+        null=True,
+        blank=True,
     )
     title = models.CharField(max_length=255)
     is_favorited = models.BooleanField(default=False, db_index=True)

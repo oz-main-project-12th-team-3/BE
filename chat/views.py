@@ -86,6 +86,11 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = ChatSessionPagination
 
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
     def get_queryset(self):
         return get_chat_sessions_for_user(user=self.request.user)
 
@@ -115,8 +120,10 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
 
+        user_instance = request.user if request.user.is_authenticated else None
+
         chat_session = create_chat_session(
-            user=request.user,
+            user=user_instance,
             title=validated_data.get("title", "New Chat"),
         )
 

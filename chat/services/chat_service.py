@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.db.models import F, OuterRef, Subquery
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -7,7 +9,7 @@ from users.models import User
 from ..models import ChatLog, ChatSession, Sender, VoiceLog
 
 
-def create_chat_session(user: User, title: str) -> ChatSession:
+def create_chat_session(user: Optional[User], title: str) -> ChatSession:
     """
     Creates a new chat session for a user.
     """
