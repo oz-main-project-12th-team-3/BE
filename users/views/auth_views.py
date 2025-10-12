@@ -231,13 +231,7 @@ class UserLoginView(APIView):
                 "profile_image_url": None,
             }
             # LoginResponseSerializer를 사용하여 일관된 출력 형식 보장
-            error_serializer = LoginResponseSerializer(data=response_data)
-            error_serializer.is_valid(
-                raise_exception=True
-            )  # 오류 응답 구조 유효성 검사
-            return Response(
-                error_serializer.validated_data, status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response(response_data, status=status.HTTP_401_UNAUTHORIZED)
 
         login(request, user)  # Django 세션 로그인
 
