@@ -90,7 +90,6 @@ class NotificationTypeViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = NotificationType.objects.all()
     serializer_class = NotificationTypeSerializer
-    pagination_class = None
 
 
 @extend_schema_view(
