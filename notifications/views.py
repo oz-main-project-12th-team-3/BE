@@ -18,6 +18,7 @@ from .serializers.schedule_notification_serializer import ScheduleNotificationSe
 from .serializers.user_notification_preference_serializer import (
     UserNotificationPreferenceSerializer,
 )
+from .tasks import send_scheduled_notifications_task
 
 
 @extend_schema_view(
@@ -149,6 +150,10 @@ class UserNotificationPreferenceViewSet(viewsets.ModelViewSet):
     destroy=extend_schema(
         responses={204: OpenApiResponse(description="예약 알림 삭제")},
     ),
+    send_notifications=extend_schema(
+        summary="예약 알림 즉시 발송 요청",
+        responses={202: OpenApiResponse(description="예약 알림 발송 작업 시작됨")},
+    ),
 )
 class ScheduleNotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -156,3 +161,11 @@ class ScheduleNotificationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return ScheduleNotification.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=["post"])
+    def send_notifications(self, request):
+        send_scheduled_notifications_task.delay()
+        return Response(
+            {"message": "Notification sending started"},
+            status=status.HTTP_202_ACCEPTED,
+        )
